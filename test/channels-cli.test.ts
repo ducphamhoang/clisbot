@@ -152,6 +152,8 @@ describe("channels cli", () => {
     expect(output).toContain("muxbot channels");
     expect(output).toContain("Policy guide:");
     expect(output).toContain("Telegram DMs still follow channels.telegram.directMessages.policy");
+    expect(output).toContain("Telegram DMs use `pairing`.");
+    expect(output).toContain("muxbot pairing approve telegram <code>");
   });
 
   test("prints the same help for channels --help", async () => {

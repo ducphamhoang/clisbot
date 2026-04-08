@@ -291,6 +291,53 @@ export function renderOperatorHelpLines(prefix = "") {
   ];
 }
 
+export function renderPairingSetupHelpLines(
+  prefix = "",
+  options: {
+    slackEnabled?: boolean;
+    telegramEnabled?: boolean;
+    slackDirectMessagesPolicy?: string;
+    telegramDirectMessagesPolicy?: string;
+    conditionalOnly?: boolean;
+  } = {},
+) {
+  const lines: string[] = [];
+  const slackPairing = options.slackDirectMessagesPolicy === "pairing";
+  const telegramPairing = options.telegramDirectMessagesPolicy === "pairing";
+  const shouldRenderSlack = options.conditionalOnly === true
+    ? Boolean(options.slackEnabled && slackPairing)
+    : slackPairing;
+  const shouldRenderTelegram = options.conditionalOnly === true
+    ? Boolean(options.telegramEnabled && telegramPairing)
+    : telegramPairing;
+
+  if (!shouldRenderSlack && !shouldRenderTelegram) {
+    return lines;
+  }
+
+  lines.push(`${prefix}Pairing notes:`);
+
+  if (shouldRenderTelegram) {
+    lines.push(
+      `${prefix}  - Telegram DMs use \`pairing\`. Send \`/start\` or \`hi\` to the Telegram bot to get a pairing code.`,
+    );
+    lines.push(
+      `${prefix}  - Approve the returned Telegram code with: \`muxbot pairing approve telegram <code>\``,
+    );
+  }
+
+  if (shouldRenderSlack) {
+    lines.push(
+      `${prefix}  - Slack DMs use \`pairing\`. Say \`hi\` to the Slack bot to get a pairing code.`,
+    );
+    lines.push(
+      `${prefix}  - Approve the returned Slack code with: \`muxbot pairing approve slack <code>\``,
+    );
+  }
+
+  return lines;
+}
+
 export function renderChannelSetupHelpLines(
   prefix = "",
   options: { includePrivilegeHelp?: boolean } = {},
@@ -299,6 +346,10 @@ export function renderChannelSetupHelpLines(
     `${prefix}Channel setup docs: ${CHANNEL_ACCOUNT_DOC_PATH}`,
     `${prefix}Operator guide: ${USER_GUIDE_DOC_PATH}`,
     `${prefix}If Slack or Telegram is not responding yet, configure tokens, routes, and defaultAgentId first.`,
+    ...renderPairingSetupHelpLines(prefix, {
+      slackDirectMessagesPolicy: "pairing",
+      telegramDirectMessagesPolicy: "pairing",
+    }),
     ...(options.includePrivilegeHelp === false ? [] : renderGenericPrivilegeCommandHelpLines(prefix)),
     ...renderRepoHelpLines(prefix),
   ];

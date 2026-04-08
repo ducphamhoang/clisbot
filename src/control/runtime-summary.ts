@@ -17,7 +17,11 @@ import {
 import { ActivityStore } from "./activity-store.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { DEFAULT_ACTIVITY_STORE_PATH } from "../shared/paths.ts";
-import { renderOperatorHelpLines, renderRepoHelpLines } from "./startup-bootstrap.ts";
+import {
+  renderOperatorHelpLines,
+  renderPairingSetupHelpLines,
+  renderRepoHelpLines,
+} from "./startup-bootstrap.ts";
 
 type AgentOperatorSummary = {
   id: string;
@@ -226,6 +230,7 @@ function renderAgentSummaryLines(summary: RuntimeOperatorSummary) {
 
 function renderChannelSummaryLines(summary: RuntimeOperatorSummary) {
   return [
+    "",
     "Channels:",
     ...summary.channelSummaries.map((channel) => {
       const last = channel.lastActivityAt
@@ -249,6 +254,7 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
   ];
 
   if (summary.agentSummaries.length === 0) {
+    lines.push("");
     lines.push("Guidance:");
     lines.push("  No agents are configured yet.");
     lines.push("  First run requires both `--cli` and `--bootstrap`.");
@@ -268,36 +274,66 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
     (agent) => agent.bootstrapState === "missing" || agent.bootstrapState === "not-bootstrapped",
   );
   if (pendingBootstrap.length > 0) {
+    lines.push("");
     lines.push("Guidance:");
     for (const agent of pendingBootstrap) {
       if (agent.bootstrapState === "missing") {
+        lines.push(`  Agent ${agent.id} is missing bootstrap files.`);
+        lines.push(`    workspace: ${agent.workspacePath}`);
         lines.push(
-          `  Agent ${agent.id} is missing bootstrap files in ${agent.workspacePath}. Run: muxbot agents bootstrap ${agent.id} --mode ${agent.bootstrapMode}`,
+          `    run: muxbot agents bootstrap ${agent.id} --mode ${agent.bootstrapMode}`,
         );
         continue;
       }
 
-      lines.push(
-        `  Agent ${agent.id} still needs bootstrap completion in ${agent.workspacePath}. Chat with the bot or open the workspace, then follow BOOTSTRAP.md and the ${agent.bootstrapMode} personality files.`,
-      );
+      lines.push(`  Agent ${agent.id} still needs bootstrap completion.`);
+      lines.push(`    workspace: ${agent.workspacePath}`);
+      lines.push("    next: chat with the bot or open the workspace");
+      lines.push(`    follow: BOOTSTRAP.md and the ${agent.bootstrapMode} personality files`);
     }
 
+    lines.push("");
     lines.push("  Next steps after bootstrap:");
     lines.push("  - chat with the bot or open the workspace, then follow BOOTSTRAP.md");
     lines.push("  - configure Slack channels or Telegram groups/topics in ~/.muxbot/muxbot.json");
     lines.push("  - run `muxbot status` to recheck runtime and bootstrap state");
     lines.push("  - run `muxbot logs` if the bot does not answer as expected");
+    lines.push(
+      ...renderPairingSetupHelpLines("  ", {
+        slackEnabled: summary.channelSummaries.some((channel) => channel.channel === "slack" && channel.enabled),
+        telegramEnabled: summary.channelSummaries.some((channel) =>
+          channel.channel === "telegram" && channel.enabled
+        ),
+        slackDirectMessagesPolicy: summary.channelSummaries.find((channel) => channel.channel === "slack")
+          ?.directMessagesPolicy,
+        telegramDirectMessagesPolicy: summary.channelSummaries.find((channel) => channel.channel === "telegram")
+          ?.directMessagesPolicy,
+        conditionalOnly: true,
+      }),
+    );
     lines.push(...renderRepoHelpLines("  - "));
     appendChannelSetupNotes(lines, summary, "  ");
     return lines.join("\n");
   }
 
+  lines.push("");
   lines.push("Next steps:");
   lines.push("  - configure Slack channels or Telegram groups/topics in ~/.muxbot/muxbot.json");
   lines.push("  - verify routing and defaultAgentId values match the agent you want to expose");
   lines.push("  - send a test message from Slack or Telegram");
   lines.push("  - run `muxbot status` to inspect agents, channels, and tmux session state");
   lines.push("  - run `muxbot logs` if anything looks wrong");
+  lines.push(
+    ...renderPairingSetupHelpLines("", {
+      slackEnabled: summary.channelSummaries.some((channel) => channel.channel === "slack" && channel.enabled),
+      telegramEnabled: summary.channelSummaries.some((channel) => channel.channel === "telegram" && channel.enabled),
+      slackDirectMessagesPolicy: summary.channelSummaries.find((channel) => channel.channel === "slack")
+        ?.directMessagesPolicy,
+      telegramDirectMessagesPolicy: summary.channelSummaries.find((channel) => channel.channel === "telegram")
+        ?.directMessagesPolicy,
+      conditionalOnly: true,
+    }),
+  );
   lines.push(...renderRepoHelpLines("  - "));
 
   appendChannelSetupNotes(lines, summary);
@@ -317,20 +353,39 @@ function appendChannelSetupNotes(
     return;
   }
 
+  lines.push("");
   lines.push(`${prefix}Channel setup notes:`);
   for (const channel of channelsNeedingRoutes) {
     if (channel.channel === "telegram") {
       lines.push(
-        `${prefix}  - telegram: no explicit group or topic routes are configured yet. Telegram DMs are ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}, but a Telegram group will not route to the bot until you add channels.telegram.groups.<chatId> in ~/.muxbot/muxbot.json.`,
+        `${prefix}  - telegram: no explicit group or topic routes are configured yet`,
       );
       lines.push(
-        `${prefix}    Example: add channels.telegram.groups."-1001234567890".agentId = "default" for a normal group, or use channels.telegram.groups.<chatId>.topics.<topicId> for forum topics.`,
+        `${prefix}    dms: ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}`,
+      );
+      lines.push(
+        `${prefix}    route: add channels.telegram.groups.<chatId> in ~/.muxbot/muxbot.json`,
+      );
+      lines.push(
+        `${prefix}    example: channels.telegram.groups."-1001234567890".agentId = "default"`,
+      );
+      lines.push(
+        `${prefix}    forum topics: use channels.telegram.groups.<chatId>.topics.<topicId>`,
       );
       continue;
     }
 
     lines.push(
-      `${prefix}  - slack: no explicit channel or group routes are configured yet. Direct messages are ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}, and group routing is ${channel.groupPolicy}. Configure channels.slack.channels.<channelId> or channels.slack.groups.<groupId> in ~/.muxbot/muxbot.json if you expect channel traffic.`,
+      `${prefix}  - slack: no explicit channel or group routes are configured yet`,
+    );
+    lines.push(
+      `${prefix}    dms: ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}`,
+    );
+    lines.push(
+      `${prefix}    groups: ${channel.groupPolicy ?? "n/a"}`,
+    );
+    lines.push(
+      `${prefix}    route: configure channels.slack.channels.<channelId> or channels.slack.groups.<groupId>`,
     );
   }
 }

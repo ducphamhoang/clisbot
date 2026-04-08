@@ -109,6 +109,12 @@ describe("runtime summaries", () => {
     expect(text).toContain("routes=none");
     expect(text).toContain("telegram: no explicit group or topic routes are configured yet");
     expect(startText).toContain("telegram: no explicit group or topic routes are configured yet");
+    expect(startText).toContain("Telegram DMs use `pairing`.");
+    expect(startText).toContain("Send `/start` or `hi` to the Telegram bot to get a pairing code.");
+    expect(startText).toContain("muxbot pairing approve telegram <code>");
+    expect(startText).toContain("Slack DMs use `pairing`.");
+    expect(startText).toContain("Say `hi` to the Slack bot to get a pairing code.");
+    expect(startText).toContain("muxbot pairing approve slack <code>");
   });
 
   test("distinguishes missing, not-bootstrapped, and bootstrapped bootstrap states", async () => {
@@ -161,7 +167,9 @@ describe("runtime summaries", () => {
     expect(text).toContain("codex-ready tool=codex bootstrap=personal-assistant:bootstrapped");
     expect(text).toContain("pendingBootstrap=2");
     expect(text).toContain("bootstrapped=1");
-    expect(startText).toContain("Chat with the bot or open the workspace, then follow BOOTSTRAP.md");
+    expect(startText).toContain("Agent claude-pending still needs bootstrap completion.");
+    expect(startText).toContain("next: chat with the bot or open the workspace");
+    expect(startText).toContain("follow: BOOTSTRAP.md and the team-assistant personality files");
     expect(startText).toContain("Next steps after bootstrap:");
   });
 

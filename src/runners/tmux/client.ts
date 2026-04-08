@@ -1,5 +1,7 @@
 import { runCommand } from "../../shared/process.ts";
 
+const MAIN_WINDOW_NAME = "main";
+
 type TmuxExecResult = {
   stdout: string;
   stderr: string;
@@ -27,7 +29,7 @@ export class TmuxClient {
   }
 
   private target(sessionName: string) {
-    return `${sessionName}:0.0`;
+    return `${sessionName}:${MAIN_WINDOW_NAME}`;
   }
 
   private rawTarget(target: string) {
@@ -61,10 +63,13 @@ export class TmuxClient {
       "-d",
       "-s",
       params.sessionName,
+      "-n",
+      MAIN_WINDOW_NAME,
       "-c",
       params.cwd,
       params.command,
     ]);
+    await this.freezeWindowName(`${params.sessionName}:${MAIN_WINDOW_NAME}`);
   }
 
   async newWindow(params: {
@@ -88,7 +93,14 @@ export class TmuxClient {
       params.command,
     ]);
 
+    await this.freezeWindowName(`${params.sessionName}:${params.name}`);
+
     return paneId.trim();
+  }
+
+  private async freezeWindowName(target: string) {
+    await this.execOrThrow(["set-window-option", "-t", target, "automatic-rename", "off"]);
+    await this.execOrThrow(["set-window-option", "-t", target, "allow-rename", "off"]);
   }
 
   async findPaneByWindowName(sessionName: string, windowName: string) {
