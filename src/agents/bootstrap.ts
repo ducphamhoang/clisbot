@@ -7,7 +7,22 @@ import type {
   AgentCliToolId,
 } from "../config/agent-tool-presets.ts";
 
-const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "templates");
+export function resolveTemplateRoot(moduleDir: string) {
+  const candidates = [
+    join(moduleDir, "..", "..", "templates"),
+    join(moduleDir, "..", "templates"),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, "openclaw")) && existsSync(join(candidate, "customized"))) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
+const TEMPLATE_ROOT = resolveTemplateRoot(dirname(fileURLToPath(import.meta.url)));
 const OPENCLAW_TEMPLATE_DIR = join(TEMPLATE_ROOT, "openclaw");
 const CUSTOMIZED_TEMPLATE_DIR = join(TEMPLATE_ROOT, "customized");
 
