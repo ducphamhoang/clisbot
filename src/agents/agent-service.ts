@@ -1,10 +1,8 @@
 import { dirname } from "node:path";
 import {
   type FollowUpMode,
-  type StoredFollowUpState,
 } from "./follow-up-policy.ts";
 import {
-  formatConfiguredRuntimeLimit,
   isTerminalRunStatus,
   type PromptExecutionStatus,
   type RunObserver,
@@ -14,12 +12,20 @@ import {
 import { createSessionId } from "./session-identity.ts";
 import { SessionStore } from "./session-store.ts";
 import {
+  AgentSessionState,
+  type ActiveSessionRuntimeInfo,
+} from "./session-state.ts";
+import {
   getAgentEntry,
   type LoadedConfig,
-  resolveMaxRuntimeMs,
   resolveSessionStorePath,
 } from "../config/load-config.ts";
-import { buildTmuxSessionName, normalizeMainKey } from "./session-key.ts";
+import {
+  resolveAgentTarget,
+  type AgentSessionTarget,
+  type ResolvedAgentTarget,
+} from "./resolved-target.ts";
+export type { AgentSessionTarget } from "./resolved-target.ts";
 import { applyTemplate, ensureDir } from "../shared/paths.ts";
 import { sleep } from "../shared/process.ts";
 import { deriveInteractionText, normalizePaneText } from "../shared/transcript.ts";
@@ -29,14 +35,11 @@ import {
   captureTmuxSessionIdentity,
   dismissTmuxTrustPromptIfPresent,
 } from "../runners/tmux/session-handshake.ts";
+import {
+  ensureTmuxShellPane,
+  runTmuxShellCommand,
+} from "../runners/tmux/shell-command.ts";
 import { AgentJobQueue } from "./job-queue.ts";
-
-export type AgentSessionTarget = {
-  agentId: string;
-  sessionKey: string;
-  mainSessionKey?: string;
-  parentSessionKey?: string;
-};
 
 export type SessionRuntimeInfo = {
   state: "idle" | "running" | "detached";
@@ -64,10 +67,6 @@ type AgentExecutionResult = {
   note?: string;
 };
 
-type ActiveSessionRuntimeInfo = SessionRuntimeInfo & {
-  state: "running" | "detached";
-};
-
 function hasActiveRuntime(
   entry: Awaited<ReturnType<SessionStore["list"]>>[number],
 ): entry is Awaited<ReturnType<SessionStore["list"]>>[number] & {
@@ -87,8 +86,6 @@ type ShellCommandResult = {
   timedOut: boolean;
 };
 
-const BASH_WINDOW_NAME = "bash";
-const BASH_WINDOW_STARTUP_DELAY_MS = 150;
 const TMUX_MISSING_SESSION_PATTERN = /can't find session:/i;
 const TMUX_DUPLICATE_SESSION_PATTERN = /duplicate session:/i;
 
@@ -100,7 +97,7 @@ type Deferred<T> = {
 };
 
 type ActiveRun = {
-  resolved: ReturnType<AgentService["resolveTarget"]>;
+  resolved: ResolvedAgentTarget;
   observers: Map<string, RunObserver>;
   initialResult: Deferred<AgentExecutionResult>;
   latestUpdate: RunUpdate;
@@ -142,37 +139,6 @@ function isMissingTmuxSessionError(error: unknown) {
   return error instanceof Error && TMUX_MISSING_SESSION_PATTERN.test(error.message);
 }
 
-function stripShellCommandEcho(output: string, command: string, sentinel?: string) {
-  let lines = output.replaceAll("\r\n", "\n").replaceAll("\r", "\n").split("\n");
-  while (lines[0]?.trim() === "") {
-    lines = lines.slice(1);
-  }
-
-  const commandLines = command
-    .replaceAll("\r\n", "\n")
-    .replaceAll("\r", "\n")
-    .trim()
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line, index, all) => !(index === all.length - 1 && line === ""));
-
-  if (
-    commandLines.length > 0 &&
-    commandLines.every((line, index) => (lines[index] ?? "").trimEnd() === line)
-  ) {
-    lines = lines.slice(commandLines.length);
-    while (lines[0]?.trim() === "") {
-      lines = lines.slice(1);
-    }
-  }
-
-  if (sentinel) {
-    lines = lines.filter((line) => !line.includes(sentinel));
-  }
-
-  return lines.join("\n").trim();
-}
-
 function createDeferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -205,6 +171,7 @@ export class AgentService {
   private readonly tmux: TmuxClient;
   private readonly queue = new AgentJobQueue();
   private readonly sessionStore: SessionStore;
+  private readonly sessionState: AgentSessionState;
   private readonly activeRuns = new Map<string, ActiveRun>();
   private cleanupTimer?: ReturnType<typeof setInterval>;
   private cleanupInFlight = false;
@@ -215,6 +182,7 @@ export class AgentService {
   ) {
     this.tmux = deps.tmux ?? new TmuxClient(this.loadedConfig.raw.tmux.socketPath);
     this.sessionStore = deps.sessionStore ?? new SessionStore(resolveSessionStorePath(this.loadedConfig));
+    this.sessionState = new AgentSessionState(this.sessionStore);
   }
 
   private mapSessionError(
@@ -231,7 +199,7 @@ export class AgentService {
 
   private async retryFreshStartWithClearedSessionId(
     target: AgentSessionTarget,
-    resolved: ReturnType<AgentService["resolveTarget"]>,
+    resolved: ResolvedAgentTarget,
     options: { allowRetry?: boolean; nextAllowFreshRetry?: boolean },
   ) {
     if (options.allowRetry === false) {
@@ -239,7 +207,7 @@ export class AgentService {
     }
 
     await this.tmux.killSession(resolved.sessionName);
-    await this.clearSessionIdEntry(resolved, {
+    await this.sessionState.clearSessionIdEntry(resolved, {
       runnerCommand: resolved.runner.command,
     });
     return this.ensureSessionReady(target, {
@@ -285,7 +253,7 @@ export class AgentService {
       });
 
       if (!(await this.tmux.hasSession(resolved.sessionName))) {
-        await this.setSessionRuntime(resolved, {
+        await this.sessionState.setSessionRuntime(resolved, {
           state: "idle",
         });
         continue;
@@ -320,137 +288,8 @@ export class AgentService {
     }
   }
 
-  private resolveTarget(target: AgentSessionTarget) {
-    const defaults = this.loadedConfig.raw.agents.defaults;
-    const override = getAgentEntry(this.loadedConfig, target.agentId);
-    const workspaceTemplate = override?.workspace ?? defaults.workspace;
-
-    const workspacePath = applyTemplate(workspaceTemplate, {
-      agentId: target.agentId,
-    });
-    const sessionName = buildTmuxSessionName({
-      template: override?.session?.name ?? defaults.session.name,
-      agentId: target.agentId,
-      workspacePath,
-      sessionKey: target.sessionKey,
-      mainKey: normalizeMainKey(this.loadedConfig.raw.session.mainKey),
-    });
-
-    return {
-      agentId: target.agentId,
-      sessionKey: target.sessionKey,
-      mainSessionKey: target.mainSessionKey ?? target.sessionKey,
-      parentSessionKey: target.parentSessionKey,
-      sessionName,
-      workspacePath,
-      runner: {
-        ...defaults.runner,
-        ...(override?.runner ?? {}),
-        sessionId: {
-          ...defaults.runner.sessionId,
-          ...(override?.runner?.sessionId ?? {}),
-          create: {
-            ...defaults.runner.sessionId.create,
-            ...(override?.runner?.sessionId?.create ?? {}),
-          },
-          capture: {
-            ...defaults.runner.sessionId.capture,
-            ...(override?.runner?.sessionId?.capture ?? {}),
-          },
-          resume: {
-            ...defaults.runner.sessionId.resume,
-            ...(override?.runner?.sessionId?.resume ?? {}),
-          },
-        },
-      },
-      stream: {
-        ...defaults.stream,
-        ...(override?.stream ?? {}),
-        maxRuntimeLabel: formatConfiguredRuntimeLimit({
-          maxRuntimeSec: override?.stream?.maxRuntimeSec ?? defaults.stream.maxRuntimeSec,
-          maxRuntimeMin: override?.stream?.maxRuntimeMin ?? defaults.stream.maxRuntimeMin,
-        }),
-        maxRuntimeMs: resolveMaxRuntimeMs({
-          maxRuntimeSec: override?.stream?.maxRuntimeSec ?? defaults.stream.maxRuntimeSec,
-          maxRuntimeMin: override?.stream?.maxRuntimeMin ?? defaults.stream.maxRuntimeMin,
-        }),
-      },
-      session: {
-        ...defaults.session,
-        ...(override?.session ?? {}),
-      },
-    };
-  }
-
-  private async upsertSessionEntry(
-    resolved: ReturnType<AgentService["resolveTarget"]>,
-    update: (existing: {
-      sessionId?: string;
-      followUp?: StoredFollowUpState;
-      runnerCommand?: string;
-      runtime?: StoredSessionRuntime;
-    } | null) => {
-      sessionId?: string;
-      followUp?: StoredFollowUpState;
-      runnerCommand?: string;
-      runtime?: StoredSessionRuntime;
-    },
-  ) {
-    return this.sessionStore.update(resolved.sessionKey, (existing) => {
-      const next = update(existing);
-      return {
-        agentId: resolved.agentId,
-        sessionKey: resolved.sessionKey,
-        sessionId: next.sessionId,
-        workspacePath: resolved.workspacePath,
-        runnerCommand: next.runnerCommand ?? existing?.runnerCommand ?? resolved.runner.command,
-        followUp: next.followUp,
-        runtime: next.runtime ?? existing?.runtime,
-        updatedAt: Date.now(),
-      };
-    });
-  }
-
-  private async touchSessionEntry(
-    resolved: ReturnType<AgentService["resolveTarget"]>,
-    params: {
-      sessionId?: string | null;
-      runnerCommand?: string;
-      runtime?: StoredSessionRuntime;
-    } = {},
-  ) {
-    return this.upsertSessionEntry(resolved, (existing) => ({
-      sessionId: params.sessionId?.trim() || existing?.sessionId,
-      followUp: existing?.followUp,
-      runnerCommand: params.runnerCommand ?? existing?.runnerCommand ?? resolved.runner.command,
-      runtime: params.runtime ?? existing?.runtime,
-    }));
-  }
-
-  private async clearSessionIdEntry(
-    resolved: ReturnType<AgentService["resolveTarget"]>,
-    params: { runnerCommand?: string } = {},
-  ) {
-    return this.upsertSessionEntry(resolved, (existing) => ({
-      sessionId: undefined,
-      followUp: existing?.followUp,
-      runnerCommand: params.runnerCommand ?? existing?.runnerCommand ?? resolved.runner.command,
-      runtime: {
-        state: "idle",
-      },
-    }));
-  }
-
-  private async setSessionRuntime(
-    resolved: ReturnType<AgentService["resolveTarget"]>,
-    runtime: StoredSessionRuntime,
-  ) {
-    return this.upsertSessionEntry(resolved, (existing) => ({
-      sessionId: existing?.sessionId,
-      followUp: existing?.followUp,
-      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
-      runtime,
-    }));
+  private resolveTarget(target: AgentSessionTarget): ResolvedAgentTarget {
+    return resolveAgentTarget(this.loadedConfig, target);
   }
 
   private buildRunnerArgs(
@@ -484,10 +323,10 @@ export class AgentService {
     };
   }
 
-  private async syncSessionIdentity(resolved: ReturnType<AgentService["resolveTarget"]>) {
+  private async syncSessionIdentity(resolved: ResolvedAgentTarget) {
     const existing = await this.sessionStore.get(resolved.sessionKey);
     if (existing?.sessionId) {
-      return this.touchSessionEntry(resolved, {
+      return this.sessionState.touchSessionEntry(resolved, {
         sessionId: existing.sessionId,
         runnerCommand: resolved.runner.command,
       });
@@ -498,7 +337,7 @@ export class AgentService {
       sessionId = await this.captureSessionIdentity(resolved);
     }
 
-    return this.touchSessionEntry(resolved, {
+    return this.sessionState.touchSessionEntry(resolved, {
       sessionId,
       runnerCommand: resolved.runner.command,
     });
@@ -550,7 +389,7 @@ export class AgentService {
     }
   }
 
-  private async captureSessionIdentity(resolved: ReturnType<AgentService["resolveTarget"]>) {
+  private async captureSessionIdentity(resolved: ResolvedAgentTarget) {
     const capture = resolved.runner.sessionId.capture;
     return captureTmuxSessionIdentity({
       tmux: this.tmux,
@@ -567,7 +406,7 @@ export class AgentService {
   private async ensureSessionReady(
     target: AgentSessionTarget,
     options: { allowFreshRetry?: boolean } = {},
-  ): Promise<ReturnType<AgentService["resolveTarget"]>> {
+  ): Promise<ResolvedAgentTarget> {
     const resolved = this.resolveTarget(target);
     await ensureDir(resolved.workspacePath);
     await ensureDir(dirname(this.loadedConfig.raw.tmux.socketPath));
@@ -659,7 +498,7 @@ export class AgentService {
     }
 
     if (startupSessionId) {
-      await this.touchSessionEntry(resolved, {
+      await this.sessionState.touchSessionEntry(resolved, {
         sessionId: startupSessionId,
         runnerCommand: runnerLaunch.command,
       });
@@ -702,7 +541,7 @@ export class AgentService {
       };
     }
 
-    await this.touchSessionEntry(resolved);
+    await this.sessionState.touchSessionEntry(resolved);
 
     try {
       return {
@@ -733,7 +572,7 @@ export class AgentService {
     const resolved = this.resolveTarget(target);
     const existed = await this.tmux.hasSession(resolved.sessionName);
     if (existed) {
-      await this.touchSessionEntry(resolved, {
+      await this.sessionState.touchSessionEntry(resolved, {
         runtime: {
           state: "idle",
         },
@@ -755,67 +594,28 @@ export class AgentService {
     };
   }
 
-  async getConversationFollowUpState(target: AgentSessionTarget): Promise<StoredFollowUpState> {
-    const entry = await this.sessionStore.get(target.sessionKey);
-    return entry?.followUp ?? {};
+  async getConversationFollowUpState(target: AgentSessionTarget) {
+    return this.sessionState.getConversationFollowUpState(target);
   }
 
   async getSessionRuntime(target: AgentSessionTarget): Promise<SessionRuntimeInfo> {
-    const entry = await this.sessionStore.get(target.sessionKey);
-    return {
-      state: entry?.runtime?.state ?? "idle",
-      startedAt: entry?.runtime?.startedAt,
-      detachedAt: entry?.runtime?.detachedAt,
-      sessionKey: target.sessionKey,
-      agentId: target.agentId,
-    };
+    return this.sessionState.getSessionRuntime(target);
   }
 
   async listActiveSessionRuntimes(): Promise<ActiveSessionRuntimeInfo[]> {
-    const entries = await this.sessionStore.list();
-    return entries
-      .filter(hasActiveRuntime)
-      .map((entry) => ({
-        state: entry.runtime?.state,
-        startedAt: entry.runtime.startedAt,
-        detachedAt: entry.runtime.detachedAt,
-        sessionKey: entry.sessionKey,
-        agentId: entry.agentId,
-      }));
+    return this.sessionState.listActiveSessionRuntimes();
   }
 
   async setConversationFollowUpMode(target: AgentSessionTarget, mode: FollowUpMode) {
-    const resolved = this.resolveTarget(target);
-    return this.upsertSessionEntry(resolved, (existing) => ({
-      sessionId: existing?.sessionId,
-      followUp: {
-        ...existing?.followUp,
-        overrideMode: mode,
-      },
-      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
-    }));
+    return this.sessionState.setConversationFollowUpMode(this.resolveTarget(target), mode);
   }
 
   async resetConversationFollowUpMode(target: AgentSessionTarget) {
-    const resolved = this.resolveTarget(target);
-    return this.upsertSessionEntry(resolved, (existing) => ({
-      sessionId: existing?.sessionId,
-      followUp: existing?.followUp
-        ? {
-            ...existing.followUp,
-            overrideMode: undefined,
-          }
-        : undefined,
-      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
-    }));
+    return this.sessionState.resetConversationFollowUpMode(this.resolveTarget(target));
   }
 
   async reactivateConversationFollowUp(target: AgentSessionTarget) {
-    const existing = await this.sessionStore.get(target.sessionKey);
-    if (existing?.followUp?.overrideMode !== "paused") {
-      return existing;
-    }
-    return this.resetConversationFollowUpMode(target);
+    return this.sessionState.reactivateConversationFollowUp(this.resolveTarget(target));
   }
 
   getResolvedAgentConfig(agentId: string) {
@@ -826,39 +626,15 @@ export class AgentService {
   }
 
   async recordConversationReply(target: AgentSessionTarget) {
-    const resolved = this.resolveTarget(target);
-    return this.upsertSessionEntry(resolved, (existing) => ({
-      sessionId: existing?.sessionId,
-      followUp: {
-        ...existing?.followUp,
-        lastBotReplyAt: Date.now(),
-      },
-      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
-      runtime: existing?.runtime,
-    }));
+    return this.sessionState.recordConversationReply(this.resolveTarget(target));
   }
 
   private async ensureShellPane(target: AgentSessionTarget) {
     const resolved = await this.ensureSessionReady(target);
-    const existingPaneId = await this.tmux.findPaneByWindowName(
-      resolved.sessionName,
-      BASH_WINDOW_NAME,
-    );
-    if (existingPaneId) {
-      return {
-        ...resolved,
-        paneId: existingPaneId,
-      };
-    }
-
-    const paneId = await this.tmux.newWindow({
-      sessionName: resolved.sessionName,
-      cwd: resolved.workspacePath,
-      name: BASH_WINDOW_NAME,
-      command: buildCommandString("env", ["PS1=", "HISTFILE=/dev/null", "bash", "--noprofile", "--norc", "-i"]),
+    const paneId = await ensureTmuxShellPane({
+      tmux: this.tmux,
+      session: resolved,
     });
-    await sleep(BASH_WINDOW_STARTUP_DELAY_MS);
-
     return {
       ...resolved,
       paneId,
@@ -870,65 +646,12 @@ export class AgentService {
     command: string,
   ): Promise<ShellCommandResult> {
     const resolved = await this.ensureShellPane(target);
-    const sentinel = `__TMUX_TALK_EXIT_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
-    const startedAt = Date.now();
-    const maxRuntimeMs = resolved.stream.maxRuntimeMs;
-    const captureLines = Math.max(resolved.stream.captureLines, 240);
-    const sentinelPattern = new RegExp(`${escapeRegExp(sentinel)}:(\\d+)`);
-    const initialSnapshot = normalizePaneText(
-      await this.tmux.captureTarget(resolved.paneId, captureLines),
-    );
-    let lastInteractionSnapshot = "";
-
-    await this.tmux.sendLiteralTarget(resolved.paneId, command);
-    await sleep(50);
-    await this.tmux.sendKeyTarget(resolved.paneId, "Enter");
-    await sleep(50);
-    await this.tmux.sendLiteralTarget(
-      resolved.paneId,
-      `printf '\\n${sentinel}:%s\\n' "$?"`,
-    );
-    await sleep(50);
-    await this.tmux.sendKeyTarget(resolved.paneId, "Enter");
-
-    while (Date.now() - startedAt < maxRuntimeMs) {
-      await sleep(250);
-      const snapshot = normalizePaneText(await this.tmux.captureTarget(resolved.paneId, captureLines));
-      const interactionSnapshot = deriveInteractionText(initialSnapshot, snapshot);
-      lastInteractionSnapshot = interactionSnapshot;
-      const match = interactionSnapshot.match(sentinelPattern);
-      if (!match) {
-        continue;
-      }
-
-      const exitCode = Number.parseInt(match[1] ?? "1", 10);
-      const output = stripShellCommandEcho(
-        interactionSnapshot.slice(0, match.index ?? interactionSnapshot.length).trim(),
-        command,
-        sentinel,
-      );
-      return {
-        agentId: resolved.agentId,
-        sessionKey: resolved.sessionKey,
-        sessionName: resolved.sessionName,
-        workspacePath: resolved.workspacePath,
-        command,
-        output,
-        exitCode,
-        timedOut: false,
-      };
-    }
-
-    return {
-      agentId: resolved.agentId,
-      sessionKey: resolved.sessionKey,
-      sessionName: resolved.sessionName,
-      workspacePath: resolved.workspacePath,
+    return runTmuxShellCommand({
+      tmux: this.tmux,
+      session: resolved,
+      paneId: resolved.paneId,
       command,
-      output: stripShellCommandEcho(lastInteractionSnapshot.trim(), command, sentinel),
-      exitCode: 124,
-      timedOut: true,
-    };
+    });
   }
 
   async runShellCommand(target: AgentSessionTarget, command: string): Promise<ShellCommandResult> {
@@ -941,12 +664,12 @@ export class AgentService {
     return this.resolveTarget(target).workspacePath;
   }
 
-  private buildDetachedNote(resolved: ReturnType<AgentService["resolveTarget"]>) {
+  private buildDetachedNote(resolved: ResolvedAgentTarget) {
     return `This session has been running for over ${resolved.stream.maxRuntimeLabel}. muxbot will keep monitoring it and will post the final result here when it completes. Use \`/attach\` to resume live updates, \`/watch every 30s\` for interval updates, or \`/stop\` to interrupt it.`;
   }
 
   private createRunUpdate<TStatus extends PromptExecutionStatus>(params: {
-    resolved: ReturnType<AgentService["resolveTarget"]>;
+    resolved: ResolvedAgentTarget;
     status: TStatus;
     snapshot: string;
     fullSnapshot: string;
@@ -999,7 +722,7 @@ export class AgentService {
     run: ActiveRun,
     update: AgentExecutionResult,
   ) {
-    await this.setSessionRuntime(run.resolved, {
+    await this.sessionState.setSessionRuntime(run.resolved, {
       state: "idle",
     });
     await this.notifyRunObservers(run, update);
@@ -1017,7 +740,7 @@ export class AgentService {
       initialSnapshot: run.latestUpdate.initialSnapshot,
       note: "Run failed.",
     });
-    await this.setSessionRuntime(run.resolved, {
+    await this.sessionState.setSessionRuntime(run.resolved, {
       state: "idle",
     });
     await this.notifyRunObservers(run, update);
@@ -1124,7 +847,7 @@ export class AgentService {
               initialSnapshot: update.initialSnapshot,
               note: this.buildDetachedNote(run.resolved),
             });
-            await this.setSessionRuntime(run.resolved, {
+            await this.sessionState.setSessionRuntime(run.resolved, {
               state: "detached",
               startedAt: params.startedAt,
               detachedAt: Date.now(),
@@ -1265,7 +988,7 @@ export class AgentService {
     };
     this.activeRuns.set(resolved.sessionKey, activeRun);
 
-    await this.setSessionRuntime(resolved, {
+    await this.sessionState.setSessionRuntime(resolved, {
       state: "running",
       startedAt,
     });
