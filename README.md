@@ -41,28 +41,6 @@ tmux is the current stability boundary. One agent maps to one durable runner ses
 
 Choose one setup path.
 
-Local repo path:
-
-1. Install dependencies.
-
-```bash
-bun install
-```
-
-2. Set the required environment variables.
-
-```bash
-export SLACK_APP_TOKEN=...
-export SLACK_BOT_TOKEN=...
-export TELEGRAM_BOT_TOKEN=...
-```
-
-3. Start `muxbot` directly.
-
-```bash
-bun run start --cli codex --bootstrap personal-assistant
-```
-
 Packaged CLI path:
 
 1. Install globally:
@@ -71,12 +49,18 @@ Packaged CLI path:
 npm install -g muxbot
 ```
 
-2. Set the required environment variables.
+2. Add the required environment variables to your shell startup file, then reload it.
 
 ```bash
+# ~/.zshrc or ~/.bashrc
 export SLACK_APP_TOKEN=...
 export SLACK_BOT_TOKEN=...
 export TELEGRAM_BOT_TOKEN=...
+```
+
+```bash
+source ~/.zshrc
+# or: source ~/.bashrc
 ```
 
 3. Start the service directly.
@@ -91,6 +75,34 @@ If you do not want to install globally, you can also run it directly with `npx`:
 npx muxbot start --cli codex --bootstrap personal-assistant
 ```
 
+Local repo path:
+
+1. Install dependencies.
+
+```bash
+bun install
+```
+
+2. Add the required environment variables to your shell startup file, then reload it.
+
+```bash
+# ~/.zshrc or ~/.bashrc
+export SLACK_APP_TOKEN=...
+export SLACK_BOT_TOKEN=...
+export TELEGRAM_BOT_TOKEN=...
+```
+
+```bash
+source ~/.zshrc
+# or: source ~/.bashrc
+```
+
+3. Start the service directly.
+
+```bash
+bun run start --cli codex --bootstrap personal-assistant
+```
+
 Fresh config now starts with no configured agents, and first-run `muxbot start` requires both `--cli` and `--bootstrap` before it creates the first `default` agent.
 Fresh config also starts with no preconfigured Slack channels or Telegram groups/topics. Add those routes manually in `~/.muxbot/muxbot.json`.
 `muxbot start` now also requires Slack or Telegram token references before it bootstraps anything. By default it looks for `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN`, and `TELEGRAM_BOT_TOKEN`, but you can pass custom placeholders such as `--slack-app-token '${CUSTOM_SLACK_APP_TOKEN}'`.
@@ -103,8 +115,6 @@ The easiest setup flow is:
 1. Clone this repo.
 2. Open Claude Code or Codex in this repo.
 3. Ask it to help you set up `muxbot`.
-
-If you are still unsure which command or bootstrap mode to use, clone `https://github.com/longbkit/muxbot`, open the repo in Codex or Claude Code, and ask directly for setup help.
 
 The docs in this repo are kept current, including the [User Guide](docs/user-guide/README.md), so the agent should have enough context to walk you through setup, configuration, and troubleshooting directly inside the repo.
 
