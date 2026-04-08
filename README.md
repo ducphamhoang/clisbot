@@ -43,6 +43,8 @@ Choose one setup path.
 
 Packaged CLI path:
 
+Requires Node 20+ in the shell where you run `muxbot`.
+
 1. Install globally:
 
 ```bash
@@ -76,6 +78,8 @@ npx @muxbot/muxbot start --cli codex --bootstrap personal-assistant
 ```
 
 Local repo path:
+
+Requires Bun for development commands in this repo.
 
 1. Install dependencies.
 

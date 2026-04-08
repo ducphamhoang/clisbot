@@ -80,20 +80,29 @@ function substituteString(value: string, env: NodeJS.ProcessEnv, configPath: str
   return chunks.join("");
 }
 
-function substituteAny(value: unknown, env: NodeJS.ProcessEnv, path: string): unknown {
+function substituteAny(
+  value: unknown,
+  env: NodeJS.ProcessEnv,
+  path: string,
+  skippedPaths: Set<string>,
+): unknown {
+  if (path && skippedPaths.has(path)) {
+    return value;
+  }
+
   if (typeof value === "string") {
     return substituteString(value, env, path);
   }
 
   if (Array.isArray(value)) {
-    return value.map((item, index) => substituteAny(item, env, `${path}[${index}]`));
+    return value.map((item, index) => substituteAny(item, env, `${path}[${index}]`, skippedPaths));
   }
 
   if (isPlainObject(value)) {
     const result: Record<string, unknown> = {};
     for (const [key, childValue] of Object.entries(value)) {
       const childPath = path ? `${path}.${key}` : key;
-      result[key] = substituteAny(childValue, env, childPath);
+      result[key] = substituteAny(childValue, env, childPath, skippedPaths);
     }
     return result;
   }
@@ -104,6 +113,9 @@ function substituteAny(value: unknown, env: NodeJS.ProcessEnv, path: string): un
 export function resolveConfigEnvVars(
   value: unknown,
   env: NodeJS.ProcessEnv = process.env,
+  options: {
+    skipPaths?: string[];
+  } = {},
 ): unknown {
-  return substituteAny(value, env, "");
+  return substituteAny(value, env, "", new Set(options.skipPaths ?? []));
 }

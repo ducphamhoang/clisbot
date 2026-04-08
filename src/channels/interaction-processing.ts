@@ -46,10 +46,12 @@ export type ChannelInteractionIdentity = {
 type PostText<TChunk> = (text: string) => Promise<TChunk[]>;
 type ReconcileText<TChunk> = (chunks: TChunk[], text: string) => Promise<TChunk[]>;
 
-function renderSensitiveCommandDisabledMessage() {
+function renderSensitiveCommandDisabledMessage(identity: ChannelInteractionIdentity) {
   return [
     "Privilege commands are not allowed for this route or user.",
     "Enable `privilegeCommands.enabled` on the route to allow transcript and bash commands. Use `privilegeCommands.allowUsers` to restrict access to specific user ids.",
+    "",
+    ...renderPrivilegeCommandHelpLines(identity),
   ].join("\n");
 }
 
@@ -181,7 +183,7 @@ export async function processChannelInteraction<TChunk>(params: {
       userId: params.senderId,
     })
   ) {
-    await params.postText(renderSensitiveCommandDisabledMessage());
+    await params.postText(renderSensitiveCommandDisabledMessage(params.identity));
     await params.agentService.recordConversationReply(params.sessionTarget);
     return;
   }

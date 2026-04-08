@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { ensureDir as ensureDirPath, writeTextFile } from "./fs.ts";
 
 export const APP_HOME_DIR = join(homedir(), ".muxbot");
 export const DEFAULT_CONFIG_PATH = join(APP_HOME_DIR, "muxbot.json");
@@ -24,13 +25,13 @@ export function expandHomePath(rawPath: string): string {
 }
 
 export function ensureParentDir(pathname: string) {
-  return Bun.write(pathname, "").catch(async () => {
-    await Bun.$`mkdir -p ${dirname(pathname)}`.quiet();
+  return writeTextFile(pathname, "").catch(async () => {
+    await ensureDirPath(dirname(pathname));
   });
 }
 
 export async function ensureDir(pathname: string) {
-  await Bun.$`mkdir -p ${pathname}`.quiet();
+  await ensureDirPath(pathname);
 }
 
 export function applyTemplate(

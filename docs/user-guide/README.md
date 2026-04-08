@@ -44,6 +44,8 @@ If you use the packaged CLI:
 muxbot start --cli codex --bootstrap personal-assistant
 ```
 
+Packaged CLI runtime expects Node 20+.
+
 Start the service in the foreground:
 
 ```bash

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { DEFAULT_CONFIG_PATH, ensureDir, expandHomePath } from "../shared/paths.ts";
+import { readTextFile, writeTextFile } from "../shared/fs.ts";
 import { muxbotConfigSchema, type MuxbotConfig } from "./schema.ts";
 import { renderDefaultConfigTemplate } from "./template.ts";
 
@@ -9,10 +10,7 @@ export async function ensureEditableConfigFile(configPath = DEFAULT_CONFIG_PATH)
   await ensureDir(dirname(expandedConfigPath));
 
   if (!existsSync(expandedConfigPath)) {
-    await Bun.write(
-      expandedConfigPath,
-      renderDefaultConfigTemplate(),
-    );
+    await writeTextFile(expandedConfigPath, renderDefaultConfigTemplate());
   }
 
   return expandedConfigPath;
@@ -31,7 +29,7 @@ export async function readEditableConfig(configPath = DEFAULT_CONFIG_PATH): Prom
   config: MuxbotConfig;
 }> {
   const expandedConfigPath = await ensureEditableConfigFile(configPath);
-  const text = await Bun.file(expandedConfigPath).text();
+  const text = await readTextFile(expandedConfigPath);
   const parsed = JSON.parse(text);
   return {
     configPath: expandedConfigPath,
@@ -49,5 +47,5 @@ export async function writeEditableConfig(configPath: string, config: MuxbotConf
       lastTouchedAt: new Date().toISOString(),
     },
   } satisfies MuxbotConfig;
-  await Bun.write(expandedConfigPath, `${JSON.stringify(nextConfig, null, 2)}\n`);
+  await writeTextFile(expandedConfigPath, `${JSON.stringify(nextConfig, null, 2)}\n`);
 }

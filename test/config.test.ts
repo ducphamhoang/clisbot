@@ -394,4 +394,79 @@ describe("loadConfig", () => {
     expect(config.channels.slack.botToken).toBe("${CUSTOM_SLACK_BOT_TOKEN}");
     expect(config.channels.telegram.botToken).toBe("${CUSTOM_TELEGRAM_BOT_TOKEN}");
   });
+
+  test("does not require token env vars for disabled channels", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "muxbot-config-"));
+    const configPath = join(tempDir, "muxbot.json");
+    await Bun.write(
+      configPath,
+      JSON.stringify({
+        tmux: {
+          socketPath: "~/.muxbot/state/test.sock",
+        },
+        agents: {
+          defaults: {
+            workspace: "~/.muxbot/workspaces/{agentId}",
+            runner: {
+              command: "codex",
+              args: ["-C", "{workspace}"],
+              trustWorkspace: true,
+              startupDelayMs: 1,
+              promptSubmitDelayMs: 1,
+            },
+            stream: {
+              captureLines: 10,
+              updateIntervalMs: 10,
+              idleTimeoutMs: 10,
+              noOutputTimeoutMs: 10,
+              maxRuntimeSec: 10,
+              maxMessageChars: 100,
+            },
+            session: {
+              createIfMissing: true,
+              name: "{sessionKey}",
+            },
+          },
+          list: [{ id: "default" }],
+        },
+        channels: {
+          slack: {
+            enabled: true,
+            mode: "socket",
+            appToken: "${SLACK_APP_TOKEN}",
+            botToken: "${SLACK_BOT_TOKEN}",
+            channels: {},
+            groups: {},
+            directMessages: {
+              enabled: true,
+              requireMention: false,
+              agentId: "default",
+            },
+          },
+          telegram: {
+            enabled: false,
+            mode: "polling",
+            botToken: "${TELEGRAM_BOT_TOKEN}",
+            groups: {},
+            directMessages: {
+              enabled: true,
+              requireMention: false,
+              agentId: "default",
+            },
+          },
+        },
+      }),
+    );
+
+    process.env.SLACK_APP_TOKEN = "app-token";
+    process.env.SLACK_BOT_TOKEN = "bot-token";
+    delete process.env.TELEGRAM_BOT_TOKEN;
+
+    const loaded = await loadConfig(configPath);
+
+    expect(loaded.raw.channels.slack.appToken).toBe("app-token");
+    expect(loaded.raw.channels.slack.botToken).toBe("bot-token");
+    expect(loaded.raw.channels.telegram.enabled).toBe(false);
+    expect(loaded.raw.channels.telegram.botToken).toBe("${TELEGRAM_BOT_TOKEN}");
+  });
 });

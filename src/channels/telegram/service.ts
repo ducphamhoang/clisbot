@@ -42,6 +42,7 @@ import {
   type TelegramPostedMessageChunk,
 } from "./transport.ts";
 import { resolveTelegramAttachmentPaths } from "./attachments.ts";
+import { sleep } from "../../shared/process.ts";
 
 type TelegramGetMeResult = {
   id: number;
@@ -282,7 +283,7 @@ export class TelegramPollingService {
           return;
         }
         console.error("telegram polling error", error);
-        await Bun.sleep(telegramConfig.polling.retryDelayMs);
+        await sleep(telegramConfig.polling.retryDelayMs);
       }
     }
   }

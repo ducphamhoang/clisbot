@@ -1,12 +1,13 @@
+import { fileURLToPath } from "node:url";
 import { cpSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { ensureDir } from "../shared/paths.ts";
 import type {
   AgentBootstrapMode,
   AgentCliToolId,
 } from "../config/agent-tool-presets.ts";
 
-const TEMPLATE_ROOT = join(import.meta.dir, "..", "..", "templates");
+const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "templates");
 const OPENCLAW_TEMPLATE_DIR = join(TEMPLATE_ROOT, "openclaw");
 const CUSTOMIZED_TEMPLATE_DIR = join(TEMPLATE_ROOT, "customized");
 

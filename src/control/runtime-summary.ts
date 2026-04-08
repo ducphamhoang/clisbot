@@ -3,7 +3,12 @@ import {
   getBootstrapWorkspaceState,
   type BootstrapWorkspaceState,
 } from "../agents/bootstrap.ts";
-import { type LoadedConfig, loadConfig } from "../config/load-config.ts";
+import { MissingEnvVarError } from "../config/env-substitution.ts";
+import {
+  type LoadedConfig,
+  loadConfig,
+  loadConfigWithoutEnvResolution,
+} from "../config/load-config.ts";
 import { formatBinding } from "../config/bindings.ts";
 import {
   DEFAULT_AGENT_TOOL_TEMPLATES,
@@ -100,7 +105,7 @@ export async function getRuntimeOperatorSummary(params: {
   runtimeRunning: boolean;
   activityPath?: string;
 }) {
-  const loadedConfig = await loadConfig(params.configPath);
+  const loadedConfig = await loadOperatorSummaryConfig(params.configPath);
   const activityStore = new ActivityStore(params.activityPath ?? DEFAULT_ACTIVITY_STORE_PATH);
   const activities = await activityStore.read();
   const runningTmuxSessions = params.runtimeRunning ? await getRunningTmuxSessions(loadedConfig) : 0;
@@ -178,6 +183,18 @@ export async function getRuntimeOperatorSummary(params: {
       .length,
     runningTmuxSessions,
   } satisfies RuntimeOperatorSummary;
+}
+
+async function loadOperatorSummaryConfig(configPath?: string) {
+  try {
+    return await loadConfig(configPath);
+  } catch (error) {
+    if (!(error instanceof MissingEnvVarError)) {
+      throw error;
+    }
+
+    return await loadConfigWithoutEnvResolution(configPath);
+  }
 }
 
 function formatTime(value?: string) {

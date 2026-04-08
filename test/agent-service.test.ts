@@ -20,6 +20,7 @@ class FakeTmuxClient {
   private sessions = new Map<string, FakeSession>();
   private readonly invalidResumeSessionIds = new Set<string>();
   private readonly disappearingOnCaptureSessionIds = new Set<string>();
+  private readonly duplicateOnNewSession = new Set<string>();
 
   markInvalidResumeSessionId(sessionId: string) {
     this.invalidResumeSessionIds.add(sessionId);
@@ -27,6 +28,10 @@ class FakeTmuxClient {
 
   markSessionIdDisappearOnCapture(sessionId: string) {
     this.disappearingOnCaptureSessionIds.add(sessionId);
+  }
+
+  markDuplicateOnNewSession(sessionName: string) {
+    this.duplicateOnNewSession.add(sessionName);
   }
 
   async hasSession(sessionName: string) {
@@ -40,6 +45,16 @@ class FakeTmuxClient {
   }) {
     const sessionId = this.extractSessionId(params.command);
     this.sessionCommands.push(params.command);
+    if (this.duplicateOnNewSession.has(params.sessionName)) {
+      this.duplicateOnNewSession.delete(params.sessionName);
+      this.sessions.set(params.sessionName, {
+        command: params.command,
+        pendingInput: "",
+        sessionId,
+        snapshot: `READY ${sessionId}`,
+      });
+      throw new Error(`duplicate session: ${params.sessionName}`);
+    }
     if (
       params.command.includes("resume ") &&
       this.invalidResumeSessionIds.has(sessionId)
@@ -757,6 +772,72 @@ describe("AgentService session identity", () => {
       expect((receivedError as Error).message).toBe(
         'Runner session "agent-default-telegram-group-1001-topic-4" disappeared while the prompt was running.',
       );
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("recovers when tmux reports duplicate session during concurrent startup", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "muxbot.sock");
+      const configPath = join(tempDir, "muxbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "workspaces", "{agentId}"),
+            runnerCommand: "codex",
+            runnerArgs: ["-C", "{workspace}"],
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b",
+                timeoutMs: 1000,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+        ),
+      );
+
+      const loadedConfig = await loadConfig(configPath);
+      const service = new AgentService(loadedConfig);
+      const fakeTmux = new FakeTmuxClient();
+      const sessionKey = "agent:default:slack:channel:C0AQW4DUSDC:thread:1775651807.119499";
+      const sessionName = "agent-default-slack-channel-c0aqw4dusdc-thread-1775651807-119499";
+      fakeTmux.markDuplicateOnNewSession(sessionName);
+      (service as any).tmux = fakeTmux as unknown as TmuxClient;
+
+      const { result } = service.enqueuePrompt(
+        {
+          agentId: "default",
+          sessionKey,
+        },
+        "ping",
+        {
+          onUpdate: () => undefined,
+        },
+      );
+      const execution = await result;
+
+      expect(execution.status).toBe("completed");
+      expect(execution.snapshot).toContain("PONG");
+      expect(readSessionId(storePath, sessionKey)).toBe(RUNNER_GENERATED_ID);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

@@ -1,5 +1,6 @@
 import type { StoredFollowUpState } from "./follow-up-policy.ts";
 import { dirname } from "node:path";
+import { fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
 import { ensureDir } from "../shared/paths.ts";
 
 export type StoredSessionEntry = {
@@ -74,12 +75,11 @@ export class SessionStore {
   }
 
   private async readStore(): Promise<SessionStoreShape> {
-    const file = Bun.file(this.storePath);
-    if (!(await file.exists())) {
+    if (!(await fileExists(this.storePath))) {
       return {};
     }
 
-    const text = await file.text();
+    const text = await readTextFile(this.storePath);
     if (!text.trim()) {
       return {};
     }
@@ -94,6 +94,6 @@ export class SessionStore {
 
   private async writeStore(store: SessionStoreShape) {
     await ensureDir(dirname(this.storePath));
-    await Bun.write(this.storePath, JSON.stringify(store, null, 2));
+    await writeTextFile(this.storePath, JSON.stringify(store, null, 2));
   }
 }

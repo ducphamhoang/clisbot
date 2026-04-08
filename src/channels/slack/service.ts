@@ -45,6 +45,7 @@ import {
   reconcileSlackText,
   type SlackPostedMessageChunk,
 } from "./transport.ts";
+import { sleep } from "../../shared/process.ts";
 
 type SlackAppType = InstanceType<typeof App>;
 type SlackThreadTsCacheEntry = {
@@ -54,6 +55,14 @@ type SlackThreadTsCacheEntry = {
 
 const SEEN_MESSAGE_TTL_MS = 60_000;
 const THREAD_TS_CACHE_TTL_MS = 60_000;
+
+function debugSlackEvent(message: string, details: Record<string, unknown> = {}) {
+  if (process.env.MUXBOT_DEBUG_SLACK_EVENTS !== "1") {
+    return;
+  }
+
+  console.log(`slack debug ${message} ${JSON.stringify(details)}`);
+}
 
 export class SlackSocketService {
   private readonly app: SlackAppType;
@@ -191,21 +200,28 @@ export class SlackSocketService {
     const eventId = params.body.event_id as string | undefined;
     const event = normalizeSlackMessageEvent(params.event);
     if (!eventId) {
+      debugSlackEvent("missing-event-id", {
+        channel: event.channel,
+        type: event.type,
+      });
       console.log("slack missing event id");
       return;
     }
 
     if (this.shouldDropMismatchedSlackEvent(params.body)) {
+      debugSlackEvent("drop-mismatched-event", { eventId });
       return;
     }
 
     const existingStatus = await this.processedEventsStore.getStatus(eventId);
     if (existingStatus === "processing" || existingStatus === "completed") {
+      debugSlackEvent("drop-duplicate-event", { eventId, existingStatus });
       return;
     }
 
     const skipReason = getSlackEventSkipReason(event);
     if (skipReason) {
+      debugSlackEvent("drop-skip-reason", { eventId, skipReason });
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
@@ -215,16 +231,19 @@ export class SlackSocketService {
       (event.ts as string | undefined) ??
       (event.event_ts as string | undefined);
     if (this.markMessageSeen(channelId, messageTs)) {
+      debugSlackEvent("drop-seen-message", { eventId, channelId, messageTs });
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
 
     if (event.user && this.botUserId && event.user === this.botUserId) {
+      debugSlackEvent("drop-self-message", { eventId, user: event.user });
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
 
     if (isBotOriginatedSlackEvent(event) && !params.route.allowBots) {
+      debugSlackEvent("drop-bot-message", { eventId, allowBots: params.route.allowBots });
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
@@ -234,6 +253,7 @@ export class SlackSocketService {
         typeof event.user === "string" ? event.user.trim() : "";
       const dmConfig = this.loadedConfig.raw.channels.slack.directMessages;
       if (!directUserId || dmConfig.policy === "disabled") {
+        debugSlackEvent("drop-dm-disabled", { eventId, directUserId });
         await this.processedEventsStore.markCompleted(eventId);
         return;
       }
@@ -265,6 +285,7 @@ export class SlackSocketService {
               }
             }
           }
+          debugSlackEvent("drop-dm-not-allowed", { eventId, directUserId, policy: dmConfig.policy });
           await this.processedEventsStore.markCompleted(eventId);
           return;
         }
@@ -304,6 +325,13 @@ export class SlackSocketService {
           directReplyToBot: isImplicitBotThreadReply(event, this.botUserId),
         }));
     if (requiresMention && !wasMentioned) {
+      debugSlackEvent("drop-require-mention", {
+        eventId,
+        channelId,
+        requiresMention,
+        explicitMention,
+        effectiveFollowUpMode,
+      });
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
@@ -328,10 +356,18 @@ export class SlackSocketService {
     });
     const text = prependAttachmentMentions(rawText, attachmentPaths);
     if (!text) {
+      debugSlackEvent("drop-empty-text", { eventId, channelId });
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
 
+    debugSlackEvent("process-message", {
+      eventId,
+      channelId,
+      threadTs,
+      sessionKey: sessionTarget.sessionKey,
+      conversationKind: params.conversationKind,
+    });
     await this.processedEventsStore.markProcessing(eventId);
     await this.activityStore.record({
       agentId: params.route.agentId,
@@ -418,6 +454,11 @@ export class SlackSocketService {
   private registerEvents() {
     this.app.event("app_mention", async ({ body, event }) => {
       const normalizedEvent = normalizeSlackMessageEvent(event as any);
+      debugSlackEvent("received-app-mention", {
+        eventId: body.event_id,
+        channel: normalizedEvent.channel,
+        text: normalizedEvent.text,
+      });
       const resolvedRoute = resolveSlackConversationRoute(
         this.loadedConfig,
         normalizedEvent,
@@ -425,6 +466,11 @@ export class SlackSocketService {
       );
       const route = resolvedRoute.route;
       if (!route) {
+        debugSlackEvent("drop-no-route", {
+          eventId: body.event_id,
+          channel: normalizedEvent.channel,
+          type: "app_mention",
+        });
         return;
       }
 
@@ -439,6 +485,12 @@ export class SlackSocketService {
 
     this.app.event("message", async ({ body, event }) => {
       const normalizedEvent = normalizeSlackMessageEvent(event as any);
+      debugSlackEvent("received-message", {
+        eventId: body.event_id,
+        channel: normalizedEvent.channel,
+        subtype: normalizedEvent.subtype,
+        text: normalizedEvent.text,
+      });
       const resolvedRoute = resolveSlackConversationRoute(
         this.loadedConfig,
         normalizedEvent,
@@ -447,6 +499,11 @@ export class SlackSocketService {
       const route = resolvedRoute.route;
 
       if (!route) {
+        debugSlackEvent("drop-no-route", {
+          eventId: body.event_id,
+          channel: normalizedEvent.channel,
+          type: "message",
+        });
         return;
       }
 
@@ -476,7 +533,7 @@ export class SlackSocketService {
     });
     await Promise.race([
       this.startPromise,
-      Bun.sleep(1_000),
+      sleep(1_000),
     ]);
   }
 

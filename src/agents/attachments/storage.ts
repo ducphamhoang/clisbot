@@ -1,5 +1,6 @@
 import { access } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { writeFileBuffer } from "../../shared/fs.ts";
 import { ensureDir, sanitizeSessionName } from "../../shared/paths.ts";
 
 const CONTENT_TYPE_EXTENSION_MAP: Record<string, string> = {
@@ -88,6 +89,6 @@ export async function saveWorkspaceAttachment(params: {
     contentType: params.contentType,
   });
   const filePath = await resolveUniquePath(attachmentDir, fileName);
-  await Bun.write(filePath, params.buffer);
+  await writeFileBuffer(filePath, params.buffer);
   return filePath;
 }

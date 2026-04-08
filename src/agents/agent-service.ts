@@ -13,6 +13,7 @@ import {
 } from "../config/load-config.ts";
 import { buildTmuxSessionName, normalizeMainKey } from "./session-key.ts";
 import { applyTemplate, ensureDir } from "../shared/paths.ts";
+import { sleep } from "../shared/process.ts";
 import { deriveInteractionText, normalizePaneText } from "../shared/transcript.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { AgentJobQueue } from "./job-queue.ts";
@@ -64,6 +65,7 @@ type ShellCommandResult = {
 const BASH_WINDOW_NAME = "bash";
 const BASH_WINDOW_STARTUP_DELAY_MS = 150;
 const TMUX_MISSING_SESSION_PATTERN = /can't find session:/i;
+const TMUX_DUPLICATE_SESSION_PATTERN = /duplicate session:/i;
 
 function shellQuote(value: string) {
   if (/^[a-zA-Z0-9_./:@=-]+$/.test(value)) {
@@ -78,6 +80,11 @@ function buildCommandString(command: string, args: string[]) {
 
 function escapeRegExp(raw: string) {
   return raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isTmuxDuplicateSessionError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return TMUX_DUPLICATE_SESSION_PATTERN.test(message);
 }
 
 function isMissingTmuxSessionError(error: unknown) {
@@ -387,11 +394,11 @@ export class AgentService {
     const startedAt = Date.now();
 
     await this.tmux.sendLiteral(resolved.sessionName, capture.statusCommand);
-    await Bun.sleep(resolved.runner.promptSubmitDelayMs);
+    await sleep(resolved.runner.promptSubmitDelayMs);
     await this.tmux.sendKey(resolved.sessionName, "Enter");
 
     while (Date.now() - startedAt < capture.timeoutMs) {
-      await Bun.sleep(capture.pollIntervalMs);
+      await sleep(capture.pollIntervalMs);
       const snapshot = normalizePaneText(
         await this.tmux.capturePane(resolved.sessionName, resolved.stream.captureLines),
       );
@@ -435,13 +442,22 @@ export class AgentService {
     });
     const command = buildCommandString(runnerLaunch.command, runnerLaunch.args);
 
-    await this.tmux.newSession({
-      sessionName: resolved.sessionName,
-      cwd: resolved.workspacePath,
-      command,
-    });
+    try {
+      await this.tmux.newSession({
+        sessionName: resolved.sessionName,
+        cwd: resolved.workspacePath,
+        command,
+      });
+    } catch (error) {
+      if (
+        !isTmuxDuplicateSessionError(error) ||
+        !(await this.tmux.hasSession(resolved.sessionName))
+      ) {
+        throw error;
+      }
+    }
 
-    await Bun.sleep(resolved.runner.startupDelayMs);
+    await sleep(resolved.runner.startupDelayMs);
     if (!(await this.tmux.hasSession(resolved.sessionName))) {
       if (resumingExistingSession) {
         const retried = await this.retryFreshStartWithClearedSessionId(
@@ -489,7 +505,7 @@ export class AgentService {
         snapshot.includes("Press enter to continue")
       ) {
         await this.tmux.sendKey(resolved.sessionName, "Enter");
-        await Bun.sleep(1500);
+        await sleep(1500);
       }
     }
 
@@ -571,7 +587,7 @@ export class AgentService {
       await this.touchSessionEntry(resolved);
       try {
         await this.tmux.sendKey(resolved.sessionName, "Escape");
-        await Bun.sleep(150);
+        await sleep(150);
       } catch {
         // Ignore interrupt failures and return the session state.
       }
@@ -663,7 +679,7 @@ export class AgentService {
       name: BASH_WINDOW_NAME,
       command: buildCommandString("env", ["PS1=", "HISTFILE=/dev/null", "bash", "--noprofile", "--norc", "-i"]),
     });
-    await Bun.sleep(BASH_WINDOW_STARTUP_DELAY_MS);
+    await sleep(BASH_WINDOW_STARTUP_DELAY_MS);
 
     return {
       ...resolved,
@@ -687,18 +703,18 @@ export class AgentService {
     let lastInteractionSnapshot = "";
 
     await this.tmux.sendLiteralTarget(resolved.paneId, command);
-    await Bun.sleep(50);
+    await sleep(50);
     await this.tmux.sendKeyTarget(resolved.paneId, "Enter");
-    await Bun.sleep(50);
+    await sleep(50);
     await this.tmux.sendLiteralTarget(
       resolved.paneId,
       `printf '\\n${sentinel}:%s\\n' "$?"`,
     );
-    await Bun.sleep(50);
+    await sleep(50);
     await this.tmux.sendKeyTarget(resolved.paneId, "Enter");
 
     while (Date.now() - startedAt < maxRuntimeMs) {
-      await Bun.sleep(250);
+      await sleep(250);
       const snapshot = normalizePaneText(await this.tmux.captureTarget(resolved.paneId, captureLines));
       const interactionSnapshot = deriveInteractionText(initialSnapshot, snapshot);
       lastInteractionSnapshot = interactionSnapshot;
@@ -808,14 +824,14 @@ export class AgentService {
 
     try {
       await this.tmux.sendLiteral(resolved.sessionName, prompt);
-      await Bun.sleep(resolved.runner.promptSubmitDelayMs);
+      await sleep(resolved.runner.promptSubmitDelayMs);
       await this.tmux.sendKey(resolved.sessionName, "Enter");
     } catch (error) {
       throw this.mapSessionError(error, resolved.sessionName, "before prompt submission");
     }
 
     while (true) {
-      await Bun.sleep(resolved.stream.updateIntervalMs);
+      await sleep(resolved.stream.updateIntervalMs);
       let snapshot = "";
       try {
         snapshot = normalizePaneText(

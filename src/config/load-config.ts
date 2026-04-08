@@ -6,6 +6,7 @@ import {
   DEFAULT_TMUX_SOCKET_PATH,
   expandHomePath,
 } from "../shared/paths.ts";
+import { readTextFile } from "../shared/fs.ts";
 import { resolveConfigDurationMs } from "./duration.ts";
 import { resolveConfigEnvVars } from "./env-substitution.ts";
 import { type AgentEntry, type MuxbotConfig, muxbotConfigSchema } from "./schema.ts";
@@ -41,11 +42,31 @@ export type LoadedConfig = {
 
 export async function loadConfig(configPath = DEFAULT_CONFIG_PATH): Promise<LoadedConfig> {
   const expandedConfigPath = expandHomePath(configPath);
-  const text = await Bun.file(expandedConfigPath).text();
+  const text = await readTextFile(expandedConfigPath);
   const parsed = JSON.parse(text);
-  const substituted = resolveConfigEnvVars(parsed) as unknown;
+  const substituted = resolveConfigEnvVars(parsed, process.env, {
+    skipPaths: getDisabledChannelTokenPaths(parsed),
+  }) as unknown;
   const validated = muxbotConfigSchema.parse(substituted);
 
+  return materializeLoadedConfig(expandedConfigPath, validated);
+}
+
+export async function loadConfigWithoutEnvResolution(
+  configPath = DEFAULT_CONFIG_PATH,
+): Promise<LoadedConfig> {
+  const expandedConfigPath = expandHomePath(configPath);
+  const text = await readTextFile(expandedConfigPath);
+  const parsed = JSON.parse(text);
+  const validated = muxbotConfigSchema.parse(parsed);
+
+  return materializeLoadedConfig(expandedConfigPath, validated);
+}
+
+function materializeLoadedConfig(
+  expandedConfigPath: string,
+  validated: MuxbotConfig,
+): LoadedConfig {
   return {
     configPath: expandedConfigPath,
     processedEventsPath: DEFAULT_PROCESSED_EVENTS_PATH,
@@ -73,6 +94,29 @@ export async function loadConfig(configPath = DEFAULT_CONFIG_PATH): Promise<Load
       },
     },
   };
+}
+
+function getDisabledChannelTokenPaths(parsed: unknown) {
+  const skipPaths: string[] = [];
+  const channels = isRecord(parsed) ? parsed.channels : undefined;
+
+  if (isRecord(channels)) {
+    const slack = isRecord(channels.slack) ? channels.slack : undefined;
+    if (slack?.enabled === false) {
+      skipPaths.push("channels.slack.appToken", "channels.slack.botToken");
+    }
+
+    const telegram = isRecord(channels.telegram) ? channels.telegram : undefined;
+    if (telegram?.enabled === false) {
+      skipPaths.push("channels.telegram.botToken");
+    }
+  }
+
+  return skipPaths;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function getAgentEntry(config: LoadedConfig, agentId: string): AgentEntry | undefined {

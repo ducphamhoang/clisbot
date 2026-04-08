@@ -1,9 +1,11 @@
+import { spawn } from "node:child_process";
 import { closeSync, existsSync, openSync, rmSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { kill } from "node:process";
 import { loadConfig } from "../config/load-config.ts";
 import { renderDefaultConfigTemplate } from "../config/template.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
+import { readTextFile, readTextFileSlice, writeTextFile } from "../shared/fs.ts";
 import {
   DEFAULT_CONFIG_PATH,
   DEFAULT_RUNTIME_LOG_PATH,
@@ -12,11 +14,24 @@ import {
   ensureDir,
   expandHomePath,
 } from "../shared/paths.ts";
+import { sleep } from "../shared/process.ts";
 import type { ConfigBootstrapOptions } from "../config/config-file.ts";
 
 const START_WAIT_TIMEOUT_MS = 10_000;
 const STOP_WAIT_TIMEOUT_MS = 10_000;
 const PROCESS_POLL_INTERVAL_MS = 100;
+
+function resolveConfigPath(configPath?: string) {
+  return expandHomePath(configPath ?? process.env.MUXBOT_CONFIG_PATH ?? DEFAULT_CONFIG_PATH);
+}
+
+function resolvePidPath(pidPath?: string) {
+  return expandHomePath(pidPath ?? process.env.MUXBOT_PID_PATH ?? DEFAULT_RUNTIME_PID_PATH);
+}
+
+function resolveLogPath(logPath?: string) {
+  return expandHomePath(logPath ?? process.env.MUXBOT_LOG_PATH ?? DEFAULT_RUNTIME_LOG_PATH);
+}
 
 export type RuntimeStartResult = {
   alreadyRunning: boolean;
@@ -57,13 +72,13 @@ type WaitForStartResult =
       childPid: number;
     };
 
-export function readRuntimePid(pidPath = DEFAULT_RUNTIME_PID_PATH) {
-  const expandedPidPath = expandHomePath(pidPath);
+export function readRuntimePid(pidPath?: string) {
+  const expandedPidPath = resolvePidPath(pidPath);
   if (!existsSync(expandedPidPath)) {
     return null;
   }
 
-  const raw = Bun.file(expandedPidPath).text();
+  const raw = readTextFile(expandedPidPath);
   return raw.then((value) => {
     const pid = Number.parseInt(value.trim(), 10);
     return Number.isInteger(pid) && pid > 0 ? pid : null;
@@ -80,10 +95,10 @@ export function isProcessRunning(pid: number) {
 }
 
 export async function ensureConfigFile(
-  configPath = DEFAULT_CONFIG_PATH,
+  configPath?: string,
   options: ConfigBootstrapOptions = {},
 ) {
-  const expandedConfigPath = expandHomePath(configPath);
+  const expandedConfigPath = resolveConfigPath(configPath);
   await ensureDir(dirname(expandedConfigPath));
 
   if (existsSync(expandedConfigPath)) {
@@ -93,7 +108,7 @@ export async function ensureConfigFile(
     };
   }
 
-  await Bun.write(
+  await writeTextFile(
     expandedConfigPath,
     renderDefaultConfigTemplate({
       slackEnabled: options.slackEnabled,
@@ -115,15 +130,15 @@ export async function startDetachedRuntime(params: {
   pidPath?: string;
   logPath?: string;
 }) {
-  const pidPath = expandHomePath(params.pidPath ?? DEFAULT_RUNTIME_PID_PATH);
-  const logPath = expandHomePath(params.logPath ?? DEFAULT_RUNTIME_LOG_PATH);
+  const pidPath = resolvePidPath(params.pidPath);
+  const logPath = resolveLogPath(params.logPath);
   const existingPid = await readRuntimePid(pidPath);
   if (existingPid && isProcessRunning(existingPid)) {
     return {
       alreadyRunning: true,
       createdConfig: false,
       pid: existingPid,
-      configPath: expandHomePath(params.configPath ?? DEFAULT_CONFIG_PATH),
+      configPath: resolveConfigPath(params.configPath),
       logPath,
     } satisfies RuntimeStartResult;
   }
@@ -138,27 +153,26 @@ export async function startDetachedRuntime(params: {
   const logStartOffset = getLogSize(logPath);
 
   const logFd = openSync(logPath, "a");
-  const child = Bun.spawn(
-    [process.execPath, params.scriptPath, "serve-foreground"],
-    {
-      stdin: "ignore",
-      stdout: logFd,
-      stderr: logFd,
-      detached: true,
-      env: {
-        ...process.env,
-        MUXBOT_CONFIG_PATH: configResult.configPath,
-        MUXBOT_PID_PATH: pidPath,
-        MUXBOT_LOG_PATH: logPath,
-      },
+  const child = spawn(process.execPath, [params.scriptPath, "serve-foreground"], {
+    stdio: ["ignore", logFd, logFd],
+    detached: true,
+    env: {
+      ...process.env,
+      MUXBOT_CONFIG_PATH: configResult.configPath,
+      MUXBOT_PID_PATH: pidPath,
+      MUXBOT_LOG_PATH: logPath,
     },
-  );
+  });
   closeSync(logFd);
   child.unref();
+  const childPid = child.pid;
+  if (childPid == null) {
+    throw new Error("muxbot failed to spawn detached runtime process");
+  }
 
   const started = await waitForStart({
     pidPath,
-    childPid: child.pid,
+    childPid,
     timeoutMs: START_WAIT_TIMEOUT_MS,
   });
   if (!started.ok) {
@@ -176,7 +190,7 @@ export async function startDetachedRuntime(params: {
   return {
     alreadyRunning: false,
     createdConfig: configResult.created,
-    pid: runtimePid ?? child.pid,
+    pid: runtimePid ?? childPid,
     configPath: configResult.configPath,
     logPath,
   } satisfies RuntimeStartResult;
@@ -187,7 +201,7 @@ export async function stopDetachedRuntime(params: {
   hard?: boolean;
   configPath?: string;
 }) {
-  const pidPath = expandHomePath(params.pidPath ?? DEFAULT_RUNTIME_PID_PATH);
+  const pidPath = resolvePidPath(params.pidPath);
   const existingPid = await readRuntimePid(pidPath);
   let stopped = false;
 
@@ -217,14 +231,14 @@ export async function stopDetachedRuntime(params: {
   };
 }
 
-export async function writeRuntimePid(pidPath = DEFAULT_RUNTIME_PID_PATH, pid = process.pid) {
-  const expandedPidPath = expandHomePath(pidPath);
+export async function writeRuntimePid(pidPath?: string, pid = process.pid) {
+  const expandedPidPath = resolvePidPath(pidPath);
   await ensureDir(dirname(expandedPidPath));
-  await Bun.write(expandedPidPath, `${pid}\n`);
+  await writeTextFile(expandedPidPath, `${pid}\n`);
 }
 
-export function removeRuntimePid(pidPath = DEFAULT_RUNTIME_PID_PATH) {
-  rmSync(expandHomePath(pidPath), { force: true });
+export function removeRuntimePid(pidPath?: string) {
+  rmSync(resolvePidPath(pidPath), { force: true });
 }
 
 export async function getRuntimeStatus(params: {
@@ -232,9 +246,9 @@ export async function getRuntimeStatus(params: {
   pidPath?: string;
   logPath?: string;
 } = {}): Promise<RuntimeStatus> {
-  const configPath = expandHomePath(params.configPath ?? DEFAULT_CONFIG_PATH);
-  const pidPath = expandHomePath(params.pidPath ?? DEFAULT_RUNTIME_PID_PATH);
-  const logPath = expandHomePath(params.logPath ?? DEFAULT_RUNTIME_LOG_PATH);
+  const configPath = resolveConfigPath(params.configPath);
+  const pidPath = resolvePidPath(params.pidPath);
+  const logPath = resolveLogPath(params.logPath);
   const pid = await readRuntimePid(pidPath);
 
   return {
@@ -252,7 +266,7 @@ export async function readRuntimeLog(params: {
   lines?: number;
   startOffset?: number;
 } = {}) {
-  const logPath = expandHomePath(params.logPath ?? DEFAULT_RUNTIME_LOG_PATH);
+  const logPath = resolveLogPath(params.logPath);
   const lines = params.lines ?? 200;
   if (!existsSync(logPath)) {
     return {
@@ -271,12 +285,11 @@ export async function readRuntimeLog(params: {
 }
 
 async function readLogText(logPath: string, startOffset?: number) {
-  const file = Bun.file(logPath);
   if (startOffset == null || startOffset <= 0) {
-    return await file.text();
+    return await readTextFile(logPath);
   }
 
-  return await file.slice(startOffset).text();
+  return await readTextFileSlice(logPath, startOffset);
 }
 
 function getLogSize(logPath: string) {
@@ -314,7 +327,7 @@ async function waitForStart(params: {
       };
     }
 
-    await Bun.sleep(PROCESS_POLL_INTERVAL_MS);
+    await sleep(PROCESS_POLL_INTERVAL_MS);
   }
 
   return {
@@ -332,7 +345,7 @@ async function waitForProcessExit(pid: number, timeoutMs: number) {
     if (!isProcessRunning(pid)) {
       return true;
     }
-    await Bun.sleep(PROCESS_POLL_INTERVAL_MS);
+    await sleep(PROCESS_POLL_INTERVAL_MS);
   }
   return !isProcessRunning(pid);
 }
@@ -376,8 +389,8 @@ function renderStartFailureReason(
   return `runtime did not become ready and no pid file was written to ${pidPath}${cleanupSuffix}`;
 }
 
-async function resolveTmuxSocketPath(configPath = DEFAULT_CONFIG_PATH) {
-  const expandedConfigPath = expandHomePath(configPath);
+async function resolveTmuxSocketPath(configPath?: string) {
+  const expandedConfigPath = resolveConfigPath(configPath);
   if (!existsSync(expandedConfigPath)) {
     return expandHomePath(DEFAULT_TMUX_SOCKET_PATH);
   }
@@ -387,7 +400,7 @@ async function resolveTmuxSocketPath(configPath = DEFAULT_CONFIG_PATH) {
     return loaded.raw.tmux.socketPath;
   } catch {
     try {
-      const text = await Bun.file(expandedConfigPath).text();
+      const text = await readTextFile(expandedConfigPath);
       const parsed = JSON.parse(text) as { tmux?: { socketPath?: string } };
       if (typeof parsed.tmux?.socketPath === "string" && parsed.tmux.socketPath.trim()) {
         return expandHomePath(parsed.tmux.socketPath);

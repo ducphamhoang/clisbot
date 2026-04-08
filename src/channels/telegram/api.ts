@@ -1,3 +1,5 @@
+import { sleep } from "../../shared/process.ts";
+
 export class TelegramApiError extends Error {
   constructor(
     readonly method: string,
@@ -47,7 +49,7 @@ export async function retryTelegramPollingConflict<TResult>(params: {
   maxWaitMs: number;
   sleep?: (ms: number) => Promise<void>;
 }) {
-  const sleep = params.sleep ?? ((ms: number) => Bun.sleep(ms));
+  const wait = params.sleep ?? sleep;
   const deadline = Date.now() + params.maxWaitMs;
 
   while (true) {
@@ -58,7 +60,7 @@ export async function retryTelegramPollingConflict<TResult>(params: {
         throw error;
       }
 
-      await sleep(params.retryDelayMs);
+      await wait(params.retryDelayMs);
     }
   }
 }
@@ -119,7 +121,7 @@ export async function callTelegramApi<TResult>(
       payload.error_code === 429 ? getTelegramRetryAfterMs(payload) : null;
     if (retryAfterMs != null && attemptsRemaining > 0) {
       attemptsRemaining -= 1;
-      await Bun.sleep(retryAfterMs);
+      await sleep(retryAfterMs);
       continue;
     }
 

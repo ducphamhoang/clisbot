@@ -1,4 +1,5 @@
 import { callTelegramApi } from "./api.ts";
+import { sleep } from "../../shared/process.ts";
 
 const TELEGRAM_MIN_EDIT_INTERVAL_MS = 4000;
 const lastTelegramEditAtByMessage = new Map<string, number>();
@@ -33,7 +34,7 @@ async function paceTelegramEdit(params: {
     lastEditedAt: lastTelegramEditAtByMessage.get(key),
   });
   if (delayMs > 0) {
-    await Bun.sleep(delayMs);
+    await sleep(delayMs);
   }
 }
 

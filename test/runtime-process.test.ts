@@ -2,14 +2,20 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { readRuntimeLog } from "../src/control/runtime-process.ts";
+import { getRuntimeStatus, readRuntimeLog, readRuntimePid } from "../src/control/runtime-process.ts";
 
 const tempDirs: string[] = [];
+const originalMuxbotConfigPath = process.env.MUXBOT_CONFIG_PATH;
+const originalMuxbotPidPath = process.env.MUXBOT_PID_PATH;
+const originalMuxbotLogPath = process.env.MUXBOT_LOG_PATH;
 
 afterEach(() => {
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop()!, { force: true, recursive: true });
   }
+  process.env.MUXBOT_CONFIG_PATH = originalMuxbotConfigPath;
+  process.env.MUXBOT_PID_PATH = originalMuxbotPidPath;
+  process.env.MUXBOT_LOG_PATH = originalMuxbotLogPath;
 });
 
 function createTempDir() {
@@ -33,5 +39,29 @@ describe("readRuntimeLog", () => {
     });
 
     expect(result.text).toBe("fresh line 1\nfresh line 2");
+  });
+});
+
+describe("runtime path defaults", () => {
+  test("uses MUXBOT_* env vars when explicit paths are omitted", async () => {
+    const dir = createTempDir();
+    const configPath = join(dir, "custom-config.json");
+    const pidPath = join(dir, "custom.pid");
+    const logPath = join(dir, "custom.log");
+
+    writeFileSync(configPath, "{}\n");
+    writeFileSync(pidPath, "12345\n");
+    writeFileSync(logPath, "runtime log\n");
+
+    process.env.MUXBOT_CONFIG_PATH = configPath;
+    process.env.MUXBOT_PID_PATH = pidPath;
+    process.env.MUXBOT_LOG_PATH = logPath;
+
+    expect(await readRuntimePid()).toBe(12345);
+
+    const status = await getRuntimeStatus();
+    expect(status.configPath).toBe(configPath);
+    expect(status.pidPath).toBe(pidPath);
+    expect(status.logPath).toBe(logPath);
   });
 });

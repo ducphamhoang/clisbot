@@ -1,3 +1,5 @@
+import { runCommand } from "../../shared/process.ts";
+
 type TmuxExecResult = {
   stdout: string;
   stderr: string;
@@ -8,24 +10,10 @@ export class TmuxClient {
   constructor(private readonly socketPath: string) {}
 
   private async exec(args: string[], options: { cwd?: string } = {}): Promise<TmuxExecResult> {
-    const proc = Bun.spawn(["tmux", "-S", this.socketPath, ...args], {
+    return await runCommand("tmux", ["-S", this.socketPath, ...args], {
       cwd: options.cwd,
-      stdout: "pipe",
-      stderr: "pipe",
       env: process.env,
     });
-
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-
-    return {
-      stdout,
-      stderr,
-      exitCode,
-    };
   }
 
   private async execOrThrow(args: string[], options: { cwd?: string } = {}) {

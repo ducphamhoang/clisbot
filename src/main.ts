@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { parseCliArgs, renderCliHelp } from "./cli.ts";
 import { runPairingCli } from "./channels/pairing/cli.ts";
 import { addAgentToEditableConfig, runAgentsCli } from "./control/agents-cli.ts";
@@ -45,6 +46,7 @@ import {
   renderOperatorErrorWithHelpLines,
   renderRuntimeErrorLines,
 } from "./control/operator-errors.ts";
+import { commandExists } from "./shared/process.ts";
 
 type PreparedBootstrapState = {
   channelAvailability: ReturnType<typeof getDefaultChannelAvailability>;
@@ -145,10 +147,7 @@ async function ensureDefaultAgentBootstrap(
   }
 
   if (commandName === "start") {
-    const installed = Bun.spawnSync(["which", options.cliTool], {
-      stdout: "ignore",
-      stderr: "ignore",
-    }).exitCode === 0;
+    const installed = commandExists(options.cliTool);
     if (!installed) {
       console.log(`warning ${options.cliTool} is not installed, so muxbot did not start.`);
       console.log(`Install \`${options.cliTool}\`, then run start again.`);
@@ -260,7 +259,7 @@ async function start(options: StartCommandOptions = {}) {
   }
 
   const result = await startDetachedRuntime({
-    scriptPath: import.meta.path,
+    scriptPath: fileURLToPath(import.meta.url),
     configPath: state.configResult.configPath,
   });
 
@@ -436,7 +435,7 @@ async function logs(lines: number) {
 }
 
 async function main() {
-  const command = parseCliArgs(Bun.argv);
+  const command = parseCliArgs(process.argv);
 
   if (command.name === "help") {
     console.log(renderCliHelp());

@@ -164,4 +164,39 @@ describe("runtime summaries", () => {
     expect(startText).toContain("Chat with the bot or open the workspace, then follow BOOTSTRAP.md");
     expect(startText).toContain("Next steps after bootstrap:");
   });
+
+  test("falls back to raw config when token env vars are missing in the operator shell", async () => {
+    delete process.env.SLACK_APP_TOKEN;
+    delete process.env.SLACK_BOT_TOKEN;
+    delete process.env.TELEGRAM_BOT_TOKEN;
+
+    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
+    const configPath = join(tempDir, "muxbot.json");
+    const config = muxbotConfigSchema.parse(
+      JSON.parse(
+        renderDefaultConfigTemplate({
+          slackEnabled: true,
+          telegramEnabled: true,
+        }),
+      ),
+    );
+    config.agents.list = [
+      {
+        id: "default",
+        cliTool: "codex",
+        bootstrap: { mode: "team-assistant" },
+      },
+    ];
+    await writeEditableConfig(configPath, config);
+
+    const summary = await getRuntimeOperatorSummary({
+      configPath,
+      runtimeRunning: true,
+    });
+    const text = renderStatusSummary(summary);
+
+    expect(text).toContain("agents=1");
+    expect(text).toContain("slack enabled=yes");
+    expect(text).toContain("telegram enabled=yes");
+  });
 });

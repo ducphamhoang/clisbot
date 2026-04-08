@@ -1,4 +1,5 @@
 import { dirname } from "node:path";
+import { fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
 import { DEFAULT_ACTIVITY_STORE_PATH, ensureDir } from "../shared/paths.ts";
 
 type ActivityRecord = {
@@ -35,15 +36,14 @@ export class ActivityStore {
   }
 
   async read() {
-    const file = Bun.file(this.filePath);
-    if (!(await file.exists())) {
+    if (!(await fileExists(this.filePath))) {
       return {
         agents: {},
         channels: {},
       } satisfies ActivityDocument;
     }
 
-    const text = await file.text();
+    const text = await readTextFile(this.filePath);
     if (!text.trim()) {
       return {
         agents: {},
@@ -60,6 +60,6 @@ export class ActivityStore {
 
   private async write(document: ActivityDocument) {
     await ensureDir(dirname(this.filePath));
-    await Bun.write(this.filePath, `${JSON.stringify(document, null, 2)}\n`);
+    await writeTextFile(this.filePath, `${JSON.stringify(document, null, 2)}\n`);
   }
 }
