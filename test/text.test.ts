@@ -226,6 +226,19 @@ This project maps channel messages into tmux-backed agents.
     expect(cleaned).not.toContain("• # Gemma");
   });
 
+  test("joins wrapped word fragments without inserting spaces", () => {
+    const cleaned = cleanInteractionSnapshot(`
+• - Bun’s latest stable release is v1.3.11, according to the official Bun homep
+    age: https://bun.sh/
+  - Node.js’s latest LTS major version is 24 (Krypton), and the latest release
+    in that LTS line is v24.14.1.
+    `);
+
+    expect(cleaned).toContain("official Bun homepage: https://bun.sh/");
+    expect(cleaned).toContain("Node.js’s latest LTS major version");
+    expect(cleaned).not.toContain("homep age");
+  });
+
   test("drops codex footer timing lines", () => {
     const cleaned = cleanInteractionSnapshot(`
 › search the web

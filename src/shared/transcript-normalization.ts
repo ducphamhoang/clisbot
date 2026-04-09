@@ -80,7 +80,32 @@ function joinWrappedLines(previousLine: string, currentLine: string) {
     return `${previous}${current}`;
   }
 
+  if (shouldJoinWrappedWord(previous, current, currentLine)) {
+    return `${previous}${current}`;
+  }
+
   return `${previous} ${current}`;
+}
+
+function shouldJoinWrappedWord(previousLine: string, currentLine: string, rawCurrentLine: string) {
+  if (!/^\s{2,}/.test(rawCurrentLine)) {
+    return false;
+  }
+
+  const previousMatch = previousLine.match(/([A-Za-z][A-Za-z.'’:-]*)$/);
+  const currentMatch = currentLine.match(/^([a-z][A-Za-z:'’.-]{0,4})(\b|[^A-Za-z]|$)/);
+  const previousToken = previousMatch?.[1] ?? "";
+  const currentToken = currentMatch?.[1] ?? "";
+
+  if (!previousToken || !currentToken) {
+    return false;
+  }
+
+  if (previousToken.length < 4) {
+    return false;
+  }
+
+  return currentToken.length <= 4;
 }
 
 function stripUrlContinuationGaps(lines: string[]) {
