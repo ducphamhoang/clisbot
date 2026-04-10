@@ -101,4 +101,20 @@ describe("TmuxClient", () => {
     await client.killPane(paneId);
     await client.killSession(sessionName);
   }, 10000);
+
+  test("surfaces a clean error when tmux is missing from PATH", async () => {
+    socketDir = mkdtempSync(join(tmpdir(), "clisbot-socket-"));
+    const socketPath = join(socketDir, "clisbot.sock");
+    const client = new TmuxClient(socketPath);
+    const originalPath = process.env.PATH;
+
+    process.env.PATH = "";
+    try {
+      await expect(client.listSessions()).rejects.toThrow(
+        "tmux is not installed or not available on PATH. Install tmux and restart clisbot.",
+      );
+    } finally {
+      process.env.PATH = originalPath;
+    }
+  });
 });

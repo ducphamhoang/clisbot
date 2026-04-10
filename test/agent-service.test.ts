@@ -23,6 +23,7 @@ class FakeTmuxClient {
   private sessions = new Map<string, FakeSession>();
   private readonly invalidResumeSessionIds = new Set<string>();
   private readonly disappearingOnCaptureSessionIds = new Set<string>();
+  private readonly noServerOnCaptureSessionIds = new Set<string>();
   private readonly duplicateOnNewSession = new Set<string>();
   private serverRunning = true;
   private nextTrustPromptCaptureCount: number | null = null;
@@ -33,6 +34,10 @@ class FakeTmuxClient {
 
   markSessionIdDisappearOnCapture(sessionId: string) {
     this.disappearingOnCaptureSessionIds.add(sessionId);
+  }
+
+  markNoServerOnCapture(sessionId: string) {
+    this.noServerOnCaptureSessionIds.add(sessionId);
   }
 
   markDuplicateOnNewSession(sessionName: string) {
@@ -139,6 +144,12 @@ class FakeTmuxClient {
       this.disappearingOnCaptureSessionIds.delete(session.sessionId);
       this.sessions.delete(sessionName);
       throw new Error(`can't find session: ${sessionName}`);
+    }
+    if (this.noServerOnCaptureSessionIds.has(session.sessionId)) {
+      this.noServerOnCaptureSessionIds.delete(session.sessionId);
+      this.sessions.clear();
+      this.serverRunning = false;
+      throw new Error("no server running on /tmp/clisbot.sock");
     }
     if (session.trustPromptOnCapture != null) {
       if (session.trustPromptOnCapture <= 0) {
@@ -614,6 +625,79 @@ describe("AgentService session identity", () => {
 
       await fakeTmux.killSession(firstRun.sessionName);
       fakeTmux.markSessionIdDisappearOnCapture(firstSessionId ?? "");
+
+      const secondRun = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+      const nextSessionId = readSessionId(storePath, target.sessionKey);
+      expect(typeof nextSessionId).toBe("string");
+      expect(nextSessionId).not.toBe(firstSessionId);
+      expect(secondRun.snapshot).toContain(`PONG ${nextSessionId ?? ""}`);
+      expect(fakeTmux.sessionCommands[1]).toContain(`resume ${firstSessionId ?? ""}`);
+      expect(fakeTmux.sessionCommands[2]).toContain(`--session-id ${nextSessionId ?? ""}`);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("falls back to a fresh runner session when tmux reports no server running before prompt submission", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: ["-C", "{workspace}"],
+            sessionId: {
+              create: {
+                mode: "explicit",
+                args: ["--session-id", "{sessionId}"],
+              },
+              capture: {
+                mode: "off",
+                statusCommand: "/status",
+                pattern: "[0-9a-fA-F-]{36}",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:telegram:group:-1001:topic:6",
+      };
+
+      const firstRun = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+      const firstSessionId = readSessionId(storePath, target.sessionKey);
+      expect(typeof firstSessionId).toBe("string");
+      expect(firstRun.snapshot).toContain(`PONG ${firstSessionId ?? ""}`);
+
+      await fakeTmux.killSession(firstRun.sessionName);
+      fakeTmux.markNoServerOnCapture(firstSessionId ?? "");
 
       const secondRun = await service.enqueuePrompt(target, "ping", {
         onUpdate: () => undefined,

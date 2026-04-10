@@ -29,3 +29,6 @@ Invoke high-skill teams to work on this autonomously for high output quality, an
 You can use the `slack-cli` skill to test yourself whether the message is sent correctly and stably or not.
 
 Autonomous, long session, prefer high quality, completeness, no workaround mode.
+
+2026-04-10
+This project has been renamed from tmux-talk, to muxbot, to clisbot

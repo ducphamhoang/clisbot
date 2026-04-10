@@ -105,7 +105,7 @@ export async function waitForTmuxSessionBootstrap(params: {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("can't find session:")) {
+      if (message.includes("can't find session:") || message.includes("no server running on ")) {
         return "";
       }
       throw error;

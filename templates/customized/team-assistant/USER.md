@@ -1,9 +1,3 @@
----
-summary: "Team profile record for a shared assistant workspace"
-read_when:
-  - Bootstrapping a workspace manually
----
-
 # USER.md - About The Team
 
 Use this file for shared team context when the bot is acting as an independent assistant in a team environment.

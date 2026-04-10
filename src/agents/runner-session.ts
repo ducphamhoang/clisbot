@@ -35,7 +35,7 @@ export type ShellCommandResult = {
   timedOut: boolean;
 };
 
-const TMUX_MISSING_SESSION_PATTERN = /can't find session:/i;
+const TMUX_MISSING_SESSION_PATTERN = /(?:can't find session:|no server running on )/i;
 const TMUX_DUPLICATE_SESSION_PATTERN = /duplicate session:/i;
 
 type SessionErrorAction =

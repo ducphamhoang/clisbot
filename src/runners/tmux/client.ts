@@ -1,6 +1,7 @@
 import { runCommand } from "../../shared/process.ts";
 
 const MAIN_WINDOW_NAME = "main";
+const TMUX_NOT_FOUND_CODE = "ENOENT";
 
 type TmuxExecResult = {
   stdout: string;
@@ -12,10 +13,28 @@ export class TmuxClient {
   constructor(private readonly socketPath: string) {}
 
   private async exec(args: string[], options: { cwd?: string } = {}): Promise<TmuxExecResult> {
-    return await runCommand("tmux", ["-S", this.socketPath, ...args], {
-      cwd: options.cwd,
-      env: process.env,
-    });
+    try {
+      return await runCommand("tmux", ["-S", this.socketPath, ...args], {
+        cwd: options.cwd,
+        env: process.env,
+      });
+    } catch (error) {
+      throw this.mapExecError(error);
+    }
+  }
+
+  private mapExecError(error: unknown) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      error.code === TMUX_NOT_FOUND_CODE
+    ) {
+      return new Error(
+        "tmux is not installed or not available on PATH. Install tmux and restart clisbot.",
+      );
+    }
+
+    return error instanceof Error ? error : new Error(String(error));
   }
 
   private async execOrThrow(args: string[], options: { cwd?: string } = {}) {

@@ -1,9 +1,3 @@
----
-summary: "Workspace template for AGENTS.md"
-read_when:
-  - Bootstrapping a workspace manually
----
-
 # AGENTS.md - Your Workspace
 
 This folder is home. Treat it that way.
@@ -11,6 +5,8 @@ This folder is home. Treat it that way.
 ## First Run
 
 If `BOOTSTRAP.md` exists, that's your birth certificate. Follow it, figure out who you are, then delete it. You won't need it again.
+
+Remove this `## First Run` section in AGENTS.md after finishing and removed `BOOTSRAP.md`
 
 ## Every Session
 
