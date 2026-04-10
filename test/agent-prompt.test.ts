@@ -3,14 +3,18 @@ import { buildAgentPromptText } from "../src/channels/agent-prompt.ts";
 
 describe("agent prompt envelope", () => {
   let previousWrapperPath: string | undefined;
+  let previousPromptCommand: string | undefined;
 
   afterEach(() => {
     process.env.CLISBOT_WRAPPER_PATH = previousWrapperPath;
+    process.env.CLISBOT_PROMPT_COMMAND = previousPromptCommand;
   });
 
   test("renders a Slack reply command for the current thread", () => {
     previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    previousPromptCommand = process.env.CLISBOT_PROMPT_COMMAND;
     process.env.CLISBOT_WRAPPER_PATH = "/tmp/clisbot-wrapper";
+    process.env.CLISBOT_PROMPT_COMMAND = "/tmp/clis";
 
     const prompt = buildAgentPromptText({
       text: "please investigate",
@@ -33,7 +37,7 @@ describe("agent prompt envelope", () => {
     expect(prompt).toContain("channel auto-delivery is disabled for this conversation");
     expect(prompt).toContain("Use the exact command below when you need to send progress updates, media attachments, or the final response back to the user.");
     expect(prompt).toContain("reply command:");
-    expect(prompt).toContain("/tmp/clisbot-wrapper message send \\");
+    expect(prompt).toContain("/tmp/clis message send \\");
     expect(prompt).toContain("  --channel slack \\");
     expect(prompt).toContain("  --target channel:C123 \\");
     expect(prompt).toContain("  --thread-id 171234.5678 \\");
@@ -48,7 +52,9 @@ describe("agent prompt envelope", () => {
 
   test("renders a Telegram topic reply command", () => {
     previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    previousPromptCommand = process.env.CLISBOT_PROMPT_COMMAND;
     process.env.CLISBOT_WRAPPER_PATH = "/tmp/clisbot-wrapper";
+    process.env.CLISBOT_PROMPT_COMMAND = "/tmp/clis";
 
     const prompt = buildAgentPromptText({
       text: "ship it",
@@ -70,7 +76,7 @@ describe("agent prompt envelope", () => {
       responseMode: "message-tool",
     });
 
-    expect(prompt).toContain("/tmp/clisbot-wrapper message send \\");
+    expect(prompt).toContain("/tmp/clis message send \\");
     expect(prompt).toContain("  --channel telegram \\");
     expect(prompt).toContain("  --target -1001 \\");
     expect(prompt).toContain("  --thread-id 4 \\");
@@ -97,7 +103,9 @@ describe("agent prompt envelope", () => {
 
   test("omits message-tool instructions when responseMode is capture-pane", () => {
     previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    previousPromptCommand = process.env.CLISBOT_PROMPT_COMMAND;
     process.env.CLISBOT_WRAPPER_PATH = "/tmp/clisbot-wrapper";
+    process.env.CLISBOT_PROMPT_COMMAND = "/tmp/clis";
 
     const prompt = buildAgentPromptText({
       text: "use normal channel delivery",
@@ -120,7 +128,7 @@ describe("agent prompt envelope", () => {
     expect(prompt).toContain("do not send user-facing progress updates or the final response with clisbot message send");
     expect(prompt).not.toContain("Use the exact command below when you need to send progress updates, media attachments, or the final response back to the user.");
     expect(prompt).not.toContain("reply command:");
-    expect(prompt).not.toContain("/tmp/clisbot-wrapper message send \\");
+    expect(prompt).not.toContain("/tmp/clis message send \\");
     expect(prompt).not.toContain("progress updates: at most 3");
     expect(prompt).not.toContain("final response: send exactly 1 final user-facing response");
   });

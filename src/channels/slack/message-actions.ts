@@ -1,4 +1,5 @@
 import { basename } from "node:path";
+import { readFile } from "node:fs/promises";
 import { webApi as slackWebApi } from "@slack/bolt";
 import { deleteSlackMessage, postSlackText } from "./transport.ts";
 
@@ -99,13 +100,9 @@ async function loadSlackMedia(media: string) {
     };
   }
 
-  const file = Bun.file(media);
-  if (!(await file.exists())) {
-    throw new Error(`Media file not found: ${media}`);
-  }
   return {
     filename: basename(media),
-    data: Buffer.from(await file.arrayBuffer()),
+    data: await readFile(media),
   };
 }
 

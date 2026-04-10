@@ -80,6 +80,18 @@
       "mode": "socket",
       "appToken": "${SLACK_APP_TOKEN}",
       "botToken": "${SLACK_BOT_TOKEN}",
+      "defaultAccount": "default",
+      "accounts": {
+        "default": {
+          "appToken": "${SLACK_APP_TOKEN}",
+          "botToken": "${SLACK_BOT_TOKEN}"
+        }
+      },
+      "agentPrompt": {
+        "enabled": true,
+        "maxProgressMessages": 3,
+        "requireFinalResponse": true
+      },
       "ackReaction": "",
       "typingReaction": "",
       "processingStatus": {
@@ -107,6 +119,8 @@
       },
       "streaming": "all",
       "response": "final",
+      "responseMode": "message-tool",
+      "additionalMessageMode": "steer",
       "followUp": {
         "mode": "auto",
         "participationTtlMin": 5
@@ -129,6 +143,17 @@
       "enabled": true,
       "mode": "polling",
       "botToken": "${TELEGRAM_BOT_TOKEN}",
+      "defaultAccount": "default",
+      "accounts": {
+        "default": {
+          "botToken": "${TELEGRAM_BOT_TOKEN}"
+        }
+      },
+      "agentPrompt": {
+        "enabled": true,
+        "maxProgressMessages": 3,
+        "requireFinalResponse": true
+      },
       "allowBots": false,
       "groupPolicy": "allowlist",
       "defaultAgentId": "default",
@@ -147,6 +172,8 @@
       },
       "streaming": "all",
       "response": "final",
+      "responseMode": "message-tool",
+      "additionalMessageMode": "steer",
       "followUp": {
         "mode": "auto",
         "participationTtlMin": 5

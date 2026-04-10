@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   ensureClisbotWrapper,
+  getClisbotPromptCommand,
   getClisbotWrapperPath,
   renderClisbotWrapperScript,
 } from "../src/control/clisbot-wrapper.ts";
@@ -11,9 +12,11 @@ import {
 describe("clisbot wrapper", () => {
   let tempDir = "";
   let previousWrapperPath: string | undefined;
+  let previousPromptCommand: string | undefined;
 
   afterEach(() => {
     process.env.CLISBOT_WRAPPER_PATH = previousWrapperPath;
+    process.env.CLISBOT_PROMPT_COMMAND = previousPromptCommand;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -43,5 +46,12 @@ describe("clisbot wrapper", () => {
       renderClisbotWrapperScript(),
     );
     expect(dirname(process.env.CLISBOT_WRAPPER_PATH!)).toBe(join(tempDir, "bin"));
+  });
+
+  test("uses an explicit prompt command override when configured", () => {
+    previousPromptCommand = process.env.CLISBOT_PROMPT_COMMAND;
+    process.env.CLISBOT_PROMPT_COMMAND = "clis";
+
+    expect(getClisbotPromptCommand()).toBe("clis");
   });
 });

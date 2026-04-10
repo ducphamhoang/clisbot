@@ -1,5 +1,5 @@
 import type { ChannelInteractionIdentity } from "./interaction-processing.ts";
-import { getClisbotWrapperPath } from "../control/clisbot-wrapper.ts";
+import { getClisbotPromptCommand } from "../control/clisbot-wrapper.ts";
 
 export type ChannelAgentPromptConfig = {
   enabled: boolean;
@@ -37,9 +37,8 @@ function renderAgentPromptInstruction(params: {
   ];
 
   if (messageToolMode) {
-    const wrapperPath = getClisbotWrapperPath();
     const replyCommand = buildReplyCommand({
-      wrapperPath,
+      command: getClisbotPromptCommand(),
       identity: params.identity,
     });
     lines.push(
@@ -141,10 +140,10 @@ function renderNamedValue(label: string, name?: string, id?: string) {
 }
 
 function buildReplyCommand(params: {
-  wrapperPath: string;
+  command: string;
   identity: ChannelInteractionIdentity;
 }) {
-  const lines = [`${params.wrapperPath} message send \\`];
+  const lines = [`${params.command} message send \\`];
   if (params.identity.platform === "slack") {
     lines.push("  --channel slack \\");
     lines.push(`  --target channel:${params.identity.channelId ?? ""} \\`);

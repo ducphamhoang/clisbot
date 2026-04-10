@@ -1,4 +1,5 @@
 import { basename, extname } from "node:path";
+import { readFile } from "node:fs/promises";
 import { callTelegramApi } from "./api.ts";
 
 export type TelegramMessageActionParams = {
@@ -45,14 +46,9 @@ async function loadTelegramMedia(media: string) {
     };
   }
 
-  const file = Bun.file(media);
-  if (!(await file.exists())) {
-    throw new Error(`Media file not found: ${media}`);
-  }
-
   return {
     filename: basename(media),
-    file,
+    file: new Blob([await readFile(media)]),
   };
 }
 
