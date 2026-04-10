@@ -47,15 +47,15 @@ tmux is still the current stability boundary. One agent maps to one durable runn
 
 Slack
 
-![Slack showcase](docs/pics/slack-01.png)
+![Slack showcase](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/slack-01.jpg)
 
 Telegram
 
-![Telegram topic showcase 1](docs/pics/telegram-01.png)
+![Telegram topic showcase 1](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-01.jpg)
 
-![Telegram topic showcase 2](docs/pics/telegram-02.png)
+![Telegram topic showcase 2](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-02.jpg)
 
-![Telegram topic showcase 3](docs/pics/telegram-03.png)
+![Telegram topic showcase 3](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-03.jpg)
 
 ## Quick Start
 
