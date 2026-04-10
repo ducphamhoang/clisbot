@@ -808,7 +808,7 @@ describe("processChannelInteraction agent prompt text", () => {
 
     await processChannelInteraction({
       agentService: {
-        isSessionBusy: () => true,
+        isAwaitingFollowUpRouting: async () => true,
         hasActiveRun: () => true,
         submitSessionInput: async (_target: AgentSessionTarget, text: string) => {
           submitted.push(text);
@@ -843,7 +843,7 @@ describe("processChannelInteraction agent prompt text", () => {
 
     await processChannelInteraction({
       agentService: {
-        isSessionBusy: () => true,
+        isAwaitingFollowUpRouting: async () => true,
         enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
           observedPrompt = prompt;
           return {
@@ -892,7 +892,7 @@ describe("processChannelInteraction agent prompt text", () => {
 
     await processChannelInteraction({
       agentService: {
-        isSessionBusy: () => true,
+        isAwaitingFollowUpRouting: async () => true,
         enqueuePrompt: () => ({
           positionAhead: 1,
           result: Promise.resolve({
@@ -964,6 +964,53 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(submitted[0]).toContain("[muxbot steering message]");
     expect(submitted[0]).toContain("focus on the failing test first");
     expect(posted[0]).toBe("Steered.");
+  });
+
+  test("does not auto-steer after a final reply was already delivered", async () => {
+    const posted: string[] = [];
+    let observedPrompt = "";
+
+    await processChannelInteraction({
+      agentService: {
+        isAwaitingFollowUpRouting: async () => false,
+        hasActiveRun: () => true,
+        enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
+          observedPrompt = prompt;
+          return {
+            positionAhead: 0,
+            result: Promise.resolve({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "new turn reply",
+              fullSnapshot: "new turn reply",
+              initialSnapshot: "",
+            }),
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "1+1",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "steer",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(observedPrompt).toBe("1+1");
+    expect(posted).not.toContain("Steered.");
+    expect(posted).toEqual([]);
   });
 
   test("queue list shows pending queued messages for the current session", async () => {

@@ -117,6 +117,7 @@ function createLoadedConfig(): LoadedConfig {
           streaming: "all",
           response: "final",
           responseMode: "message-tool",
+          additionalMessageMode: "steer",
           followUp: {
             mode: "auto",
             participationTtlMin: 5,
@@ -159,6 +160,7 @@ function createLoadedConfig(): LoadedConfig {
           streaming: "all",
           response: "final",
           responseMode: "message-tool",
+          additionalMessageMode: "steer",
           followUp: {
             mode: "auto",
             participationTtlMin: 5,

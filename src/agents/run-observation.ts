@@ -6,6 +6,7 @@ export type StoredSessionRuntime = {
   state: SessionRuntimeState;
   startedAt?: number;
   detachedAt?: number;
+  finalReplyAt?: number;
 };
 
 export type PromptExecutionStatus =

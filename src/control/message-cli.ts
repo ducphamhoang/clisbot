@@ -1,322 +1,33 @@
 import { AgentService, type AgentSessionTarget } from "../agents/agent-service.ts";
 import { loadConfig, type LoadedConfig } from "../config/load-config.ts";
-import { resolveSlackConversationRoute } from "../channels/slack/route-config.ts";
-import { resolveSlackConversationTarget } from "../channels/slack/session-routing.ts";
-import { resolveTelegramConversationRoute } from "../channels/telegram/route-config.ts";
-import { resolveTelegramConversationTarget } from "../channels/telegram/session-routing.ts";
-import {
-  resolveSlackAccountConfig,
-  resolveTelegramAccountConfig,
-} from "../config/channel-accounts.ts";
-import {
-  deleteSlackMessageAction,
-  editSlackMessage,
-  getSlackReactions,
-  listSlackPins,
-  pinSlackMessage,
-  reactSlackMessage,
-  readSlackMessages,
-  searchSlackMessages,
-  sendSlackMessage,
-  sendSlackPoll,
-  unpinSlackMessage,
-} from "../channels/slack/message-actions.ts";
-import {
-  deleteTelegramMessageAction,
-  editTelegramMessage,
-  listTelegramPins,
-  pinTelegramMessage,
-  reactTelegramMessage,
-  sendTelegramMessage,
-  sendTelegramPoll,
-  unpinTelegramMessage,
-  unsupportedTelegramHistoryAction,
-} from "../channels/telegram/message-actions.ts";
+import { listChannelPlugins } from "../channels/registry.ts";
+import { type ChannelPlugin } from "../channels/channel-plugin.ts";
+import type { ParsedMessageCommand, MessageAction } from "../channels/message-command.ts";
 
 function getConfigPath() {
   return process.env.MUXBOT_CONFIG_PATH;
 }
 
-type MessageAction =
-  | "send"
-  | "poll"
-  | "react"
-  | "reactions"
-  | "read"
-  | "edit"
-  | "delete"
-  | "pin"
-  | "unpin"
-  | "pins"
-  | "search";
-
-type ParsedMessageCommand = {
-  action: MessageAction;
-  channel: "slack" | "telegram";
-  account?: string;
-  target?: string;
-  message?: string;
-  media?: string;
-  messageId?: string;
-  emoji?: string;
-  remove: boolean;
-  threadId?: string;
-  replyTo?: string;
-  limit?: number;
-  query?: string;
-  pollQuestion?: string;
-  pollOptions: string[];
-  forceDocument: boolean;
-  silent: boolean;
-  json: boolean;
-};
-
 type MessageCliDependencies = {
-  loadConfig: (
-    configPath?: string,
-  ) => Promise<{
-    raw: {
-      channels: {
-        slack: unknown;
-        telegram: unknown;
-      };
-    };
-  }>;
-  resolveSlackAccountConfig: (
-    config: unknown,
-    accountId?: string | null,
-  ) => { accountId: string; config: { appToken: string; botToken: string } };
-  resolveTelegramAccountConfig: (
-    config: unknown,
-    accountId?: string | null,
-  ) => { accountId: string; config: { botToken: string } };
-  slack: {
-    send: (params: unknown) => Promise<unknown>;
-    poll: (params: unknown) => Promise<unknown>;
-    react: (params: unknown) => Promise<unknown>;
-    reactions: (params: unknown) => Promise<unknown>;
-    read: (params: unknown) => Promise<unknown>;
-    edit: (params: unknown) => Promise<unknown>;
-    delete: (params: unknown) => Promise<unknown>;
-    pin: (params: unknown) => Promise<unknown>;
-    unpin: (params: unknown) => Promise<unknown>;
-    pins: (params: unknown) => Promise<unknown>;
-    search: (params: unknown) => Promise<unknown>;
-  };
-  telegram: {
-    send: (params: unknown) => Promise<unknown>;
-    poll: (params: unknown) => Promise<unknown>;
-    react: (params: unknown) => Promise<unknown>;
-    edit: (params: unknown) => Promise<unknown>;
-    delete: (params: unknown) => Promise<unknown>;
-    pin: (params: unknown) => Promise<unknown>;
-    unpin: (params: unknown) => Promise<unknown>;
-    pins: (params: unknown) => Promise<unknown>;
-    unsupported: (action: string) => Promise<unknown>;
-  };
+  loadConfig: (configPath?: string) => Promise<LoadedConfig>;
+  plugins: ChannelPlugin[];
   print: (text: string) => void;
   recordConversationReply: (params: {
     loadedConfig: LoadedConfig;
     target: AgentSessionTarget;
+    kind?: "reply" | "progress" | "final";
   }) => Promise<void>;
 };
 
 const defaultMessageCliDependencies: MessageCliDependencies = {
   loadConfig,
-  resolveSlackAccountConfig: resolveSlackAccountConfig as MessageCliDependencies["resolveSlackAccountConfig"],
-  resolveTelegramAccountConfig:
-    resolveTelegramAccountConfig as MessageCliDependencies["resolveTelegramAccountConfig"],
-  slack: {
-    send: sendSlackMessage as MessageCliDependencies["slack"]["send"],
-    poll: sendSlackPoll as MessageCliDependencies["slack"]["poll"],
-    react: reactSlackMessage as MessageCliDependencies["slack"]["react"],
-    reactions: getSlackReactions as MessageCliDependencies["slack"]["reactions"],
-    read: readSlackMessages as MessageCliDependencies["slack"]["read"],
-    edit: editSlackMessage as MessageCliDependencies["slack"]["edit"],
-    delete: deleteSlackMessageAction as MessageCliDependencies["slack"]["delete"],
-    pin: pinSlackMessage as MessageCliDependencies["slack"]["pin"],
-    unpin: unpinSlackMessage as MessageCliDependencies["slack"]["unpin"],
-    pins: listSlackPins as MessageCliDependencies["slack"]["pins"],
-    search: searchSlackMessages as MessageCliDependencies["slack"]["search"],
-  },
-  telegram: {
-    send: sendTelegramMessage as MessageCliDependencies["telegram"]["send"],
-    poll: sendTelegramPoll as MessageCliDependencies["telegram"]["poll"],
-    react: reactTelegramMessage as MessageCliDependencies["telegram"]["react"],
-    edit: editTelegramMessage as MessageCliDependencies["telegram"]["edit"],
-    delete: deleteTelegramMessageAction as MessageCliDependencies["telegram"]["delete"],
-    pin: pinTelegramMessage as MessageCliDependencies["telegram"]["pin"],
-    unpin: unpinTelegramMessage as MessageCliDependencies["telegram"]["unpin"],
-    pins: listTelegramPins as MessageCliDependencies["telegram"]["pins"],
-    unsupported:
-      unsupportedTelegramHistoryAction as MessageCliDependencies["telegram"]["unsupported"],
-  },
+  plugins: listChannelPlugins(),
   print: (text) => console.log(text),
-  recordConversationReply: async ({ loadedConfig, target }) => {
+  recordConversationReply: async ({ loadedConfig, target, kind }) => {
     const agentService = new AgentService(loadedConfig);
-    await agentService.recordConversationReply(target);
+    await agentService.recordConversationReply(target, kind);
   },
 };
-
-function normalizeSlackFollowUpTarget(rawTarget: string) {
-  const target = rawTarget.trim();
-  if (!target) {
-    return null;
-  }
-
-  if (target.startsWith("channel:")) {
-    return {
-      conversationKind: "channel" as const,
-      channelId: target.slice("channel:".length),
-      channelType: "channel" as const,
-    };
-  }
-
-  if (target.startsWith("group:")) {
-    return {
-      conversationKind: "group" as const,
-      channelId: target.slice("group:".length),
-      channelType: "mpim" as const,
-    };
-  }
-
-  if (target.startsWith("dm:")) {
-    return {
-      conversationKind: "dm" as const,
-      channelId: target.slice("dm:".length),
-      channelType: "im" as const,
-    };
-  }
-
-  if (target.startsWith("user:")) {
-    return null;
-  }
-
-  const rawId = target;
-  if (rawId.startsWith("D")) {
-    return {
-      conversationKind: "dm" as const,
-      channelId: rawId,
-      channelType: "im" as const,
-    };
-  }
-  if (rawId.startsWith("G")) {
-    return {
-      conversationKind: "group" as const,
-      channelId: rawId,
-      channelType: "mpim" as const,
-    };
-  }
-  if (rawId.startsWith("C")) {
-    return {
-      conversationKind: "channel" as const,
-      channelId: rawId,
-      channelType: "channel" as const,
-    };
-  }
-
-  return null;
-}
-
-function resolveSlackReplyTarget(params: {
-  loadedConfig: LoadedConfig;
-  command: ParsedMessageCommand;
-  accountId: string;
-}): AgentSessionTarget | null {
-  if (!params.command.target) {
-    return null;
-  }
-
-  const normalized = normalizeSlackFollowUpTarget(params.command.target);
-  if (!normalized) {
-    return null;
-  }
-
-  const resolved = resolveSlackConversationRoute(
-    params.loadedConfig,
-    {
-      channel_type: normalized.channelType,
-      channel: normalized.channelId,
-    },
-    {
-      accountId: params.accountId,
-    },
-  );
-  if (!resolved.route) {
-    return null;
-  }
-
-  return resolveSlackConversationTarget({
-    loadedConfig: params.loadedConfig,
-    agentId: resolved.route.agentId,
-    accountId: params.accountId,
-    channelId: normalized.channelId,
-    conversationKind: normalized.conversationKind,
-    threadTs: params.command.threadId ?? params.command.replyTo,
-    messageTs: params.command.replyTo ?? params.command.threadId,
-    replyToMode: resolved.route.replyToMode,
-  });
-}
-
-function resolveTelegramReplyTarget(params: {
-  loadedConfig: LoadedConfig;
-  command: ParsedMessageCommand;
-  accountId: string;
-}): AgentSessionTarget | null {
-  if (!params.command.target) {
-    return null;
-  }
-
-  const chatId = Number(params.command.target);
-  if (!Number.isFinite(chatId)) {
-    return null;
-  }
-
-  const topicId = params.command.threadId ? Number(params.command.threadId) : undefined;
-  const dm = chatId > 0;
-  const resolved = resolveTelegramConversationRoute({
-    loadedConfig: params.loadedConfig,
-    chatType: dm ? "private" : "supergroup",
-    chatId,
-    topicId: Number.isFinite(topicId) ? topicId : undefined,
-    isForum: Number.isFinite(topicId),
-    accountId: params.accountId,
-  });
-  if (!resolved.route) {
-    return null;
-  }
-
-  return resolveTelegramConversationTarget({
-    loadedConfig: params.loadedConfig,
-    agentId: resolved.route.agentId,
-    accountId: params.accountId,
-    chatId,
-    userId: dm ? chatId : undefined,
-    conversationKind:
-      resolved.conversationKind === "topic"
-        ? "topic"
-        : resolved.conversationKind === "dm"
-        ? "dm"
-        : "group",
-    topicId: Number.isFinite(topicId) ? topicId : undefined,
-  });
-}
-
-function resolveConversationReplyTarget(params: {
-  loadedConfig: LoadedConfig;
-  command: ParsedMessageCommand;
-  accountId: string;
-}) {
-  if (params.command.action !== "send" && params.command.action !== "poll") {
-    return null;
-  }
-
-  if (params.command.channel === "slack") {
-    return resolveSlackReplyTarget(params);
-  }
-
-  return resolveTelegramReplyTarget(params);
-}
 
 function parseRepeatedOption(args: string[], name: string) {
   const values: string[] = [];
@@ -354,6 +65,16 @@ function hasFlag(args: string[], name: string) {
   return args.includes(name);
 }
 
+function resolveReplyKind(command: ParsedMessageCommand) {
+  if (command.final) {
+    return "final" as const;
+  }
+  if (command.progress) {
+    return "progress" as const;
+  }
+  return "reply" as const;
+}
+
 function parseMessageCommand(args: string[]): ParsedMessageCommand | null {
   const rawAction = args[0];
   if (!rawAction || rawAction === "--help" || rawAction === "-h" || rawAction === "help") {
@@ -384,6 +105,8 @@ function parseMessageCommand(args: string[]): ParsedMessageCommand | null {
     pollOptions: parseRepeatedOption(rest, "--poll-option"),
     forceDocument: hasFlag(rest, "--force-document"),
     silent: hasFlag(rest, "--silent"),
+    progress: hasFlag(rest, "--progress"),
+    final: hasFlag(rest, "--final"),
     json: hasFlag(rest, "--json"),
   };
 }
@@ -393,7 +116,7 @@ export function renderMessageHelp() {
     "muxbot message",
     "",
     "Usage:",
-    "  muxbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--force-document] [--silent]",
+    "  muxbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--force-document] [--silent] [--progress|--final]",
     "  muxbot message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <id>] [--silent]",
     "  muxbot message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]",
     "  muxbot message reactions --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
@@ -413,126 +136,6 @@ function assertTarget(command: ParsedMessageCommand) {
   }
 }
 
-async function runSlackMessageCommand(
-  command: ParsedMessageCommand,
-  dependencies: MessageCliDependencies,
-) {
-  const loadedConfig = await dependencies.loadConfig(getConfigPath());
-  const account = dependencies.resolveSlackAccountConfig(
-    loadedConfig.raw.channels.slack,
-    command.account,
-  );
-  const shared = {
-    botToken: account.config.botToken,
-    target: command.target!,
-    threadId: command.threadId,
-    replyTo: command.replyTo,
-    message: command.message,
-    media: command.media,
-    messageId: command.messageId,
-    emoji: command.emoji,
-    remove: command.remove,
-    limit: command.limit,
-    query: command.query,
-    pollQuestion: command.pollQuestion,
-    pollOptions: command.pollOptions,
-  };
-
-  switch (command.action) {
-    case "send":
-      return {
-        loadedConfig,
-        accountId: account.accountId,
-        result: await dependencies.slack.send(shared),
-      };
-    case "poll":
-      return {
-        loadedConfig,
-        accountId: account.accountId,
-        result: await dependencies.slack.poll(shared),
-      };
-    case "react":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.react(shared) };
-    case "reactions":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.reactions(shared) };
-    case "read":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.read(shared) };
-    case "edit":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.edit(shared) };
-    case "delete":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.delete(shared) };
-    case "pin":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.pin(shared) };
-    case "unpin":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.unpin(shared) };
-    case "pins":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.pins(shared) };
-    case "search":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.slack.search(shared) };
-  }
-}
-
-async function runTelegramMessageCommand(
-  command: ParsedMessageCommand,
-  dependencies: MessageCliDependencies,
-) {
-  const loadedConfig = await dependencies.loadConfig(getConfigPath());
-  const account = dependencies.resolveTelegramAccountConfig(
-    loadedConfig.raw.channels.telegram,
-    command.account,
-  );
-  const shared = {
-    botToken: account.config.botToken,
-    target: command.target!,
-    threadId: command.threadId,
-    replyTo: command.replyTo,
-    message: command.message,
-    media: command.media,
-    messageId: command.messageId,
-    emoji: command.emoji,
-    remove: command.remove,
-    limit: command.limit,
-    query: command.query,
-    pollQuestion: command.pollQuestion,
-    pollOptions: command.pollOptions,
-    forceDocument: command.forceDocument,
-    silent: command.silent,
-  };
-
-  switch (command.action) {
-    case "send":
-      return {
-        loadedConfig,
-        accountId: account.accountId,
-        result: await dependencies.telegram.send(shared),
-      };
-    case "poll":
-      return {
-        loadedConfig,
-        accountId: account.accountId,
-        result: await dependencies.telegram.poll(shared),
-      };
-    case "react":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.react(shared) };
-    case "reactions":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.unsupported("reactions") };
-    case "read":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.unsupported("read") };
-    case "edit":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.edit(shared) };
-    case "delete":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.delete(shared) };
-    case "pin":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.pin(shared) };
-    case "unpin":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.unpin(shared) };
-    case "pins":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.pins(shared) };
-    case "search":
-      return { loadedConfig, accountId: account.accountId, result: await dependencies.telegram.unsupported("search") };
-  }
-}
-
 export async function runMessageCli(
   args: string[],
   dependencies: MessageCliDependencies = defaultMessageCliDependencies,
@@ -542,21 +145,31 @@ export async function runMessageCli(
     dependencies.print(renderMessageHelp());
     return;
   }
+  if (command.progress && command.final) {
+    throw new Error("--progress and --final cannot be used together");
+  }
   assertTarget(command);
 
-  const execution = command.channel === "slack"
-    ? await runSlackMessageCommand(command, dependencies)
-    : await runTelegramMessageCommand(command, dependencies);
+  const loadedConfig = await dependencies.loadConfig(getConfigPath());
+  const plugin = dependencies.plugins.find((entry) => entry.id === command.channel);
+  if (!plugin) {
+    throw new Error(`Unsupported message channel: ${command.channel}`);
+  }
 
-  const replyTarget = resolveConversationReplyTarget({
-    loadedConfig: execution.loadedConfig,
-    command,
-    accountId: execution.accountId,
-  });
+  const execution = await plugin.runMessageCommand(loadedConfig, command);
+  const replyTarget =
+    command.action === "send" || command.action === "poll"
+      ? plugin.resolveMessageReplyTarget({
+        loadedConfig,
+        command,
+        accountId: execution.accountId,
+      })
+      : null;
   if (replyTarget) {
     await dependencies.recordConversationReply({
-      loadedConfig: execution.loadedConfig,
+      loadedConfig,
       target: replyTarget,
+      kind: resolveReplyKind(command),
     });
   }
 

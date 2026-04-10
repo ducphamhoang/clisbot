@@ -23,6 +23,21 @@ type SurfaceModeTargetBinding<TField extends SurfaceModeField> = {
   label: string;
 };
 
+function getModeValue<TField extends SurfaceModeField>(
+  source: Partial<Record<SurfaceModeField, ResponseMode | AdditionalMessageMode>>,
+  field: TField,
+) {
+  return source[field] as SurfaceModeValueMap[TField] | undefined;
+}
+
+function setModeValue<TField extends SurfaceModeField>(
+  source: Partial<Record<SurfaceModeField, ResponseMode | AdditionalMessageMode>>,
+  field: TField,
+  value: SurfaceModeValueMap[TField],
+) {
+  source[field] = value;
+}
+
 function resolveSlackConfigTarget<TField extends SurfaceModeField>(
   config: MuxbotConfig,
   field: TField,
@@ -33,9 +48,9 @@ function resolveSlackConfigTarget<TField extends SurfaceModeField>(
 ): SurfaceModeTargetBinding<TField> {
   if (!params.target) {
     return {
-      get: () => config.channels.slack[field],
+      get: () => getModeValue(config.channels.slack, field),
       set: (value) => {
-        config.channels.slack[field] = value;
+        setModeValue(config.channels.slack, field, value);
       },
       label: "slack",
     };
@@ -50,9 +65,11 @@ function resolveSlackConfigTarget<TField extends SurfaceModeField>(
 
   if (kind === "dm" || params.conversationKind === "dm") {
     return {
-      get: () => config.channels.slack.directMessages[field] ?? config.channels.slack[field],
+      get: () =>
+        getModeValue(config.channels.slack.directMessages, field) ??
+        getModeValue(config.channels.slack, field),
       set: (value) => {
-        config.channels.slack.directMessages[field] = value;
+        setModeValue(config.channels.slack.directMessages, field, value);
       },
       label: `slack dm ${targetId}`,
     };
@@ -64,9 +81,9 @@ function resolveSlackConfigTarget<TField extends SurfaceModeField>(
       throw new Error(`Route not configured yet: slack channel ${targetId}. Add the route first.`);
     }
     return {
-      get: () => route[field] ?? config.channels.slack[field],
+      get: () => getModeValue(route, field) ?? getModeValue(config.channels.slack, field),
       set: (value) => {
-        route[field] = value;
+        setModeValue(route, field, value);
       },
       label: `slack channel ${targetId}`,
     };
@@ -78,9 +95,9 @@ function resolveSlackConfigTarget<TField extends SurfaceModeField>(
       throw new Error(`Route not configured yet: slack group ${targetId}. Add the route first.`);
     }
     return {
-      get: () => route[field] ?? config.channels.slack[field],
+      get: () => getModeValue(route, field) ?? getModeValue(config.channels.slack, field),
       set: (value) => {
-        route[field] = value;
+        setModeValue(route, field, value);
       },
       label: `slack group ${targetId}`,
     };
@@ -100,9 +117,9 @@ function resolveTelegramConfigTarget<TField extends SurfaceModeField>(
 ): SurfaceModeTargetBinding<TField> {
   if (!params.target) {
     return {
-      get: () => config.channels.telegram[field],
+      get: () => getModeValue(config.channels.telegram, field),
       set: (value) => {
-        config.channels.telegram[field] = value;
+        setModeValue(config.channels.telegram, field, value);
       },
       label: "telegram",
     };
@@ -120,9 +137,11 @@ function resolveTelegramConfigTarget<TField extends SurfaceModeField>(
       throw new Error("Telegram direct-message targets do not support --topic.");
     }
     return {
-      get: () => config.channels.telegram.directMessages[field] ?? config.channels.telegram[field],
+      get: () =>
+        getModeValue(config.channels.telegram.directMessages, field) ??
+        getModeValue(config.channels.telegram, field),
       set: (value) => {
-        config.channels.telegram.directMessages[field] = value;
+        setModeValue(config.channels.telegram.directMessages, field, value);
       },
       label: `telegram dm ${chatId}`,
     };
@@ -139,18 +158,21 @@ function resolveTelegramConfigTarget<TField extends SurfaceModeField>(
       throw new Error(`Route not configured yet: telegram group ${chatId} --topic ${topicId}. Add the topic route first.`);
     }
     return {
-      get: () => topic[field] ?? group[field] ?? config.channels.telegram[field],
+      get: () =>
+        getModeValue(topic, field) ??
+        getModeValue(group, field) ??
+        getModeValue(config.channels.telegram, field),
       set: (value) => {
-        topic[field] = value;
+        setModeValue(topic, field, value);
       },
       label: `telegram topic ${chatId}/${topicId}`,
     };
   }
 
   return {
-    get: () => group[field] ?? config.channels.telegram[field],
+    get: () => getModeValue(group, field) ?? getModeValue(config.channels.telegram, field),
     set: (value) => {
-      group[field] = value;
+      setModeValue(group, field, value);
     },
     label: `telegram group ${chatId}`,
   };

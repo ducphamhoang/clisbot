@@ -1,49 +1,22 @@
-import type { CommandPrefixes } from "../../agents/commands.ts";
-import type { FollowUpConfig } from "../../agents/follow-up-policy.ts";
-import { resolveTopLevelBoundAgentId } from "../../config/bindings.ts";
-import { resolveConfigDurationMs } from "../../config/duration.ts";
-import { getAgentEntry, type LoadedConfig } from "../../config/load-config.ts";
+import { type LoadedConfig } from "../../config/load-config.ts";
 import {
-  resolvePrivilegeCommands,
   type PrivilegeCommandsConfig,
-  type PrivilegeCommandsOverride,
 } from "../privilege-commands.ts";
+import {
+  buildSharedChannelRoute,
+  type SharedChannelRoute,
+  type SharedChannelRouteOverride,
+} from "../route-policy.ts";
 import { type TelegramConversationKind } from "./session-routing.ts";
 
-export type TelegramRoute = {
-  agentId: string;
-  requireMention: boolean;
-  allowBots: boolean;
-  privilegeCommands: PrivilegeCommandsConfig;
-  commandPrefixes: CommandPrefixes;
-  streaming: "off" | "latest" | "all";
-  response: "all" | "final";
-  responseMode: "capture-pane" | "message-tool";
-  additionalMessageMode: "queue" | "steer";
-  followUp: FollowUpConfig;
-};
+export type TelegramRoute = SharedChannelRoute;
 
 export type TelegramResolvedRoute = {
   conversationKind: TelegramConversationKind;
   route: TelegramRoute | null;
 };
 
-type TelegramRouteOverride = {
-  requireMention?: boolean;
-  allowBots?: boolean;
-  agentId?: string;
-  privilegeCommands?: PrivilegeCommandsOverride;
-  commandPrefixes?: Partial<CommandPrefixes>;
-  streaming?: "off" | "latest" | "all";
-  response?: "all" | "final";
-  responseMode?: "capture-pane" | "message-tool";
-  additionalMessageMode?: "queue" | "steer";
-  followUp?: {
-    mode?: FollowUpConfig["mode"];
-    participationTtlSec?: number;
-    participationTtlMin?: number;
-  };
-};
+type TelegramRouteOverride = SharedChannelRouteOverride;
 
 function normalizeTelegramPrivilegeUsers(userIds: string[]) {
   return userIds.map((userId) => userId.trim()).filter(Boolean);
@@ -58,49 +31,15 @@ function buildRoute(
   },
 ): TelegramRoute {
   const telegramConfig = loadedConfig.raw.channels.telegram;
-  const privilegeCommands = resolvePrivilegeCommands(
-    telegramConfig.privilegeCommands,
-    params.route?.privilegeCommands,
-  );
-  const agentId =
-    params.route?.agentId ??
-    resolveTopLevelBoundAgentId(loadedConfig, {
-      channel: "telegram",
-      accountId: params.accountId,
-    }) ??
-    telegramConfig.defaultAgentId;
-  const agentEntry = getAgentEntry(loadedConfig, agentId);
-  return {
-    agentId,
-    requireMention: params.route?.requireMention ?? params.requireMention,
-    allowBots: params.route?.allowBots ?? telegramConfig.allowBots,
-    privilegeCommands: {
-      enabled: privilegeCommands.enabled,
-      allowUsers: normalizeTelegramPrivilegeUsers(privilegeCommands.allowUsers),
-    },
-    commandPrefixes: {
-      slash: params.route?.commandPrefixes?.slash ?? telegramConfig.commandPrefixes.slash,
-      bash: params.route?.commandPrefixes?.bash ?? telegramConfig.commandPrefixes.bash,
-    },
-    streaming: params.route?.streaming ?? telegramConfig.streaming,
-    response: params.route?.response ?? telegramConfig.response,
-    responseMode:
-      params.route?.responseMode ?? agentEntry?.responseMode ?? telegramConfig.responseMode,
-    additionalMessageMode:
-      params.route?.additionalMessageMode ??
-      agentEntry?.additionalMessageMode ??
-      telegramConfig.additionalMessageMode,
-    followUp: {
-      mode: params.route?.followUp?.mode ?? telegramConfig.followUp.mode,
-      participationTtlMs: resolveConfigDurationMs({
-        seconds: params.route?.followUp?.participationTtlSec ??
-          telegramConfig.followUp.participationTtlSec,
-        minutes: params.route?.followUp?.participationTtlMin ??
-          telegramConfig.followUp.participationTtlMin,
-        defaultMinutes: 5,
-      }),
-    },
-  };
+  return buildSharedChannelRoute({
+    loadedConfig,
+    channel: "telegram",
+    channelConfig: telegramConfig,
+    route: params.route,
+    requireMention: params.requireMention,
+    normalizePrivilegeUsers: normalizeTelegramPrivilegeUsers,
+    accountId: params.accountId,
+  });
 }
 
 function resolveGroupRoute(

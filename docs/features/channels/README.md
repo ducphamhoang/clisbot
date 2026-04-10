@@ -61,6 +61,7 @@ Channels is where those surfaces live.
 - [OpenClaw Telegram Topics And Slack-Parity Plan](../../research/channels/2026-04-05-openclaw-telegram-topics-and-parity-plan.md)
 - [OpenClaw Pairing Implementation](../../research/channels/2026-04-06-openclaw-pairing-implementation.md)
 - [OpenClaw CLI Command Surfaces And Slack Telegram Send Syntax](../../research/channels/2026-04-09-openclaw-cli-command-surfaces-and-slack-telegram-send-syntax.md)
+- [OpenClaw Channel Standardization Vs Muxbot Gaps](../../research/channels/2026-04-10-openclaw-channel-standardization-vs-muxbot-gaps.md)
 
 ## Related Feature Docs
 
@@ -103,3 +104,5 @@ Keep the Slack MVP truthful on `SLACK_TEST_CHANNEL`.
 - Telegram now ships as a topic-aware channel surface, using OpenClaw-style group and topic config inheritance instead of reusing Slack follow-up mechanics for topic identity
 - Telegram transport should respect Telegram Bot API retry-after hints and pace live message edits so streaming does not fail on 429 rate limits
 - Telegram polling should dispatch updates without global in-order blocking, so one busy topic or DM does not stall later updates for other topics or chats on the same bot
+- Slack and Telegram now share a first-class `ChannelPlugin` seam for runtime bootstrap, operator `message` commands, runtime health summaries, and shared route-policy composition
+- provider event loops, payload parsing, and transport semantics still stay provider-owned, so a future channel can plug into the same control seam without flattening provider behavior

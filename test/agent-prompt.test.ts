@@ -36,6 +36,7 @@ describe("agent prompt envelope", () => {
     expect(prompt).toContain("  --channel slack \\");
     expect(prompt).toContain("  --target channel:C123 \\");
     expect(prompt).toContain("  --thread-id 171234.5678 \\");
+    expect(prompt).toContain("  --final \\");
     expect(prompt).toContain("--message \"$(cat <<'__MUXBOT_MESSAGE__'");
     expect(prompt).toContain("__MUXBOT_MESSAGE__");
     expect(prompt).toContain("progress updates: at most 3");
@@ -69,6 +70,7 @@ describe("agent prompt envelope", () => {
     expect(prompt).toContain("  --channel telegram \\");
     expect(prompt).toContain("  --target -1001 \\");
     expect(prompt).toContain("  --thread-id 4 \\");
+    expect(prompt).toContain("  --final \\");
     expect(prompt).toContain("Telegram topic 4 in chat -1001");
   });
 

@@ -8,6 +8,8 @@ export type ActiveSessionRuntimeInfo = SessionRuntimeInfo & {
   state: "running" | "detached";
 };
 
+export type ConversationReplyKind = "reply" | "progress" | "final";
+
 type SessionEntryUpdate = (existing: {
   sessionId?: string;
   followUp?: StoredFollowUpState;
@@ -87,6 +89,7 @@ export class AgentSessionState {
       state: entry?.runtime?.state ?? "idle",
       startedAt: entry?.runtime?.startedAt,
       detachedAt: entry?.runtime?.detachedAt,
+      finalReplyAt: entry?.runtime?.finalReplyAt,
       sessionKey: target.sessionKey,
       agentId: target.agentId,
     };
@@ -100,6 +103,7 @@ export class AgentSessionState {
         state: entry.runtime.state,
         startedAt: entry.runtime.startedAt,
         detachedAt: entry.runtime.detachedAt,
+        finalReplyAt: entry.runtime.finalReplyAt,
         sessionKey: entry.sessionKey,
         agentId: entry.agentId,
       }));
@@ -140,15 +144,25 @@ export class AgentSessionState {
     return this.resetConversationFollowUpMode(resolved);
   }
 
-  async recordConversationReply(resolved: ResolvedAgentTarget) {
+  async recordConversationReply(
+    resolved: ResolvedAgentTarget,
+    kind: ConversationReplyKind = "reply",
+  ) {
+    const repliedAt = Date.now();
     return this.upsertSessionEntry(resolved, (existing) => ({
       sessionId: existing?.sessionId,
       followUp: {
         ...existing?.followUp,
-        lastBotReplyAt: Date.now(),
+        lastBotReplyAt: repliedAt,
       },
       runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
-      runtime: existing?.runtime,
+      runtime:
+        kind === "final" && existing?.runtime && existing.runtime.state !== "idle"
+          ? {
+              ...existing.runtime,
+              finalReplyAt: repliedAt,
+            }
+          : existing?.runtime,
     }));
   }
 

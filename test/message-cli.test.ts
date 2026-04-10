@@ -1,273 +1,356 @@
 import { describe, expect, test } from "bun:test";
 import { runMessageCli } from "../src/control/message-cli.ts";
+import { resolveSlackConversationRoute } from "../src/channels/slack/route-config.ts";
+import { resolveSlackConversationTarget } from "../src/channels/slack/session-routing.ts";
+import { resolveTelegramConversationRoute } from "../src/channels/telegram/route-config.ts";
+import { resolveTelegramConversationTarget } from "../src/channels/telegram/session-routing.ts";
+import type { ChannelPlugin } from "../src/channels/channel-plugin.ts";
+import type { ParsedMessageCommand } from "../src/channels/message-command.ts";
+import type { LoadedConfig } from "../src/config/load-config.ts";
 
 function createDependencies() {
   const logs: string[] = [];
   const calls: Array<{ provider: string; action: string; params: unknown }> = [];
-  const replyTargets: Array<{ loadedConfig: unknown; command: unknown; accountId: string }> = [];
-
-  const deps = {
-    loadConfig: async () => ({
-      configPath: "/tmp/muxbot.json",
-      processedEventsPath: "/tmp/processed-events.json",
-      stateDir: "/tmp/muxbot-state",
-      raw: {
-        session: {
-          mainKey: "main",
-          dmScope: "main",
-          identityLinks: {},
-          storePath: "/tmp/sessions.json",
-        },
-        tmux: {
-          socketPath: "/tmp/muxbot.sock",
-        },
-        agents: {
-          defaults: {
-            workspace: "/tmp/{agentId}",
-            runner: {
-              command: "codex",
-              args: ["-C", "{workspace}"],
-              trustWorkspace: true,
-              startupDelayMs: 1,
-              promptSubmitDelayMs: 1,
-              sessionId: {
-                create: { mode: "runner", args: [] },
-                capture: {
-                  mode: "off",
-                  statusCommand: "/status",
-                  pattern: "id",
-                  timeoutMs: 1,
-                  pollIntervalMs: 1,
-                },
-                resume: { mode: "off", args: [] },
+  const replyTargets: Array<{ loadedConfig: LoadedConfig; target: unknown; kind?: string }> = [];
+  const loadedConfig: LoadedConfig = {
+    configPath: "/tmp/muxbot.json",
+    processedEventsPath: "/tmp/processed-events.json",
+    stateDir: "/tmp/muxbot-state",
+    raw: {
+      meta: {
+        schemaVersion: 1,
+      },
+      session: {
+        mainKey: "main",
+        dmScope: "main",
+        identityLinks: {},
+        storePath: "/tmp/sessions.json",
+      },
+      tmux: {
+        socketPath: "/tmp/muxbot.sock",
+      },
+      agents: {
+        defaults: {
+          workspace: "/tmp/{agentId}",
+          runner: {
+            command: "codex",
+            args: ["-C", "{workspace}"],
+            trustWorkspace: true,
+            startupDelayMs: 1,
+            promptSubmitDelayMs: 1,
+            sessionId: {
+              create: { mode: "runner", args: [] },
+              capture: {
+                mode: "off",
+                statusCommand: "/status",
+                pattern: "id",
+                timeoutMs: 1,
+                pollIntervalMs: 1,
               },
-            },
-            stream: {
-              captureLines: 10,
-              updateIntervalMs: 10,
-              idleTimeoutMs: 10,
-              noOutputTimeoutMs: 10,
-              maxRuntimeSec: 10,
-              maxMessageChars: 100,
-            },
-            session: {
-              createIfMissing: true,
-              staleAfterMinutes: 60,
-              name: "{sessionKey}",
+              resume: { mode: "off", args: [] },
             },
           },
-          list: [{ id: "default" }],
-        },
-        bindings: [],
-        control: {
-          configReload: { watch: false, watchDebounceMs: 250 },
-          sessionCleanup: { enabled: true, intervalMinutes: 5 },
-        },
-        channels: {
-          slack: {
-            defaultAccount: "work",
-            accounts: {},
-            enabled: true,
-            mode: "socket",
-            appToken: "",
-            botToken: "",
-            agentPrompt: {
-              enabled: true,
-              maxProgressMessages: 3,
-              requireFinalResponse: true,
-            },
-            ackReaction: "",
-            typingReaction: "",
-            processingStatus: {
-              enabled: true,
-              status: "Working...",
-              loadingMessages: [],
-            },
-            allowBots: false,
-            replyToMode: "thread",
-            channelPolicy: "allowlist",
-            groupPolicy: "allowlist",
-            defaultAgentId: "default",
-            privilegeCommands: {
-              enabled: false,
-              allowUsers: [],
-            },
-            commandPrefixes: {
-              slash: ["::", "\\"],
-              bash: ["!"],
-            },
-            streaming: "off",
-            response: "final",
-            responseMode: "message-tool",
-            followUp: {
-              mode: "auto",
-              participationTtlMin: 5,
-            },
-            channels: {
-              C123: {
-                requireMention: true,
-              },
-            },
-            groups: {},
-            directMessages: {
-              enabled: true,
-              policy: "pairing",
-              allowFrom: [],
-              requireMention: false,
-            },
+          stream: {
+            captureLines: 10,
+            updateIntervalMs: 10,
+            idleTimeoutMs: 10,
+            noOutputTimeoutMs: 10,
+            maxRuntimeSec: 10,
+            maxMessageChars: 100,
           },
-          telegram: {
-            defaultAccount: "ops",
-            accounts: {},
+          session: {
+            createIfMissing: true,
+            staleAfterMinutes: 60,
+            name: "{sessionKey}",
+          },
+        },
+        list: [{ id: "default" }],
+      },
+      bindings: [],
+      control: {
+        configReload: { watch: false, watchDebounceMs: 250 },
+        sessionCleanup: { enabled: true, intervalMinutes: 5 },
+      },
+      channels: {
+        slack: {
+          defaultAccount: "work",
+          accounts: {},
+          enabled: true,
+          mode: "socket",
+          appToken: "",
+          botToken: "",
+          agentPrompt: {
             enabled: true,
-            mode: "polling",
-            botToken: "",
-            agentPrompt: {
-              enabled: true,
-              maxProgressMessages: 3,
-              requireFinalResponse: true,
-            },
-            allowBots: false,
-            groupPolicy: "allowlist",
-            defaultAgentId: "default",
-            privilegeCommands: {
-              enabled: false,
-              allowUsers: [],
-            },
-            commandPrefixes: {
-              slash: ["::", "\\"],
-              bash: ["!"],
-            },
-            streaming: "off",
-            response: "final",
-            responseMode: "message-tool",
-            followUp: {
-              mode: "auto",
-              participationTtlMin: 5,
-            },
-            polling: {
-              timeoutSeconds: 20,
-              retryDelayMs: 1000,
-            },
-            groups: {
-              "-1001234567890": {
-                requireMention: false,
-              },
-            },
-            directMessages: {
-              enabled: true,
-              policy: "pairing",
-              allowFrom: [],
-              requireMention: false,
+            maxProgressMessages: 3,
+            requireFinalResponse: true,
+          },
+          ackReaction: "",
+          typingReaction: "",
+          processingStatus: {
+            enabled: true,
+            status: "Working...",
+            loadingMessages: [],
+          },
+          allowBots: false,
+          replyToMode: "thread",
+          channelPolicy: "allowlist",
+          groupPolicy: "allowlist",
+          defaultAgentId: "default",
+          privilegeCommands: {
+            enabled: false,
+            allowUsers: [],
+          },
+          commandPrefixes: {
+            slash: ["::", "\\"],
+            bash: ["!"],
+          },
+          streaming: "off",
+          response: "final",
+          responseMode: "message-tool",
+          additionalMessageMode: "steer",
+          followUp: {
+            mode: "auto",
+            participationTtlMin: 5,
+          },
+          channels: {
+            C123: {
+              requireMention: true,
               allowBots: false,
             },
           },
+          groups: {},
+          directMessages: {
+            enabled: true,
+            policy: "pairing",
+            allowFrom: [],
+            requireMention: false,
+          },
+        },
+        telegram: {
+          defaultAccount: "ops",
+          accounts: {},
+          enabled: true,
+          mode: "polling",
+          botToken: "",
+          agentPrompt: {
+            enabled: true,
+            maxProgressMessages: 3,
+            requireFinalResponse: true,
+          },
+          allowBots: false,
+          groupPolicy: "allowlist",
+          defaultAgentId: "default",
+          privilegeCommands: {
+            enabled: false,
+            allowUsers: [],
+          },
+          commandPrefixes: {
+            slash: ["::", "\\"],
+            bash: ["!"],
+          },
+          streaming: "off",
+          response: "final",
+          responseMode: "message-tool",
+          additionalMessageMode: "steer",
+          followUp: {
+            mode: "auto",
+            participationTtlMin: 5,
+          },
+          polling: {
+            timeoutSeconds: 20,
+            retryDelayMs: 1000,
+          },
+          groups: {
+            "-1001234567890": {
+              requireMention: false,
+              allowBots: false,
+              topics: {},
+            },
+          },
+          directMessages: {
+            enabled: true,
+            policy: "pairing",
+            allowFrom: [],
+            requireMention: false,
+            allowBots: false,
+          },
         },
       },
-    }),
-    resolveSlackAccountConfig: (_config: unknown, accountId?: string | null) => ({
-      accountId: accountId ?? "work",
-      config: {
-        appToken: "xapp-test",
-        botToken: "xoxb-test",
-      },
-    }),
-    resolveTelegramAccountConfig: (_config: unknown, accountId?: string | null) => ({
-      accountId: accountId ?? "ops",
-      config: {
-        botToken: "telegram-test",
-      },
-    }),
-    slack: {
-      send: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "send", params });
-        return { ok: true, provider: "slack", action: "send" };
-      },
-      poll: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "poll", params });
-        return { ok: true };
-      },
-      react: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "react", params });
-        return { ok: true };
-      },
-      reactions: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "reactions", params });
-        return { ok: true };
-      },
-      read: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "read", params });
-        return { ok: true };
-      },
-      edit: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "edit", params });
-        return { ok: true };
-      },
-      delete: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "delete", params });
-        return { ok: true };
-      },
-      pin: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "pin", params });
-        return { ok: true };
-      },
-      unpin: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "unpin", params });
-        return { ok: true };
-      },
-      pins: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "pins", params });
-        return { ok: true };
-      },
-      search: async (params: unknown) => {
-        calls.push({ provider: "slack", action: "search", params });
-        return { ok: true };
-      },
     },
-    telegram: {
-      send: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "send", params });
-        return { ok: true, provider: "telegram", action: "send" };
+  };
+
+  const deps = {
+    loadConfig: async () => loadedConfig,
+    plugins: [
+      {
+        id: "slack",
+        isEnabled: () => true,
+        listAccounts: () => [],
+        createRuntimeService: () => {
+          throw new Error("not used in message cli tests");
+        },
+        renderHealthSummary: () => "unused",
+        renderActiveHealthSummary: () => "unused",
+        markStartupFailure: async () => undefined,
+        runMessageCommand: async (_loadedConfig: any, command: ParsedMessageCommand) => {
+          const params = {
+            botToken: "xoxb-test",
+            target: command.target!,
+            threadId: command.threadId,
+            replyTo: command.replyTo,
+            message: command.message,
+            media: command.media,
+            messageId: command.messageId,
+            emoji: command.emoji,
+            remove: command.remove,
+            limit: command.limit,
+            query: command.query,
+            pollQuestion: command.pollQuestion,
+            pollOptions: command.pollOptions,
+            progress: command.progress,
+            final: command.final,
+          };
+          calls.push({ provider: "slack", action: command.action, params });
+          return {
+            accountId: command.account ?? "work",
+            result:
+              command.action === "send"
+                ? { ok: true, provider: "slack", action: "send" }
+                : { ok: true },
+          };
+        },
+        resolveMessageReplyTarget: ({ loadedConfig, command, accountId }) => {
+          if (!command.target) {
+            return null;
+          }
+          const normalizedTarget = command.target.startsWith("channel:")
+            ? {
+                channelType: "channel" as const,
+                channelId: command.target.slice("channel:".length),
+                conversationKind: "channel" as const,
+              }
+            : null;
+          if (!normalizedTarget) {
+            return null;
+          }
+          const resolved = resolveSlackConversationRoute(
+            loadedConfig,
+            {
+              channel_type: normalizedTarget.channelType,
+              channel: normalizedTarget.channelId,
+            },
+            { accountId },
+          );
+          if (!resolved.route) {
+            return null;
+          }
+          return resolveSlackConversationTarget({
+            loadedConfig,
+            agentId: resolved.route.agentId,
+            accountId,
+            channelId: normalizedTarget.channelId,
+            conversationKind: normalizedTarget.conversationKind,
+            threadTs: command.threadId ?? command.replyTo,
+            messageTs: command.replyTo ?? command.threadId,
+            replyToMode: resolved.route.replyToMode,
+          });
+        },
       },
-      poll: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "poll", params });
-        return { ok: true };
+      {
+        id: "telegram",
+        isEnabled: () => true,
+        listAccounts: () => [],
+        createRuntimeService: () => {
+          throw new Error("not used in message cli tests");
+        },
+        renderHealthSummary: () => "unused",
+        renderActiveHealthSummary: () => "unused",
+        markStartupFailure: async () => undefined,
+        runMessageCommand: async (_loadedConfig: any, command: ParsedMessageCommand) => {
+          const params =
+            command.action === "read" || command.action === "reactions" || command.action === "search"
+              ? command.action
+              : {
+                  botToken: "telegram-test",
+                  target: command.target!,
+                  threadId: command.threadId,
+                  replyTo: command.replyTo,
+                  message: command.message,
+                  media: command.media,
+                  messageId: command.messageId,
+                  emoji: command.emoji,
+                  remove: command.remove,
+                  limit: command.limit,
+                  query: command.query,
+                  pollQuestion: command.pollQuestion,
+                  pollOptions: command.pollOptions,
+                  forceDocument: command.forceDocument,
+                  silent: command.silent,
+                  progress: command.progress,
+                  final: command.final,
+                };
+          calls.push({
+            provider: "telegram",
+            action:
+              command.action === "read" || command.action === "reactions" || command.action === "search"
+                ? "unsupported"
+                : command.action,
+            params,
+          });
+          return {
+            accountId: command.account ?? "ops",
+            result:
+              command.action === "read" || command.action === "reactions" || command.action === "search"
+                ? { ok: false, action: command.action }
+                : command.action === "send"
+                  ? { ok: true, provider: "telegram", action: "send" }
+                  : { ok: true },
+          };
+        },
+        resolveMessageReplyTarget: ({ loadedConfig, command, accountId }) => {
+          if (!command.target) {
+            return null;
+          }
+          const chatId = Number(command.target);
+          if (!Number.isFinite(chatId)) {
+            return null;
+          }
+          const topicId = command.threadId ? Number(command.threadId) : undefined;
+          const resolved = resolveTelegramConversationRoute({
+            loadedConfig,
+            chatType: chatId > 0 ? "private" : "supergroup",
+            chatId,
+            topicId: Number.isFinite(topicId) ? topicId : undefined,
+            isForum: Number.isFinite(topicId),
+            accountId,
+          });
+          if (!resolved.route) {
+            return null;
+          }
+          return resolveTelegramConversationTarget({
+            loadedConfig,
+            agentId: resolved.route.agentId,
+            accountId,
+            chatId,
+            userId: chatId > 0 ? chatId : undefined,
+            conversationKind:
+              resolved.conversationKind === "topic"
+                ? "topic"
+                : resolved.conversationKind === "dm"
+                  ? "dm"
+                  : "group",
+            topicId: Number.isFinite(topicId) ? topicId : undefined,
+          });
+        },
       },
-      react: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "react", params });
-        return { ok: true };
-      },
-      edit: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "edit", params });
-        return { ok: true };
-      },
-      delete: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "delete", params });
-        return { ok: true };
-      },
-      pin: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "pin", params });
-        return { ok: true };
-      },
-      unpin: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "unpin", params });
-        return { ok: true };
-      },
-      pins: async (params: unknown) => {
-        calls.push({ provider: "telegram", action: "pins", params });
-        return { ok: true };
-      },
-      unsupported: async (action: string) => {
-        calls.push({ provider: "telegram", action: "unsupported", params: action });
-        return { ok: false, action };
-      },
-    },
+    ] satisfies ChannelPlugin[],
     print: (text: string) => {
       logs.push(text);
     },
     recordConversationReply: async (params: {
-      loadedConfig: unknown;
+      loadedConfig: LoadedConfig;
       target: unknown;
+      kind?: string;
     }) => {
       replyTargets.push(params);
     },
@@ -327,6 +410,8 @@ describe("message cli", () => {
           query: undefined,
           pollQuestion: undefined,
           pollOptions: [],
+          progress: false,
+          final: false,
         },
       },
     ]);
@@ -341,6 +426,7 @@ describe("message cli", () => {
       parentSessionKey: "agent:default:slack:channel:c123",
       threadId: "171234.000100",
     });
+    expect(replyTargets[0]?.kind).toBe("reply");
   });
 
   test("routes telegram unsupported history actions through the provider guard", async () => {
@@ -396,5 +482,55 @@ describe("message cli", () => {
     ], deps);
 
     expect(replyTargets).toHaveLength(0);
+  });
+
+  test("marks final reply sends explicitly", async () => {
+    const { deps, replyTargets } = createDependencies();
+
+    await runMessageCli([
+      "send",
+      "--channel",
+      "slack",
+      "--target",
+      "channel:C123",
+      "--message",
+      "done",
+      "--final",
+    ], deps);
+
+    expect(replyTargets).toHaveLength(1);
+    expect(replyTargets[0]?.kind).toBe("final");
+  });
+
+  test("rejects conflicting progress and final flags", async () => {
+    const { deps } = createDependencies();
+
+    await expect(
+      runMessageCli([
+        "send",
+        "--channel",
+        "slack",
+        "--target",
+        "channel:C123",
+        "--message",
+        "done",
+        "--progress",
+        "--final",
+      ], deps),
+    ).rejects.toThrow("--progress and --final cannot be used together");
+  });
+
+  test("uses only injected plugins and fails when the requested plugin is absent", async () => {
+    const { deps } = createDependencies();
+
+    await expect(
+      runMessageCli(
+        ["send", "--channel", "slack", "--target", "channel:C123", "--message", "hello"],
+        {
+          ...deps,
+          plugins: deps.plugins.filter((plugin) => plugin.id !== "slack"),
+        },
+      ),
+    ).rejects.toThrow("Unsupported message channel: slack");
   });
 });

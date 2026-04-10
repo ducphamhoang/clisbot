@@ -9,6 +9,7 @@ import { SessionStore } from "./session-store.ts";
 import {
   AgentSessionState,
   type ActiveSessionRuntimeInfo,
+  type ConversationReplyKind,
 } from "./session-state.ts";
 import type { SessionRuntimeInfo } from "./session-runtime.ts";
 import {
@@ -161,8 +162,11 @@ export class AgentService {
     });
   }
 
-  async recordConversationReply(target: AgentSessionTarget) {
-    return this.sessionState.recordConversationReply(this.resolveTarget(target));
+  async recordConversationReply(
+    target: AgentSessionTarget,
+    kind: ConversationReplyKind = "reply",
+  ) {
+    return this.sessionState.recordConversationReply(this.resolveTarget(target), kind);
   }
 
   async runShellCommand(target: AgentSessionTarget, command: string): Promise<ShellCommandResult> {
@@ -181,6 +185,27 @@ export class AgentService {
 
   isSessionBusy(target: AgentSessionTarget) {
     return this.activeRuns.hasActiveRun(target) || this.queue.isBusy(target.sessionKey);
+  }
+
+  async isAwaitingFollowUpRouting(target: AgentSessionTarget) {
+    if (this.queue.isBusy(target.sessionKey)) {
+      return true;
+    }
+
+    if (!this.activeRuns.hasActiveRun(target)) {
+      return false;
+    }
+
+    const runtime = await this.sessionState.getSessionRuntime(target);
+    if (
+      typeof runtime.finalReplyAt === "number" &&
+      typeof runtime.startedAt === "number" &&
+      runtime.finalReplyAt >= runtime.startedAt
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   listQueuedPrompts(target: AgentSessionTarget): PendingQueueItem[] {

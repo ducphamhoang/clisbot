@@ -6,23 +6,30 @@ import { loadConfig, type LoadedConfig } from "../config/load-config.ts";
 import {
   MissingEnvVarError,
 } from "../config/env-substitution.ts";
-import { SlackSocketService } from "../channels/slack/service.ts";
-import { TelegramPollingService } from "../channels/telegram/service.ts";
-import { listSlackAccounts, listTelegramAccounts } from "../config/channel-accounts.ts";
 import { ActivityStore } from "./activity-store.ts";
 import {
   renderOperatorErrorWithHelpLines,
   renderRuntimeErrorLines,
 } from "./operator-errors.ts";
 import { RuntimeHealthStore } from "./runtime-health-store.ts";
+import { listChannelPlugins } from "../channels/registry.ts";
+import type { ChannelRuntimeEntry, ChannelPlugin } from "../channels/channel-plugin.ts";
 
 type ActiveRuntime = {
   agentService: AgentService;
-  slackServices: SlackSocketService[];
-  telegramServices: TelegramPollingService[];
+  channelServices: ChannelRuntimeEntry[];
 };
 
 const SERVICE_START_TIMEOUT_MS = 8_000;
+
+type RuntimeSupervisorDependencies = {
+  loadConfig: typeof loadConfig;
+  listChannelPlugins: () => ChannelPlugin[];
+  runtimeHealthStore: RuntimeHealthStore;
+  createAgentService: (loadedConfig: LoadedConfig) => AgentService;
+  createProcessedEventsStore: (processedEventsPath: string) => ProcessedEventsStore;
+  createActivityStore: () => ActivityStore;
+};
 
 export class RuntimeSupervisor {
   private activeRuntime?: ActiveRuntime;
@@ -31,9 +38,22 @@ export class RuntimeSupervisor {
   private reloadInFlight = false;
   private reloadRequested = false;
   private configWatchDebounceMs = 250;
-  private readonly runtimeHealthStore = new RuntimeHealthStore();
+  private readonly dependencies: RuntimeSupervisorDependencies;
 
-  constructor(private readonly configPath?: string) {}
+  constructor(
+    private readonly configPath?: string,
+    dependencies?: Partial<RuntimeSupervisorDependencies>,
+  ) {
+    this.dependencies = {
+      loadConfig,
+      listChannelPlugins,
+      runtimeHealthStore: new RuntimeHealthStore(),
+      createAgentService: (loadedConfig) => new AgentService(loadedConfig),
+      createProcessedEventsStore: (processedEventsPath) => new ProcessedEventsStore(processedEventsPath),
+      createActivityStore: () => new ActivityStore(),
+      ...dependencies,
+    };
+  }
 
   async start() {
     await this.reload("initial");
@@ -43,16 +63,13 @@ export class RuntimeSupervisor {
     this.clearReloadTimer();
     this.stopWatchingConfig();
     await this.stopActiveRuntime();
-    await this.runtimeHealthStore.setChannel({
-      channel: "slack",
-      connection: "stopped",
-      summary: "Slack channel is stopped.",
-    });
-    await this.runtimeHealthStore.setChannel({
-      channel: "telegram",
-      connection: "stopped",
-      summary: "Telegram channel is stopped.",
-    });
+    for (const plugin of this.dependencies.listChannelPlugins()) {
+      await this.dependencies.runtimeHealthStore.setChannel({
+        channel: plugin.id,
+        connection: "stopped",
+        summary: plugin.renderHealthSummary("stopped"),
+      });
+    }
   }
 
   private async reload(reason: "initial" | "watch") {
@@ -66,18 +83,15 @@ export class RuntimeSupervisor {
     let nextRuntime: ActiveRuntime | undefined;
 
     try {
-      const loadedConfig = await loadConfig(this.configPath);
+      const loadedConfig = await this.dependencies.loadConfig(this.configPath);
       nextRuntime = await this.createRuntime(loadedConfig);
 
       await this.reconcileConfigWatcher(loadedConfig);
       this.activeRuntime = nextRuntime;
 
       if (previousRuntime) {
-        for (const slackService of previousRuntime.slackServices) {
-          await slackService.stop();
-        }
-        for (const telegramService of previousRuntime.telegramServices) {
-          await telegramService.stop();
+        for (const service of previousRuntime.channelServices) {
+          await service.service.stop();
         }
         await previousRuntime.agentService.stop();
       }
@@ -111,11 +125,8 @@ export class RuntimeSupervisor {
         this.activeRuntime = previousRuntime;
       }
       if (nextRuntime && nextRuntime !== this.activeRuntime) {
-        for (const slackService of nextRuntime.slackServices) {
-          await slackService.stop();
-        }
-        for (const telegramService of nextRuntime.telegramServices) {
-          await telegramService.stop();
+        for (const service of nextRuntime.channelServices) {
+          await service.service.stop();
         }
         await nextRuntime.agentService.stop();
       }
@@ -134,103 +145,89 @@ export class RuntimeSupervisor {
   private async createRuntime(
     loadedConfig: LoadedConfig,
   ): Promise<ActiveRuntime> {
-    const agentService = new AgentService(loadedConfig);
-    const processedEventsStore = new ProcessedEventsStore(
+    const agentService = this.dependencies.createAgentService(loadedConfig);
+    const processedEventsStore = this.dependencies.createProcessedEventsStore(
       loadedConfig.processedEventsPath,
     );
-    const activityStore = new ActivityStore();
-    const slackServices = loadedConfig.raw.channels.slack.enabled
-      ? listSlackAccounts(loadedConfig.raw.channels.slack).map(
-          ({ accountId, config }) =>
-            new SlackSocketService(
+    const activityStore = this.dependencies.createActivityStore();
+    const plugins = this.dependencies.listChannelPlugins();
+    const channelServices: ChannelRuntimeEntry[] = [];
+    for (const plugin of plugins) {
+      if (!plugin.isEnabled(loadedConfig)) {
+        continue;
+      }
+
+      const accounts = plugin.listAccounts(loadedConfig);
+      if (accounts.length === 0) {
+        throw new Error(`${plugin.id} is enabled but no configured accounts are available.`);
+      }
+
+      for (const account of accounts) {
+        channelServices.push({
+          channel: plugin.id,
+          accountId: account.accountId,
+          service: plugin.createRuntimeService(
+            {
               loadedConfig,
               agentService,
               processedEventsStore,
               activityStore,
-              accountId,
-              config,
-            ),
-        )
-      : [];
-    const telegramServices = loadedConfig.raw.channels.telegram.enabled
-      ? listTelegramAccounts(loadedConfig.raw.channels.telegram).map(
-          ({ accountId, config }) =>
-            new TelegramPollingService(
-              loadedConfig,
-              agentService,
-              processedEventsStore,
-              activityStore,
-              accountId,
-              config,
-            ),
-        )
-      : [];
-    let slackStarted = false;
-    let telegramStarted = false;
-    let startupPhase: "agent" | "slack" | "telegram" = "agent";
+            },
+            account,
+          ),
+        });
+      }
+    }
+    const startedChannels = new Set<string>();
+    let startupPhase: "agent" | "channel" = "agent";
+    let startupChannelId: string | undefined;
 
     try {
       await this.writeConfiguredChannelHealth(loadedConfig, "starting");
       await withStartupTimeout("agent service", () => agentService.start());
 
-      if (slackServices.length > 0) {
-        startupPhase = "slack";
-        for (const slackService of slackServices) {
-          await withStartupTimeout("slack service", () => slackService.start());
+      for (const plugin of plugins) {
+        const pluginServices = channelServices.filter((service) => service.channel === plugin.id);
+        if (pluginServices.length === 0) {
+          continue;
         }
-        slackStarted = true;
-        await this.runtimeHealthStore.setChannel({
-          channel: "slack",
-          connection: "active",
-          summary: `Slack Socket Mode connected for ${slackServices.length} account(s).`,
-        });
-      } else {
-        await this.runtimeHealthStore.setChannel({
-          channel: "slack",
-          connection: "disabled",
-          summary: "Slack channel is disabled in config.",
-        });
-      }
-      if (telegramServices.length > 0) {
-        startupPhase = "telegram";
-        for (const telegramService of telegramServices) {
-          await withStartupTimeout("telegram service", () => telegramService.start());
+
+        startupPhase = "channel";
+        startupChannelId = plugin.id;
+        for (const entry of pluginServices) {
+          await withStartupTimeout(`${plugin.id} service`, () => entry.service.start());
         }
-        telegramStarted = true;
-        await this.runtimeHealthStore.setChannel({
-          channel: "telegram",
+        startedChannels.add(plugin.id);
+        await this.dependencies.runtimeHealthStore.setChannel({
+          channel: plugin.id,
           connection: "active",
-          summary: `Telegram polling connected for ${telegramServices.length} account(s).`,
-        });
-      } else {
-        await this.runtimeHealthStore.setChannel({
-          channel: "telegram",
-          connection: "disabled",
-          summary: "Telegram channel is disabled in config.",
+          summary: plugin.renderActiveHealthSummary(pluginServices.length),
         });
       }
 
       return {
         agentService,
-        slackServices,
-        telegramServices,
+        channelServices,
       };
     } catch (error) {
-      if (startupPhase === "slack" && loadedConfig.raw.channels.slack.enabled && !slackStarted) {
-        await this.runtimeHealthStore.markSlackFailure(error);
+      if (startupPhase === "channel" && startupChannelId && !startedChannels.has(startupChannelId)) {
+        await this.dependencies.listChannelPlugins()
+          .find((plugin) => plugin.id === startupChannelId)
+          ?.markStartupFailure(this.dependencies.runtimeHealthStore, error);
       }
-      if (
-        startupPhase === "telegram" &&
-        loadedConfig.raw.channels.telegram.enabled &&
-        !telegramStarted
-      ) {
-        await this.runtimeHealthStore.markTelegramFailure(error);
+      for (const entry of channelServices) {
+        await entry.service.stop().catch(() => undefined);
       }
-      for (const slackService of slackServices) {
-        await slackService.stop().catch(() => undefined);
-      }
-      for (const telegramService of telegramServices) {
-        await telegramService.stop().catch(() => undefined);
+      for (const startedChannelId of startedChannels) {
+        const plugin = plugins.find((entry) => entry.id === startedChannelId);
+        if (!plugin) {
+          continue;
+        }
+        await this.dependencies.runtimeHealthStore.setChannel({
+          channel: plugin.id,
+          connection: "stopped",
+          summary: plugin.renderHealthSummary("stopped"),
+        });
       }
       await agentService.stop().catch(() => undefined);
       throw error;
@@ -241,20 +238,14 @@ export class RuntimeSupervisor {
     loadedConfig: LoadedConfig,
     connection: "starting",
   ) {
-    await this.runtimeHealthStore.setChannel({
-      channel: "slack",
-      connection: loadedConfig.raw.channels.slack.enabled ? connection : "disabled",
-      summary: loadedConfig.raw.channels.slack.enabled
-        ? "Slack channel is starting."
-        : "Slack channel is disabled in config.",
-    });
-    await this.runtimeHealthStore.setChannel({
-      channel: "telegram",
-      connection: loadedConfig.raw.channels.telegram.enabled ? connection : "disabled",
-      summary: loadedConfig.raw.channels.telegram.enabled
-        ? "Telegram channel is starting."
-        : "Telegram channel is disabled in config.",
-    });
+    for (const plugin of this.dependencies.listChannelPlugins()) {
+      const enabled = plugin.isEnabled(loadedConfig);
+      await this.dependencies.runtimeHealthStore.setChannel({
+        channel: plugin.id,
+        connection: enabled ? connection : "disabled",
+        summary: plugin.renderHealthSummary(enabled ? "starting" : "disabled"),
+      });
+    }
   }
 
   private async reconcileConfigWatcher(loadedConfig: LoadedConfig) {
@@ -312,11 +303,8 @@ export class RuntimeSupervisor {
       return;
     }
 
-    for (const slackService of this.activeRuntime.slackServices) {
-      await slackService.stop();
-    }
-    for (const telegramService of this.activeRuntime.telegramServices) {
-      await telegramService.stop();
+    for (const service of this.activeRuntime.channelServices) {
+      await service.service.stop();
     }
     await this.activeRuntime.agentService.stop();
     this.activeRuntime = undefined;

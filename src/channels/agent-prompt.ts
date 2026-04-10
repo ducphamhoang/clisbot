@@ -100,6 +100,7 @@ function buildReplyCommand(params: {
     if (params.identity.threadTs) {
       lines.push(`  --thread-id ${params.identity.threadTs} \\`);
     }
+    lines.push("  --final \\");
     lines.push('  --message "$(cat <<\'__MUXBOT_MESSAGE__\'');
     lines.push("<short progress update>");
     lines.push("__MUXBOT_MESSAGE__");
@@ -112,6 +113,7 @@ function buildReplyCommand(params: {
   if (params.identity.topicId) {
     lines.push(`  --thread-id ${params.identity.topicId} \\`);
   }
+  lines.push("  --final \\");
   lines.push('  --message "$(cat <<\'__MUXBOT_MESSAGE__\'');
   lines.push("<short progress update>");
   lines.push("__MUXBOT_MESSAGE__");

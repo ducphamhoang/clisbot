@@ -1,27 +1,16 @@
-import type { CommandPrefixes } from "../../agents/commands.ts";
-import type { FollowUpConfig } from "../../agents/follow-up-policy.ts";
-import { resolveTopLevelBoundAgentId } from "../../config/bindings.ts";
-import { resolveConfigDurationMs } from "../../config/duration.ts";
-import { getAgentEntry, type LoadedConfig } from "../../config/load-config.ts";
+import { type LoadedConfig } from "../../config/load-config.ts";
 import {
-  resolvePrivilegeCommands,
   type PrivilegeCommandsConfig,
-  type PrivilegeCommandsOverride,
 } from "../privilege-commands.ts";
+import {
+  buildSharedChannelRoute,
+  type SharedChannelRoute,
+  type SharedChannelRouteOverride,
+} from "../route-policy.ts";
 import { type SlackConversationKind } from "./session-routing.ts";
 
-export type SlackRoute = {
-  agentId: string;
-  requireMention: boolean;
-  allowBots: boolean;
+export type SlackRoute = SharedChannelRoute & {
   replyToMode: "thread" | "all";
-  privilegeCommands: PrivilegeCommandsConfig;
-  commandPrefixes: CommandPrefixes;
-  streaming: "off" | "latest" | "all";
-  response: "all" | "final";
-  responseMode: "capture-pane" | "message-tool";
-  additionalMessageMode: "queue" | "steer";
-  followUp: FollowUpConfig;
 };
 
 export type SlackResolvedRoute = {
@@ -29,22 +18,7 @@ export type SlackResolvedRoute = {
   route: SlackRoute | null;
 };
 
-type SlackRouteOverride = {
-  agentId?: string;
-  requireMention?: boolean;
-  allowBots?: boolean;
-  privilegeCommands?: PrivilegeCommandsOverride;
-  commandPrefixes?: Partial<CommandPrefixes>;
-  streaming?: "off" | "latest" | "all";
-  response?: "all" | "final";
-  responseMode?: "capture-pane" | "message-tool";
-  additionalMessageMode?: "queue" | "steer";
-  followUp?: {
-    mode?: FollowUpConfig["mode"];
-    participationTtlSec?: number;
-    participationTtlMin?: number;
-  };
-};
+type SlackRouteOverride = SharedChannelRouteOverride;
 
 function normalizeSlackPrivilegeUsers(userIds: string[]) {
   return userIds
@@ -58,48 +32,17 @@ function buildRoute(loadedConfig: LoadedConfig, params: {
   accountId?: string;
 }): SlackRoute {
   const slackConfig = loadedConfig.raw.channels.slack;
-  const privilegeCommands = resolvePrivilegeCommands(
-    slackConfig.privilegeCommands,
-    params.route?.privilegeCommands,
-  );
-  const agentId =
-    params.route?.agentId ??
-    resolveTopLevelBoundAgentId(loadedConfig, {
-      channel: "slack",
-      accountId: params.accountId,
-    }) ??
-    slackConfig.defaultAgentId;
-  const agentEntry = getAgentEntry(loadedConfig, agentId);
   return {
-    agentId,
-    requireMention: params.route?.requireMention ?? params.requireMention,
-    allowBots: params.route?.allowBots ?? slackConfig.allowBots,
+    ...buildSharedChannelRoute({
+      loadedConfig,
+      channel: "slack",
+      channelConfig: slackConfig,
+      route: params.route,
+      requireMention: params.requireMention,
+      normalizePrivilegeUsers: normalizeSlackPrivilegeUsers,
+      accountId: params.accountId,
+    }),
     replyToMode: slackConfig.replyToMode,
-    privilegeCommands: {
-      enabled: privilegeCommands.enabled,
-      allowUsers: normalizeSlackPrivilegeUsers(privilegeCommands.allowUsers),
-    },
-    commandPrefixes: {
-      slash: params.route?.commandPrefixes?.slash ?? slackConfig.commandPrefixes.slash,
-      bash: params.route?.commandPrefixes?.bash ?? slackConfig.commandPrefixes.bash,
-    },
-    streaming: params.route?.streaming ?? slackConfig.streaming,
-    response: params.route?.response ?? slackConfig.response,
-    responseMode: params.route?.responseMode ?? agentEntry?.responseMode ?? slackConfig.responseMode,
-    additionalMessageMode:
-      params.route?.additionalMessageMode ??
-      agentEntry?.additionalMessageMode ??
-      slackConfig.additionalMessageMode,
-    followUp: {
-      mode: params.route?.followUp?.mode ?? slackConfig.followUp.mode,
-      participationTtlMs: resolveConfigDurationMs({
-        seconds: params.route?.followUp?.participationTtlSec ??
-          slackConfig.followUp.participationTtlSec,
-        minutes: params.route?.followUp?.participationTtlMin ??
-          slackConfig.followUp.participationTtlMin,
-        defaultMinutes: 5,
-      }),
-    },
   };
 }
 

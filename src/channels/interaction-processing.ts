@@ -390,7 +390,11 @@ export async function processChannelInteraction<TChunk>(params: {
     slashCommand?.type === "queue" ? slashCommand.text.trim() : undefined;
   const explicitSteerMessage =
     slashCommand?.type === "steer" ? slashCommand.text.trim() : undefined;
-  const sessionBusy = params.agentService.isSessionBusy?.(params.sessionTarget) ?? false;
+  const sessionBusy = await (
+    params.agentService.isAwaitingFollowUpRouting?.(params.sessionTarget) ??
+    params.agentService.isSessionBusy?.(params.sessionTarget) ??
+    false
+  );
   const queueByMode = !explicitQueueMessage && params.route.additionalMessageMode === "queue" && sessionBusy;
   const forceQueuedDelivery = typeof explicitQueueMessage === "string" || queueByMode;
   const channelManagedDelivery =
@@ -674,8 +678,7 @@ export async function processChannelInteraction<TChunk>(params: {
   }
 
   if (!forceQueuedDelivery && params.route.additionalMessageMode === "steer") {
-    const hasActiveRun = params.agentService.hasActiveRun?.(params.sessionTarget) ?? false;
-    if (hasActiveRun) {
+    if (sessionBusy) {
       await params.agentService.submitSessionInput(
         params.sessionTarget,
         buildSteeringMessage(params.text),

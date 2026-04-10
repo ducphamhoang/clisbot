@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { isLatencyDebugEnabled, logLatencyDebug } from "../src/control/latency-debug.ts";
 
 describe("latency debug", () => {
@@ -10,21 +10,21 @@ describe("latency debug", () => {
     } else {
       process.env.MUXBOT_DEBUG_LATENCY = originalEnv;
     }
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   test("stays disabled unless the env flag is enabled", () => {
     delete process.env.MUXBOT_DEBUG_LATENCY;
     expect(isLatencyDebugEnabled()).toBe(false);
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
     logLatencyDebug("stage", { platform: "slack" }, { elapsedMs: 10 });
     expect(consoleSpy).not.toHaveBeenCalled();
   });
 
   test("logs structured latency events when enabled", () => {
     process.env.MUXBOT_DEBUG_LATENCY = "1";
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
 
     logLatencyDebug(
       "tmux-first-meaningful-delta",
