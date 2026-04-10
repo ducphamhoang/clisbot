@@ -318,6 +318,24 @@ describe("Slack conversation target routing", () => {
     expect(channelRoute.route?.responseMode).toBe("capture-pane");
   });
 
+  test("uses agent additionalMessageMode when the route does not override it", () => {
+    const loadedConfig = createLoadedConfig();
+    loadedConfig.raw.channels.slack.channelPolicy = "open";
+    loadedConfig.raw.agents.list = [
+      {
+        id: "default",
+        additionalMessageMode: "queue",
+      },
+    ];
+
+    const channelRoute = resolveSlackConversationRoute(loadedConfig, {
+      channel_type: "channel",
+      channel: "C123",
+    });
+
+    expect(channelRoute.route?.additionalMessageMode).toBe("queue");
+  });
+
   test("uses account-specific slack binding when the bound account id is provided", () => {
     const loadedConfig = createLoadedConfig();
     loadedConfig.raw.channels.slack.channelPolicy = "open";

@@ -129,6 +129,9 @@ Current subcommands:
 - `muxbot agents response-mode status --agent <id>`
 - `muxbot agents response-mode set <capture-pane|message-tool> --agent <id>`
 - `muxbot agents response-mode clear --agent <id>`
+- `muxbot agents additional-message-mode status --agent <id>`
+- `muxbot agents additional-message-mode set <queue|steer> --agent <id>`
+- `muxbot agents additional-message-mode clear --agent <id>`
 
 Important rules:
 
@@ -144,6 +147,7 @@ Important rules:
 - `agents bootstrap` runs a dry conflict check first and asks for `--force` before overwriting any template markdown file
 - `--bind` may be repeated and currently accepts `slack`, `telegram`, `slack:<accountId>`, or `telegram:<accountId>`
 - `agents response-mode` sets or clears `agents.list[].responseMode`
+- `agents additional-message-mode` sets or clears `agents.list[].additionalMessageMode`
 
 Examples:
 
@@ -204,6 +208,8 @@ Current subcommands:
 - `muxbot channels clear-token <slack-app|slack-bot|telegram-bot>`
 - `muxbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
 - `muxbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
+- `muxbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
+- `muxbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
 - `muxbot channels privilege enable <target>`
 - `muxbot channels privilege disable <target>`
 - `muxbot channels privilege allow-user <target> <userId>`
@@ -226,6 +232,11 @@ Important behavior:
 - channel and topic response-mode overrides require the route to exist first
 - `privilege` commands update route-level `privilegeCommands.enabled` and `privilegeCommands.allowUsers`
 - direct-message privilege targets are literal command targets: `slack-dm` and `telegram-dm`
+- conversation-level busy-session tools are available on routed Slack and Telegram conversations:
+  - `/queue <message>` or `\q <message>`
+  - `/steer <message>` or `\s <message>`
+  - `/queue-list`
+  - `/queue-clear`
 - if the service is already running, restart it after changing channel enablement
 - `muxbot channels` and `muxbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and privilege commands
 

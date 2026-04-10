@@ -386,6 +386,23 @@ function normalizeBoundaryLine(line: string) {
   return line.trim().replace(/^(?::eight_spoked_asterisk:|[-*•◦·✽✶])\s+/, "");
 }
 
+function shouldDropDeliveryReportLine(line: string) {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const normalized = trimmed.replace(/^(?::eight_spoked_asterisk:|[-*•◦·✽✶⏺])\s+/, "");
+
+  return (
+    /^(?:I|We)\s+(?:have\s+)?(?:sent|posted|delivered)\b.*\b(?:slack|telegram)\b/i.test(normalized) ||
+    /^(?:Sent|Posted|Delivered)\b.*\b(?:to|via)\s+(?:Slack|Telegram)\b/i.test(normalized) ||
+    /^Đã gửi\b.*\b(?:Slack|Telegram)\b/i.test(normalized) ||
+    /^(?:Sent|Posted|Delivered)\.?$/i.test(normalized) ||
+    /^Waited for background terminal\.?$/i.test(normalized)
+  );
+}
+
 export function collapseAdjacentDuplicateLines(raw: string) {
   const lines = raw.split("\n");
   const collapsed: string[] = [];
@@ -419,6 +436,10 @@ export function cleanInteractionSnapshot(raw: string) {
       ? dropClaudePromptBlocks(lines)
       : lines;
   const filtered = promptStripped.filter((line) => {
+    if (shouldDropDeliveryReportLine(line)) {
+      return false;
+    }
+
     if (isCodex && shouldDropCodexChromeLine(line)) {
       return false;
     }

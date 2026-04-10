@@ -1,42 +1,148 @@
 type QueueTask<T> = () => Promise<T>;
 
+export type PendingQueueItem = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+
+type QueueEntry<T> = {
+  id: string;
+  text?: string;
+  createdAt: number;
+  status: "pending" | "running";
+  task: QueueTask<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+  result: Promise<T>;
+};
+
+type QueueState = {
+  running: boolean;
+  entries: QueueEntry<unknown>[];
+};
+
+export class ClearedQueuedTaskError extends Error {
+  constructor() {
+    super("Queued task was cleared before execution.");
+    this.name = "ClearedQueuedTaskError";
+  }
+}
+
 export class AgentJobQueue {
-  private tails = new Map<string, Promise<unknown>>();
-  private pendingCounts = new Map<string, number>();
+  private states = new Map<string, QueueState>();
+  private nextId = 1;
 
-  enqueue<T>(key: string, task: QueueTask<T>) {
-    const positionAhead = this.pendingCounts.get(key) ?? 0;
-    const previous = this.tails.get(key) ?? Promise.resolve();
-    this.pendingCounts.set(key, positionAhead + 1);
-
-    const run = previous.catch(() => undefined).then(task);
-    const tail = run.catch(() => undefined).finally(() => {
-      const nextCount = (this.pendingCounts.get(key) ?? 1) - 1;
-      if (nextCount <= 0) {
-        this.pendingCounts.delete(key);
-        this.tails.delete(key);
-      } else {
-        this.pendingCounts.set(key, nextCount);
-      }
+  enqueue<T>(key: string, task: QueueTask<T>, options: { text?: string } = {}) {
+    const state = this.getOrCreateState(key);
+    const positionAhead = state.entries.length;
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const result = new Promise<T>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
     });
-    this.tails.set(
-      key,
-      tail,
-    );
-
-    return {
-      positionAhead,
-      result: run,
+    void result.catch(() => undefined);
+    const entry: QueueEntry<T> = {
+      id: String(this.nextId++),
+      text: options.text,
+      createdAt: Date.now(),
+      status: "pending",
+      task,
+      resolve,
+      reject,
+      result,
     };
+    state.entries.push(entry as QueueEntry<unknown>);
+    void this.drain(key, state);
+
+    return { positionAhead, result };
   }
 
   isBusy(sessionKey: string) {
-    for (const key of this.pendingCounts.keys()) {
-      if (key === sessionKey || key.startsWith(`${sessionKey}:`)) {
+    for (const [key, state] of this.states.entries()) {
+      if ((key === sessionKey || key.startsWith(`${sessionKey}:`)) && state.entries.length > 0) {
         return true;
       }
     }
 
     return false;
+  }
+
+  listPending(key: string): PendingQueueItem[] {
+    const state = this.states.get(key);
+    if (!state) {
+      return [];
+    }
+
+    return state.entries
+      .filter((entry) => entry.status === "pending" && entry.text)
+      .map((entry) => ({
+        id: entry.id,
+        text: entry.text!,
+        createdAt: entry.createdAt,
+      }));
+  }
+
+  clearPending(key: string) {
+    const state = this.states.get(key);
+    if (!state) {
+      return 0;
+    }
+
+    const keptEntries = state.entries.filter((entry) => entry.status === "running");
+    const removedEntries = state.entries.filter((entry) => entry.status === "pending");
+    state.entries = keptEntries;
+    for (const entry of removedEntries) {
+      entry.reject(new ClearedQueuedTaskError());
+    }
+    if (state.entries.length === 0 && !state.running) {
+      this.states.delete(key);
+    }
+    return removedEntries.length;
+  }
+
+  private getOrCreateState(key: string) {
+    const existing = this.states.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const state: QueueState = {
+      running: false,
+      entries: [],
+    };
+    this.states.set(key, state);
+    return state;
+  }
+
+  private async drain(key: string, state: QueueState) {
+    if (state.running) {
+      return;
+    }
+
+    state.running = true;
+    try {
+      while (true) {
+        const nextEntry = state.entries.find((entry) => entry.status === "pending");
+        if (!nextEntry) {
+          break;
+        }
+
+        nextEntry.status = "running";
+        try {
+          nextEntry.resolve(await nextEntry.task());
+        } catch (error) {
+          nextEntry.reject(error);
+        } finally {
+          state.entries = state.entries.filter((entry) => entry !== nextEntry);
+        }
+      }
+    } finally {
+      state.running = false;
+      if (state.entries.length === 0) {
+        this.states.delete(key);
+      }
+    }
   }
 }

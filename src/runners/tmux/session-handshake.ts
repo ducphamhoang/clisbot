@@ -6,6 +6,7 @@ import type { TmuxClient } from "./client.ts";
 const TRUST_PROMPT_POLL_INTERVAL_MS = 250;
 const TRUST_PROMPT_MAX_WAIT_MS = 10_000;
 const TRUST_PROMPT_SETTLE_DELAY_MS = 1500;
+const SESSION_BOOTSTRAP_POLL_INTERVAL_MS = 100;
 
 export async function submitTmuxSessionInput(params: {
   tmux: TmuxClient;
@@ -86,6 +87,37 @@ export async function dismissTmuxTrustPromptIfPresent(params: {
 
     await dismissTrustPrompt(params.tmux, params.sessionName);
   }
+}
+
+export async function waitForTmuxSessionBootstrap(params: {
+  tmux: TmuxClient;
+  sessionName: string;
+  captureLines: number;
+  startupDelayMs: number;
+}) {
+  const deadline = Date.now() + Math.max(params.startupDelayMs, SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
+
+  while (Date.now() <= deadline) {
+    let snapshot = "";
+    try {
+      snapshot = normalizePaneText(
+        await params.tmux.capturePane(params.sessionName, params.captureLines),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("can't find session:")) {
+        return "";
+      }
+      throw error;
+    }
+    if (snapshot) {
+      return snapshot;
+    }
+
+    await sleep(SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
+  }
+
+  return "";
 }
 
 function hasTrustPrompt(snapshot: string) {

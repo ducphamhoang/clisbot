@@ -50,6 +50,7 @@ import {
   type SlackPostedMessageChunk,
 } from "./transport.ts";
 import type { SlackAccountConfig } from "../../config/channel-accounts.ts";
+import { logLatencyDebug } from "../../control/latency-debug.ts";
 
 type SlackAppType = InstanceType<typeof App>;
 type SlackThreadTsCacheEntry = {
@@ -66,6 +67,12 @@ function debugSlackEvent(message: string, details: Record<string, unknown> = {})
   }
 
   console.log(`slack debug ${message} ${JSON.stringify(details)}`);
+}
+
+function waitForBackgroundSlackTask(task: Promise<unknown>) {
+  return task.catch((error) => {
+    console.error("slack background task failed", error);
+  });
 }
 
 export class SlackSocketService {
@@ -389,24 +396,6 @@ export class SlackSocketService {
       channel: channelId,
       timestamp: messageTs,
     };
-    await addConfiguredReaction(
-      this.app.client,
-      this.loadedConfig.raw.channels.slack.ackReaction,
-      reactionTarget,
-    );
-    await addConfiguredReaction(
-      this.app.client,
-      this.loadedConfig.raw.channels.slack.typingReaction,
-      reactionTarget,
-    );
-    await setSlackAssistantThreadStatus(
-      this.app.client,
-      this.loadedConfig.raw.channels.slack.processingStatus,
-      {
-        channel: channelId,
-        threadTs,
-      },
-    );
     let responseChunks: SlackPostedMessageChunk[] = [];
     const agentPromptText = buildAgentPromptText({
       text,
@@ -421,6 +410,43 @@ export class SlackSocketService {
       config: this.loadedConfig.raw.channels.slack.agentPrompt,
       responseMode: params.route.responseMode,
     });
+    const timingContext = {
+      platform: "slack" as const,
+      eventId,
+      agentId: params.route.agentId,
+      channelId,
+      threadId: threadTs,
+      sessionKey: sessionTarget.sessionKey,
+    };
+    logLatencyDebug("slack-event-accepted", timingContext, {
+      conversationKind: params.conversationKind,
+      responseMode: params.route.responseMode,
+      accountId: this.accountId,
+    });
+    const ackReactionTask = waitForBackgroundSlackTask(
+      addConfiguredReaction(
+        this.app.client,
+        this.loadedConfig.raw.channels.slack.ackReaction,
+        reactionTarget,
+      ),
+    );
+    const processingDecorationTask = waitForBackgroundSlackTask(
+      Promise.all([
+        addConfiguredReaction(
+          this.app.client,
+          this.loadedConfig.raw.channels.slack.typingReaction,
+          reactionTarget,
+        ),
+        setSlackAssistantThreadStatus(
+          this.app.client,
+          this.loadedConfig.raw.channels.slack.processingStatus,
+          {
+            channel: channelId,
+            threadTs,
+          },
+        ),
+      ]),
+    );
     try {
       await processChannelInteraction({
         agentService: this.agentService,
@@ -439,6 +465,7 @@ export class SlackSocketService {
         agentPromptText,
         route: params.route,
         maxChars: this.getSlackMaxChars(params.route.agentId),
+        timingContext,
         postText: async (nextText) => {
           responseChunks = await postSlackText(this.app.client, {
             channel: channelId,
@@ -463,6 +490,8 @@ export class SlackSocketService {
       await this.processedEventsStore.clear(eventId);
       return;
     } finally {
+      await ackReactionTask;
+      await processingDecorationTask;
       await removeConfiguredReaction(
         this.app.client,
         this.loadedConfig.raw.channels.slack.typingReaction,

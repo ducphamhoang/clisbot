@@ -4,10 +4,17 @@ import {
   renderPrivilegeCommandHelpLines,
 } from "../channels/privilege-help.ts";
 import {
+  getConfiguredAdditionalMessageMode,
+  setConfiguredAdditionalMessageMode,
+} from "../channels/additional-message-mode-config.ts";
+import {
   getConfiguredResponseMode,
   setConfiguredResponseMode,
-  type ResponseMode,
 } from "../channels/response-mode-config.ts";
+import type {
+  AdditionalMessageMode,
+  ResponseMode,
+} from "../channels/mode-config-shared.ts";
 import { runChannelPrivilegeCli } from "./channel-privilege-cli.ts";
 import { renderChannelSetupHelpLines } from "./startup-bootstrap.ts";
 
@@ -37,6 +44,8 @@ export function renderChannelsHelp() {
     "  muxbot channels privilege <enable|disable|allow-user|remove-user> <target> ...",
     "  muxbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
     "  muxbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
+    "  muxbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
+    "  muxbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
     "  muxbot channels set-token <slack-app|slack-bot|telegram-bot> <value>",
     "  muxbot channels clear-token <slack-app|slack-bot|telegram-bot>",
     "",
@@ -50,8 +59,11 @@ export function renderChannelsHelp() {
     "  - Adding a route puts that surface on the allowlist; other channels, groups, or topics still need to be added explicitly",
     "  - Tune route settings such as requireMention, privilegeCommands, and followUp in muxbot.json when a surface should behave differently",
     "  - Response delivery can be tuned with responseMode: `capture-pane` or `message-tool`",
+    "  - Busy-session follow-up can be tuned with additionalMessageMode: `steer` or `queue`",
     "  - Slack response-mode targets use `channel:<id>`, `group:<id>`, or `dm:<id>`",
+    "  - Slack additional-message-mode targets use `channel:<id>`, `group:<id>`, or `dm:<id>`",
     "  - Telegram response-mode targets use a numeric chat id; negative ids are groups, positive ids are direct messages",
+    "  - Telegram additional-message-mode targets use a numeric chat id; negative ids are groups, positive ids are direct messages",
     "  - Telegram topics add `--topic <topicId>` on top of the group chat id",
     "  - Use pairing or allowlist DM policy when you do not want open direct-message access",
     "",
@@ -63,6 +75,13 @@ export function renderChannelsHelp() {
     "  - muxbot channels response-mode set message-tool --channel telegram --target -1001234567890",
     "  - muxbot channels response-mode set capture-pane --channel telegram --target -1001234567890 --topic 42",
     "  - muxbot channels response-mode set message-tool --channel telegram --target 123456789",
+    "  - muxbot channels additional-message-mode status --channel slack --target channel:C123",
+    "  - muxbot channels additional-message-mode set steer --channel slack --target channel:C123",
+    "  - muxbot channels additional-message-mode set queue --channel slack --target group:G123",
+    "  - muxbot channels additional-message-mode set steer --channel slack --target dm:D123",
+    "  - muxbot channels additional-message-mode set steer --channel telegram --target -1001234567890",
+    "  - muxbot channels additional-message-mode set queue --channel telegram --target -1001234567890 --topic 42",
+    "  - muxbot channels additional-message-mode set steer --channel telegram --target 123456789",
     "",
     "Discovery tips:",
     "  - Telegram: use `/whoami` in the target group or topic to get chatId and topicId",
@@ -104,6 +123,13 @@ function parseTokenTarget(raw: string | undefined): TokenTarget {
 
 function parseResponseMode(raw: string | undefined): ResponseMode {
   if (raw === "capture-pane" || raw === "message-tool") {
+    return raw;
+  }
+  throw new Error(renderChannelsHelp());
+}
+
+function parseAdditionalMessageMode(raw: string | undefined): AdditionalMessageMode {
+  if (raw === "queue" || raw === "steer") {
     return raw;
   }
   throw new Error(renderChannelsHelp());
@@ -455,6 +481,46 @@ async function runResponseModeCli(args: string[]) {
   console.log(`config: ${updated.configPath}`);
 }
 
+async function runAdditionalMessageModeCli(args: string[]) {
+  const action = args[0];
+  if (action !== "status" && action !== "set") {
+    throw new Error(renderChannelsHelp());
+  }
+
+  const additionalMessageMode =
+    action === "set" ? parseAdditionalMessageMode(args[1]) : undefined;
+  const optionArgs = action === "set" ? args.slice(2) : args.slice(1);
+  const channel = parseResponseModeChannel(parseOptionValue(optionArgs, "--channel"));
+  const target = parseResponseModeTarget(channel, parseOptionValue(optionArgs, "--target"));
+  const topic = parseOptionValue(optionArgs, "--topic");
+
+  if (channel === "slack" && topic) {
+    throw new Error("Slack additional-message-mode commands do not support --topic");
+  }
+
+  if (action === "status") {
+    const status = await getConfiguredAdditionalMessageMode({
+      channel,
+      target,
+      topic,
+    });
+    console.log(`additionalMessageMode target: ${status.label}`);
+    console.log(`additionalMessageMode: ${status.additionalMessageMode ?? "(inherit)"}`);
+    console.log(`config: ${status.configPath}`);
+    return;
+  }
+
+  const updated = await setConfiguredAdditionalMessageMode({
+    channel,
+    target,
+    topic,
+    additionalMessageMode: additionalMessageMode!,
+  });
+  console.log(`updated additionalMessageMode for ${updated.label}`);
+  console.log(`additionalMessageMode: ${updated.additionalMessageMode}`);
+  console.log(`config: ${updated.configPath}`);
+}
+
 function renderPostChangeGuidance(action: ChannelAction, channel: ChannelId) {
   if (action === "disable") {
     console.log("Run `muxbot status` to confirm the runtime state after config reload.");
@@ -589,6 +655,11 @@ export async function runChannelsCli(args: string[]) {
 
   if (command === "response-mode") {
     await runResponseModeCli(args.slice(1));
+    return;
+  }
+
+  if (command === "additional-message-mode") {
+    await runAdditionalMessageModeCli(args.slice(1));
     return;
   }
 

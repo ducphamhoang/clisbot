@@ -217,6 +217,26 @@ describe("Telegram route resolution", () => {
     });
   });
 
+  test("uses agent additionalMessageMode when the route does not override it", () => {
+    const loadedConfig = createLoadedConfig();
+    loadedConfig.raw.channels.telegram.groupPolicy = "open";
+    loadedConfig.raw.agents.list = [
+      {
+        id: "default",
+        additionalMessageMode: "queue",
+      },
+    ];
+
+    const resolved = resolveTelegramConversationRoute({
+      loadedConfig,
+      chatType: "supergroup",
+      chatId: -2001,
+      isForum: false,
+    });
+
+    expect(resolved.route?.additionalMessageMode).toBe("queue");
+  });
+
   test("isolates forum topics by topic id", () => {
     const target = resolveTelegramConversationTarget({
       loadedConfig: createLoadedConfig(),

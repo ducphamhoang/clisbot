@@ -11,7 +11,10 @@ import { type MuxbotConfig } from "../config/schema.ts";
 import { readEditableConfig, writeEditableConfig } from "../config/config-file.ts";
 import { applyBootstrapTemplate, getBootstrapWorkspaceState } from "../agents/bootstrap.ts";
 import { formatBinding } from "../config/bindings.ts";
-import type { ResponseMode } from "../channels/response-mode-config.ts";
+import type {
+  AdditionalMessageMode,
+  ResponseMode,
+} from "../channels/mode-config-shared.ts";
 
 function getEditableConfigPath() {
   return process.env.MUXBOT_CONFIG_PATH;
@@ -68,6 +71,13 @@ function parseResponseMode(raw: string | undefined): ResponseMode {
     return raw;
   }
   throw new Error("Usage: agents response-mode <status|set|clear> ...");
+}
+
+function parseAdditionalMessageMode(raw: string | undefined): AdditionalMessageMode {
+  if (raw === "queue" || raw === "steer") {
+    return raw;
+  }
+  throw new Error("Usage: agents additional-message-mode <status|set|clear> ...");
 }
 
 function removeConsumedArgs(args: string[], consumedNames: string[]) {
@@ -201,6 +211,7 @@ async function listAgents(args: string[]) {
     id: agent.id,
     cliTool: agent.cliTool ?? agent.runner?.command ?? config.agents.defaults.runner.command,
     responseMode: agent.responseMode,
+    additionalMessageMode: agent.additionalMessageMode,
     workspace:
       agent.workspace ??
       config.agents.defaults.workspace.replaceAll("{agentId}", agent.id),
@@ -239,6 +250,7 @@ async function listAgents(args: string[]) {
       `tool=${summary.cliTool}`,
       `workspace=${summary.workspace}`,
       `responseMode=${summary.responseMode ?? "inherit"}`,
+      `additionalMessageMode=${summary.additionalMessageMode ?? "inherit"}`,
     ];
     if (summary.bootstrapMode) {
       parts.push(`bootstrap=${summary.bootstrapMode}:${summary.bootstrapState}`);
@@ -470,6 +482,44 @@ async function runAgentResponseModeCli(args: string[]) {
   console.log(`config: ${configPath}`);
 }
 
+async function runAgentAdditionalMessageModeCli(args: string[]) {
+  const action = args[0];
+  if (action !== "status" && action !== "set" && action !== "clear") {
+    throw new Error("Usage: agents additional-message-mode <status|set|clear> --agent <id> [queue|steer]");
+  }
+
+  const agentId = parseSingleOption(args, "--agent");
+  if (!agentId) {
+    throw new Error("Usage: agents additional-message-mode <status|set|clear> --agent <id> [queue|steer]");
+  }
+
+  const { config, configPath } = await readEditableConfig(getEditableConfigPath());
+  const agent = ensureAgentExists(config, agentId);
+
+  if (action === "status") {
+    console.log(`agent: ${agent.id}`);
+    console.log(`additionalMessageMode: ${agent.additionalMessageMode ?? "(inherit)"}`);
+    console.log(`config: ${configPath}`);
+    return;
+  }
+
+  if (action === "clear") {
+    delete agent.additionalMessageMode;
+    await writeEditableConfig(configPath, config);
+    console.log(`cleared additionalMessageMode for ${agent.id}`);
+    console.log("additionalMessageMode: (inherit)");
+    console.log(`config: ${configPath}`);
+    return;
+  }
+
+  const additionalMessageMode = parseAdditionalMessageMode(args[1]);
+  agent.additionalMessageMode = additionalMessageMode;
+  await writeEditableConfig(configPath, config);
+  console.log(`updated additionalMessageMode for ${agent.id}`);
+  console.log(`additionalMessageMode: ${additionalMessageMode}`);
+  console.log(`config: ${configPath}`);
+}
+
 export async function runAgentsCli(args: string[]) {
   const subcommand = args[0];
   const rest = args.slice(1);
@@ -496,6 +546,11 @@ export async function runAgentsCli(args: string[]) {
 
   if (subcommand === "response-mode") {
     await runAgentResponseModeCli(rest);
+    return;
+  }
+
+  if (subcommand === "additional-message-mode") {
+    await runAgentAdditionalMessageModeCli(rest);
     return;
   }
 

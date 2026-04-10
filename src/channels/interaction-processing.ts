@@ -3,6 +3,7 @@ import {
   AgentService,
   type AgentSessionTarget,
 } from "../agents/agent-service.ts";
+import { ClearedQueuedTaskError } from "../agents/job-queue.ts";
 import {
   parseAgentCommand,
   renderAgentControlSlashHelp,
@@ -32,6 +33,11 @@ import {
   getConversationResponseMode,
   setConversationResponseMode,
 } from "./response-mode-config.ts";
+import {
+  getConversationAdditionalMessageMode,
+  setConversationAdditionalMessageMode,
+} from "./additional-message-mode-config.ts";
+import { logLatencyDebug, type LatencyDebugContext } from "../control/latency-debug.ts";
 
 export type ChannelInteractionRoute = {
   agentId: string;
@@ -40,6 +46,7 @@ export type ChannelInteractionRoute = {
   streaming: "off" | "latest" | "all";
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
+  additionalMessageMode: "queue" | "steer";
   followUp: FollowUpConfig;
 };
 
@@ -152,6 +159,7 @@ function renderRouteStatusMessage(params: {
     `streaming: \`${params.route.streaming}\``,
     `response: \`${params.route.response}\``,
     `responseMode: \`${params.route.responseMode}\``,
+    `additionalMessageMode: \`${params.route.additionalMessageMode}\``,
     `followUp.mode: \`${params.followUpState.overrideMode ?? params.route.followUp.mode}\``,
     `followUp.windowMinutes: \`${formatFollowUpTtlMinutes(params.route.followUp.participationTtlMs)}\``,
     `run.state: \`${params.runtimeState.state}\``,
@@ -178,6 +186,9 @@ function renderRouteStatusMessage(params: {
     "- `/attach`, `/detach`, `/watch every 30s`",
     "- `/followup status`",
     "- `/responsemode status`",
+    "- `/additionalmessagemode status`",
+    "- `/queue <message>`, `/steer <message>`",
+    "- `/queue-list`, `/queue-clear`",
     "- `/transcript` and `/bash` require privilege commands",
   );
 
@@ -213,6 +224,39 @@ function renderResponseModeStatusMessage(params: {
   return lines.join("\n");
 }
 
+function renderAdditionalMessageModeStatusMessage(params: {
+  route: ChannelInteractionRoute;
+  persisted?: {
+    label: string;
+    additionalMessageMode?: "queue" | "steer";
+  };
+}) {
+  const lines = [
+    "muxbot additional message mode",
+    "",
+    `activeRoute.additionalMessageMode: \`${params.route.additionalMessageMode}\``,
+  ];
+
+  if (params.persisted) {
+    lines.push(`config.target: \`${params.persisted.label}\``);
+    lines.push(
+      `config.additionalMessageMode: \`${params.persisted.additionalMessageMode ?? "(inherit)"}\``,
+    );
+  }
+
+  lines.push(
+    "",
+    "Available values:",
+    "- `steer`: send later user messages straight into the already-running session",
+    "- `queue`: enqueue later user messages behind the active run and settle them one by one",
+    "",
+    "Per-message override:",
+    "- `/queue <message>` always uses queued delivery for that one message",
+  );
+
+  return lines.join("\n");
+}
+
 function buildChannelObserverId(identity: ChannelInteractionIdentity) {
   return [
     identity.platform,
@@ -223,6 +267,41 @@ function buildChannelObserverId(identity: ChannelInteractionIdentity) {
     identity.threadTs ?? "",
     identity.topicId ?? "",
   ].join(":");
+}
+
+function buildSteeringMessage(text: string) {
+  return [
+    "",
+    "[muxbot steering message]",
+    "A new user message arrived while you were already processing the current run.",
+    "Adjust the current work if needed and continue.",
+    "",
+    text,
+  ].join("\n");
+}
+
+function renderQueuedMessagesList(
+  items: {
+    text: string;
+    createdAt: number;
+  }[],
+) {
+  if (items.length === 0) {
+    return "Queue is empty.";
+  }
+
+  const lines = [
+    "Queued messages",
+    "",
+  ];
+  for (const [index, item] of items.entries()) {
+    lines.push(
+      `${index + 1}. ${item.text}`,
+      `queuedAt: \`${new Date(item.createdAt).toISOString()}\``,
+      "",
+    );
+  }
+  return lines.join("\n").trimEnd();
 }
 
 export async function processChannelInteraction<TChunk>(params: {
@@ -236,13 +315,14 @@ export async function processChannelInteraction<TChunk>(params: {
   maxChars: number;
   postText: PostText<TChunk>;
   reconcileText: ReconcileText<TChunk>;
+  timingContext?: LatencyDebugContext;
 }) {
-  const channelManagedDelivery = params.route.responseMode === "capture-pane";
   let responseChunks: TChunk[] = [];
   let renderedState: ChannelRenderedMessageState | undefined;
   const observerId = buildChannelObserverId(params.identity);
   let replyRecorded = false;
   let renderChain = Promise.resolve();
+  let loggedFirstRunningUpdate = false;
 
   async function recordReplyIfNeeded() {
     if (replyRecorded) {
@@ -306,6 +386,15 @@ export async function processChannelInteraction<TChunk>(params: {
   const slashCommand = parseAgentCommand(params.text, {
     commandPrefixes: params.route.commandPrefixes,
   });
+  const explicitQueueMessage =
+    slashCommand?.type === "queue" ? slashCommand.text.trim() : undefined;
+  const explicitSteerMessage =
+    slashCommand?.type === "steer" ? slashCommand.text.trim() : undefined;
+  const sessionBusy = params.agentService.isSessionBusy?.(params.sessionTarget) ?? false;
+  const queueByMode = !explicitQueueMessage && params.route.additionalMessageMode === "queue" && sessionBusy;
+  const forceQueuedDelivery = typeof explicitQueueMessage === "string" || queueByMode;
+  const channelManagedDelivery =
+    params.route.responseMode === "capture-pane" || forceQueuedDelivery;
   const isSensitiveCommand =
     slashCommand?.type === "bash" ||
     (slashCommand?.type === "control" && slashCommand.name === "transcript");
@@ -483,6 +572,53 @@ export async function processChannelInteraction<TChunk>(params: {
       await params.agentService.recordConversationReply(params.sessionTarget);
       return;
     }
+
+    if (slashCommand.name === "additionalmessagemode") {
+      if (slashCommand.action === "status") {
+        const persisted = await getConversationAdditionalMessageMode({
+          identity: params.identity,
+        });
+        await params.postText(
+          renderAdditionalMessageModeStatusMessage({
+            route: params.route,
+            persisted,
+          }),
+        );
+      } else if (slashCommand.additionalMessageMode) {
+        const persisted = await setConversationAdditionalMessageMode({
+          identity: params.identity,
+          additionalMessageMode: slashCommand.additionalMessageMode,
+        });
+        await params.postText(
+          [
+            `Updated additional message mode for \`${persisted.label}\`.`,
+            `config.additionalMessageMode: \`${persisted.additionalMessageMode}\``,
+            `config: \`${persisted.configPath}\``,
+            "If config reload is enabled, the new mode should apply automatically shortly.",
+          ].join("\n"),
+        );
+      }
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    if (slashCommand.name === "queue-list") {
+      const queuedItems = params.agentService.listQueuedPrompts?.(params.sessionTarget) ?? [];
+      await params.postText(renderQueuedMessagesList(queuedItems));
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    if (slashCommand.name === "queue-clear") {
+      const clearedCount = params.agentService.clearQueuedPrompts?.(params.sessionTarget) ?? 0;
+      await params.postText(
+        clearedCount > 0
+          ? `Cleared ${clearedCount} queued message${clearedCount === 1 ? "" : "s"}.`
+          : "Queue was already empty.",
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
   }
 
   if (slashCommand?.type === "bash") {
@@ -508,18 +644,72 @@ export async function processChannelInteraction<TChunk>(params: {
     return;
   }
 
+  if (slashCommand?.type === "queue" && !explicitQueueMessage) {
+    await params.postText("Usage: `/queue <message>` or `\\q <message>`");
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return;
+  }
+
+  if (slashCommand?.type === "steer" && !explicitSteerMessage) {
+    await params.postText("Usage: `/steer <message>` or `\\s <message>`");
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return;
+  }
+
+  if (explicitSteerMessage) {
+    const hasActiveRun = params.agentService.hasActiveRun?.(params.sessionTarget) ?? false;
+    if (!hasActiveRun) {
+      await params.postText("No active run to steer.");
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    await params.agentService.submitSessionInput(
+      params.sessionTarget,
+      buildSteeringMessage(explicitSteerMessage),
+    );
+    await params.postText("Steered.");
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return;
+  }
+
+  if (!forceQueuedDelivery && params.route.additionalMessageMode === "steer") {
+    const hasActiveRun = params.agentService.hasActiveRun?.(params.sessionTarget) ?? false;
+    if (hasActiveRun) {
+      await params.agentService.submitSessionInput(
+        params.sessionTarget,
+        buildSteeringMessage(params.text),
+      );
+      await params.postText("Steered.");
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+  }
+
   try {
+    logLatencyDebug("channel-enqueue-start", params.timingContext, {
+      agentId: params.route.agentId,
+      sessionKey: params.sessionTarget.sessionKey,
+    });
     const { positionAhead, result } = params.agentService.enqueuePrompt(
       params.sessionTarget,
-      params.agentPromptText ?? params.text,
+      forceQueuedDelivery ? explicitQueueMessage! : params.agentPromptText ?? params.text,
       {
         observerId,
+        timingContext: params.timingContext,
         onUpdate: async (update) => {
           if (!channelManagedDelivery) {
             return;
           }
           if (params.route.streaming === "off" && update.status === "running") {
             return;
+          }
+          if (update.status === "running" && !loggedFirstRunningUpdate) {
+            loggedFirstRunningUpdate = true;
+            logLatencyDebug("channel-first-running-update", params.timingContext, {
+              sessionName: update.sessionName,
+              sessionKey: update.sessionKey,
+            });
           }
 
           await (renderChain = renderChain.then(async () => {
@@ -564,6 +754,21 @@ export async function processChannelInteraction<TChunk>(params: {
       await recordReplyIfNeeded();
       renderedState = {
         text: placeholderText,
+        body: "",
+      };
+    } else if (channelManagedDelivery && positionAhead > 0) {
+      const queuedText = renderPlatformInteraction({
+        platform: params.identity.platform,
+        status: "queued",
+        content: "",
+        queuePosition: positionAhead,
+        maxChars: Number.POSITIVE_INFINITY,
+        note: "Waiting for the agent queue to clear.",
+      });
+      responseChunks = await params.postText(queuedText);
+      await recordReplyIfNeeded();
+      renderedState = {
+        text: queuedText,
         body: "",
       };
     }
@@ -619,6 +824,9 @@ export async function processChannelInteraction<TChunk>(params: {
     await renderResponseText(nextState.text);
     renderedState = nextState;
   } catch (error) {
+    if (error instanceof ClearedQueuedTaskError) {
+      return;
+    }
     if (error instanceof ActiveRunInProgressError) {
       const activeText = error.update.note ?? String(error);
       if (params.route.streaming !== "off" && responseChunks.length > 0) {

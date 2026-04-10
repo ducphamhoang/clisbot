@@ -10,6 +10,8 @@ import { TmuxClient } from "../runners/tmux/client.ts";
 import {
   captureTmuxSessionIdentity,
   dismissTmuxTrustPromptIfPresent,
+  submitTmuxSessionInput,
+  waitForTmuxSessionBootstrap,
 } from "../runners/tmux/session-handshake.ts";
 import {
   ensureTmuxShellPane,
@@ -20,6 +22,7 @@ import {
   getMuxbotWrapperDir,
   getMuxbotWrapperPath,
 } from "../control/muxbot-wrapper.ts";
+import { logLatencyDebug, type LatencyDebugContext } from "../control/latency-debug.ts";
 
 export type ShellCommandResult = {
   agentId: string;
@@ -219,21 +222,35 @@ export class RunnerSessionService {
 
   async ensureSessionReady(
     target: AgentSessionTarget,
-    options: { allowFreshRetry?: boolean } = {},
+    options: { allowFreshRetry?: boolean; timingContext?: LatencyDebugContext } = {},
   ): Promise<ResolvedAgentTarget> {
     await ensureMuxbotWrapper();
     const resolved = this.resolveTarget(target);
+    const timingContext = {
+      ...options.timingContext,
+      agentId: resolved.agentId,
+      sessionKey: resolved.sessionKey,
+      sessionName: resolved.sessionName,
+    };
+    logLatencyDebug("ensure-session-ready-start", timingContext);
     await ensureDir(resolved.workspacePath);
     await ensureDir(dirname(this.loadedConfig.raw.tmux.socketPath));
     const existing = await this.sessionState.getEntry(resolved.sessionKey);
     const serverRunning = await this.tmux.isServerRunning();
 
     if (serverRunning && (await this.tmux.hasSession(resolved.sessionName))) {
+      logLatencyDebug("ensure-session-ready-existing-session", timingContext, {
+        hasStoredSessionId: Boolean(existing?.sessionId),
+      });
       try {
         await this.syncSessionIdentity(resolved);
       } catch (error) {
         throw this.mapSessionError(error, resolved.sessionName, "during startup");
       }
+      logLatencyDebug("ensure-session-ready-complete", timingContext, {
+        startupDelayMs: 0,
+        reusedSession: true,
+      });
       return resolved;
     }
 
@@ -263,7 +280,17 @@ export class RunnerSessionService {
       }
     }
 
-    await sleep(resolved.runner.startupDelayMs);
+    logLatencyDebug("ensure-session-ready-new-session", timingContext, {
+      startupDelayMs: resolved.runner.startupDelayMs,
+      resumingExistingSession,
+      hasStoredSessionId: Boolean(existing?.sessionId),
+    });
+    await waitForTmuxSessionBootstrap({
+      tmux: this.tmux,
+      sessionName: resolved.sessionName,
+      captureLines: resolved.stream.captureLines,
+      startupDelayMs: resolved.runner.startupDelayMs,
+    });
     const sessionStillExists = await this.tmux.hasSession(resolved.sessionName);
     if (!sessionStillExists) {
       if (resumingExistingSession) {
@@ -289,6 +316,10 @@ export class RunnerSessionService {
       throw this.mapSessionError(error, resolved.sessionName, "during startup");
     }
 
+    logLatencyDebug("ensure-session-ready-complete", timingContext, {
+      startupDelayMs: resolved.runner.startupDelayMs,
+      reusedSession: false,
+    });
     return resolved;
   }
 
@@ -382,10 +413,14 @@ export class RunnerSessionService {
 
   async preparePromptSession(
     target: AgentSessionTarget,
-    options: { allowFreshRetryBeforePrompt?: boolean } = {},
+    options: {
+      allowFreshRetryBeforePrompt?: boolean;
+      timingContext?: LatencyDebugContext;
+    } = {},
   ) {
     let resolved = await this.ensureSessionReady(target, {
       allowFreshRetry: options.allowFreshRetryBeforePrompt,
+      timingContext: options.timingContext,
     });
 
     try {
@@ -504,6 +539,27 @@ export class RunnerSessionService {
       paneId: resolved.paneId,
       command,
     });
+  }
+
+  async submitSessionInput(target: AgentSessionTarget, text: string) {
+    const resolved = this.resolveTarget(target);
+    if (!(await this.tmux.hasSession(resolved.sessionName))) {
+      throw new Error(`tmux session "${resolved.sessionName}" does not exist`);
+    }
+
+    await submitTmuxSessionInput({
+      tmux: this.tmux,
+      sessionName: resolved.sessionName,
+      text,
+      promptSubmitDelayMs: resolved.runner.promptSubmitDelayMs,
+    });
+    await this.sessionState.touchSessionEntry(resolved);
+    return {
+      agentId: resolved.agentId,
+      sessionKey: resolved.sessionKey,
+      sessionName: resolved.sessionName,
+      workspacePath: resolved.workspacePath,
+    };
   }
 
   mapRunError(error: unknown, sessionName: string) {

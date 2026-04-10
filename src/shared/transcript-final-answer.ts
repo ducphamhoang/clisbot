@@ -131,6 +131,30 @@ function isResidualToolOutputBlock(block: string) {
   return /^_[^_]+_$/.test(line) || /^`[^`]+`$/.test(line) || looksLikePathLikeLine(line);
 }
 
+function isShortAtomicAnswerBlock(block: string) {
+  const lines = splitNormalizedLines(block).map((line) => line.trim()).filter(Boolean);
+  if (lines.length !== 1) {
+    return false;
+  }
+
+  const [line] = lines;
+  if (!line) {
+    return false;
+  }
+
+  if (
+    /^[-*•◦·✽✶⏺]\s/.test(line) ||
+    /^\d+\.\s/.test(line) ||
+    line.startsWith("#") ||
+    looksLikePathLikeLine(line) ||
+    /^[#$]\s+\S/.test(line)
+  ) {
+    return false;
+  }
+
+  return line.length <= 24;
+}
+
 export function extractFinalAnswer(raw: string) {
   const rawLines = splitNormalizedLines(raw);
   const isCodex = looksLikeCodexSnapshot(rawLines);
@@ -161,7 +185,15 @@ export function extractFinalAnswer(raw: string) {
     }
   }
 
-  const answer = blocks.slice(startIndex).join("\n\n").trim();
+  const answerBlocks = blocks.slice(startIndex);
+  if (answerBlocks.length > 1 && answerBlocks.every(isShortAtomicAnswerBlock)) {
+    const lastAnswer = answerBlocks.at(-1)?.trim() ?? "";
+    if (lastAnswer) {
+      return isCodex || isClaude ? stripSingleLineAssistantEnvelope(lastAnswer) : lastAnswer;
+    }
+  }
+
+  const answer = answerBlocks.join("\n\n").trim();
   const extracted = answer || cleaned;
   if (isCodex || isClaude) {
     return stripSingleLineAssistantEnvelope(extracted);

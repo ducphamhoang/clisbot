@@ -20,7 +20,8 @@ That makes repo-local commands such as `bun run src/main.ts message send ...` po
 - make runner-launched agent sessions able to call that wrapper reliably
 - inject a short channel prompt envelope with the exact reply command for the current surface
 - add `responseMode` so normal pane-settlement replies can be suppressed when the agent is expected to answer through `muxbot message send`
-- support operator control of `responseMode` at agent level and surface level
+- support operator control of `responseMode` and `additionalMessageMode` at agent level and surface level
+- add explicit `/queue <message>` so one extra message can still be serialized even when the surface default is steering
 - keep control commands and privilege commands unchanged
 - document the dev flow so another developer can test it quickly on a different machine
 
@@ -40,6 +41,11 @@ That makes repo-local commands such as `bun run src/main.ts message send ...` po
 - [x] add agent-level `responseMode` overrides with surface > agent > provider precedence
 - [x] add `muxbot channels response-mode status|set ...` with message-style `--channel` and `--target` addressing
 - [x] add `muxbot agents response-mode status|set|clear ...`
+- [x] add `additionalMessageMode` with the same provider > agent > surface precedence
+- [x] add `muxbot channels additional-message-mode status|set ...`
+- [x] add `muxbot agents additional-message-mode status|set|clear ...`
+- [x] add `/additionalmessagemode ...` plus explicit `/queue <message>`
+- [x] add explicit steer and queue shortcuts plus queue inspection and clear commands
 - [x] document the local test flow in the user guide
 - [x] add unit tests for wrapper creation, prompt building, and runner launch behavior
 - [x] test the local wrapper path against the configured Slack test channel
@@ -53,6 +59,9 @@ That makes repo-local commands such as `bun run src/main.ts message send ...` po
   - agent-bound prompt injection path inside `processChannelInteraction`
   - responseMode delivery suppresses normal channel settlement but still falls back on runtime error
   - agent-level and surface-level responseMode precedence
+  - agent-level and surface-level additionalMessageMode precedence
+  - steering active-run follow-up versus explicit queued follow-up
+  - explicit `\q` and `\s` shortcuts plus queued-message inspection and clear controls
   - response-mode operator CLI updates for Slack and Telegram targets
 - live Slack validation now verifies the generated local wrapper at `~/.muxbot/bin/muxbot` can:
   - send to `SLACK_TEST_CHANNEL`

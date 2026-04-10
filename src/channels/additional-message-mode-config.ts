@@ -3,74 +3,76 @@ import type { ChannelInteractionIdentity } from "./interaction-processing.ts";
 import {
   buildConfiguredTargetFromIdentity,
   resolveConfiguredSurfaceModeTarget,
+  type AdditionalMessageMode,
   type ConfiguredSurfaceModeTarget,
-  type ResponseMode,
 } from "./mode-config-shared.ts";
 
-export type { ResponseMode, SurfaceModeChannel as ResponseModeChannel } from "./mode-config-shared.ts";
-export type ConfiguredResponseModeTarget = ConfiguredSurfaceModeTarget;
+export type { AdditionalMessageMode } from "./mode-config-shared.ts";
+export type ConfiguredAdditionalMessageModeTarget = ConfiguredSurfaceModeTarget;
 
 function getEditableConfigPath() {
   return process.env.MUXBOT_CONFIG_PATH;
 }
 
-export async function getConversationResponseMode(params: {
+export async function getConversationAdditionalMessageMode(params: {
   identity: ChannelInteractionIdentity;
 }) {
   const { config } = await readEditableConfig(getEditableConfigPath());
   const target = resolveConfiguredSurfaceModeTarget(
     config,
-    "responseMode",
+    "additionalMessageMode",
     buildConfiguredTargetFromIdentity(params.identity),
   );
 
   return {
     label: target.label,
-    responseMode: target.get(),
+    additionalMessageMode: target.get(),
   };
 }
 
-export async function setConversationResponseMode(params: {
+export async function setConversationAdditionalMessageMode(params: {
   identity: ChannelInteractionIdentity;
-  responseMode: ResponseMode;
+  additionalMessageMode: AdditionalMessageMode;
 }) {
   const { config, configPath } = await readEditableConfig(getEditableConfigPath());
   const target = resolveConfiguredSurfaceModeTarget(
     config,
-    "responseMode",
+    "additionalMessageMode",
     buildConfiguredTargetFromIdentity(params.identity),
   );
-  target.set(params.responseMode);
+  target.set(params.additionalMessageMode);
   await writeEditableConfig(configPath, config);
   return {
     configPath,
     label: target.label,
-    responseMode: params.responseMode,
+    additionalMessageMode: params.additionalMessageMode,
   };
 }
 
-export async function getConfiguredResponseMode(params: ConfiguredResponseModeTarget) {
+export async function getConfiguredAdditionalMessageMode(
+  params: ConfiguredAdditionalMessageModeTarget,
+) {
   const { config, configPath } = await readEditableConfig(getEditableConfigPath());
-  const target = resolveConfiguredSurfaceModeTarget(config, "responseMode", params);
+  const target = resolveConfiguredSurfaceModeTarget(config, "additionalMessageMode", params);
   return {
     configPath,
     label: target.label,
-    responseMode: target.get(),
+    additionalMessageMode: target.get(),
   };
 }
 
-export async function setConfiguredResponseMode(
-  params: ConfiguredResponseModeTarget & {
-    responseMode: ResponseMode;
+export async function setConfiguredAdditionalMessageMode(
+  params: ConfiguredAdditionalMessageModeTarget & {
+    additionalMessageMode: AdditionalMessageMode;
   },
 ) {
   const { config, configPath } = await readEditableConfig(getEditableConfigPath());
-  const target = resolveConfiguredSurfaceModeTarget(config, "responseMode", params);
-  target.set(params.responseMode);
+  const target = resolveConfiguredSurfaceModeTarget(config, "additionalMessageMode", params);
+  target.set(params.additionalMessageMode);
   await writeEditableConfig(configPath, config);
   return {
     configPath,
     label: target.label,
-    responseMode: params.responseMode,
+    additionalMessageMode: params.additionalMessageMode,
   };
 }

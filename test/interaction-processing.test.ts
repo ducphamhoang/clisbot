@@ -26,6 +26,7 @@ function createRoute(
     streaming: "all",
     response: "final",
     responseMode: "capture-pane",
+    additionalMessageMode: "steer",
     followUp: {
       mode: "auto",
       participationTtlMs: 24 * 60 * 60 * 1000,
@@ -407,6 +408,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("muxbot status");
     expect(posted[0]).toContain("responseMode: `capture-pane`");
+    expect(posted[0]).toContain("additionalMessageMode: `steer`");
     expect(posted[0]).toContain("run.state: `detached`");
     expect(posted[0]).toContain(`run.startedAt: \`${new Date(startedAt).toISOString()}\``);
     expect(posted[0]).toContain(`run.detachedAt: \`${new Date(detachedAt).toISOString()}\``);
@@ -523,6 +525,117 @@ describe("processChannelInteraction sensitive command gating", () => {
 
     expect(posted[0]).toContain("Updated response mode");
     expect(posted[0]).toContain("config.responseMode: `capture-pane`");
+  });
+
+  test("shows persisted additional message mode for the current route", async () => {
+    const posted: string[] = [];
+    const originalConfigPath = process.env.MUXBOT_CONFIG_PATH;
+    const configDir = mkdtempSync(join(tmpdir(), "muxbot-interaction-config-"));
+    const configPath = join(configDir, "muxbot.json");
+    const template = JSON.parse(renderDefaultConfigTemplate());
+
+    try {
+      writeFileSync(
+        configPath,
+        JSON.stringify({
+          ...template,
+          channels: {
+            ...template.channels,
+            slack: {
+              ...template.channels.slack,
+              channels: {
+                C123: {
+                  requireMention: true,
+                  additionalMessageMode: "queue",
+                },
+              },
+            },
+          },
+        }, null, 2),
+      );
+      process.env.MUXBOT_CONFIG_PATH = configPath;
+
+      await processChannelInteraction({
+        agentService: {
+          recordConversationReply: async () => undefined,
+        } as any,
+        sessionTarget: createTarget(),
+        identity: createIdentity(),
+        senderId: "U123",
+        text: "/additionalmessagemode status",
+        route: createRoute({
+          additionalMessageMode: "queue",
+        }),
+        maxChars: 4000,
+        postText: async (text) => {
+          posted.push(text);
+          return [text];
+        },
+        reconcileText: async (_chunks, text) => [text],
+      });
+    } finally {
+      process.env.MUXBOT_CONFIG_PATH = originalConfigPath;
+      rmSync(configDir, { recursive: true, force: true });
+    }
+
+    expect(posted[0]).toContain("muxbot additional message mode");
+    expect(posted[0]).toContain("activeRoute.additionalMessageMode: `queue`");
+    expect(posted[0]).toContain("config.additionalMessageMode: `queue`");
+  });
+
+  test("updates persisted additional message mode for the current route", async () => {
+    const posted: string[] = [];
+    const originalConfigPath = process.env.MUXBOT_CONFIG_PATH;
+    const configDir = mkdtempSync(join(tmpdir(), "muxbot-interaction-config-"));
+    const configPath = join(configDir, "muxbot.json");
+    const template = JSON.parse(renderDefaultConfigTemplate());
+
+    try {
+      writeFileSync(
+        configPath,
+        JSON.stringify({
+          ...template,
+          channels: {
+            ...template.channels,
+            slack: {
+              ...template.channels.slack,
+              channels: {
+                C123: {
+                  requireMention: true,
+                  additionalMessageMode: "steer",
+                },
+              },
+            },
+          },
+        }, null, 2),
+      );
+      process.env.MUXBOT_CONFIG_PATH = configPath;
+
+      await processChannelInteraction({
+        agentService: {
+          recordConversationReply: async () => undefined,
+        } as any,
+        sessionTarget: createTarget(),
+        identity: createIdentity(),
+        senderId: "U123",
+        text: "/additionalmessagemode queue",
+        route: createRoute({
+          additionalMessageMode: "steer",
+        }),
+        maxChars: 4000,
+        postText: async (text) => {
+          posted.push(text);
+          return [text];
+        },
+        reconcileText: async (_chunks, text) => [text],
+      });
+    } finally {
+      process.env.MUXBOT_CONFIG_PATH = originalConfigPath;
+      rmSync(configDir, { recursive: true, force: true });
+    }
+
+    expect(posted[0]).toContain("Updated additional message mode");
+    expect(posted[0]).toContain("config.additionalMessageMode: `queue`");
   });
 });
 
@@ -687,6 +800,240 @@ describe("processChannelInteraction agent prompt text", () => {
 
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("runner crashed");
+  });
+
+  test("steers additional user messages into the active run by default", async () => {
+    const posted: string[] = [];
+    const submitted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        isSessionBusy: () => true,
+        hasActiveRun: () => true,
+        submitSessionInput: async (_target: AgentSessionTarget, text: string) => {
+          submitted.push(text);
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "please focus on the regression first",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "steer",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(submitted[0]).toContain("[muxbot steering message]");
+    expect(submitted[0]).toContain("please focus on the regression first");
+    expect(posted[0]).toContain("Steered.");
+  });
+
+  test("queue command forces muxbot-managed delivery even in message-tool mode", async () => {
+    const posted: string[] = [];
+    const reconciled: string[] = [];
+    let observedPrompt = "";
+
+    await processChannelInteraction({
+      agentService: {
+        isSessionBusy: () => true,
+        enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
+          observedPrompt = prompt;
+          return {
+            positionAhead: 1,
+            result: Promise.resolve({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "queued reply complete",
+              fullSnapshot: "queued reply complete",
+              initialSnapshot: "",
+            }),
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/queue send the short summary after the current run",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "steer",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => {
+        reconciled.push(text);
+        return [text];
+      },
+    });
+
+    expect(observedPrompt).toBe("send the short summary after the current run");
+    expect(posted[0]).toContain("Queued: 1 ahead.");
+    expect(reconciled.at(-1)).toContain("queued reply complete");
+  });
+
+  test("queue mode forces queued acknowledgment and muxbot-managed settlement while busy", async () => {
+    const posted: string[] = [];
+    const reconciled: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        isSessionBusy: () => true,
+        enqueuePrompt: () => ({
+          positionAhead: 1,
+          result: Promise.resolve({
+            status: "completed",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            sessionName: "session",
+            workspacePath: "/tmp/workspace",
+            snapshot: "queued mode final",
+            fullSnapshot: "queued mode final",
+            initialSnapshot: "",
+          }),
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "follow up after the active run",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "queue",
+        streaming: "off",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => {
+        reconciled.push(text);
+        return [text];
+      },
+    });
+
+    expect(posted[0]).toContain("Queued: 1 ahead.");
+    expect(posted.at(-1)).toContain("queued mode final");
+    expect(reconciled).toEqual([]);
+  });
+
+  test("explicit steer command injects a steering message into the active run", async () => {
+    const posted: string[] = [];
+    const submitted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        hasActiveRun: () => true,
+        submitSessionInput: async (_target: AgentSessionTarget, text: string) => {
+          submitted.push(text);
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "\\s focus on the failing test first",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "steer",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(submitted[0]).toContain("[muxbot steering message]");
+    expect(submitted[0]).toContain("focus on the failing test first");
+    expect(posted[0]).toBe("Steered.");
+  });
+
+  test("queue list shows pending queued messages for the current session", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        listQueuedPrompts: () => [
+          {
+            id: "1",
+            text: "summarize the regression",
+            createdAt: Date.parse("2026-04-10T12:00:00.000Z"),
+          },
+          {
+            id: "2",
+            text: "prepare the follow-up note",
+            createdAt: Date.parse("2026-04-10T12:01:00.000Z"),
+          },
+        ],
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/queue-list",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("Queued messages");
+    expect(posted[0]).toContain("1. summarize the regression");
+    expect(posted[0]).toContain("2. prepare the follow-up note");
+  });
+
+  test("queue clear removes pending queued messages for the current session", async () => {
+    const posted: string[] = [];
+    let clearedTarget = "";
+
+    await processChannelInteraction({
+      agentService: {
+        clearQueuedPrompts: (target: AgentSessionTarget) => {
+          clearedTarget = target.sessionKey;
+          return 2;
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/queue-clear",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(clearedTarget).toBe(createTarget().sessionKey);
+    expect(posted[0]).toBe("Cleared 2 queued messages.");
   });
 });
 

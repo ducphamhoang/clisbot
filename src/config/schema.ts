@@ -143,6 +143,7 @@ const agentBootstrapSchema = z.object({
 const agentOverrideSchema = z.object({
   workspace: z.string().optional(),
   responseMode: z.enum(["capture-pane", "message-tool"]).optional(),
+  additionalMessageMode: z.enum(["queue", "steer"]).optional(),
   runner: runnerOverrideSchema.optional(),
   stream: streamSchema.partial().optional(),
   session: sessionSchema.partial().optional(),
@@ -230,6 +231,7 @@ const channelAgentPromptSchema = z.object({
 });
 
 const channelResponseModeSchema = z.enum(["capture-pane", "message-tool"]);
+const channelAdditionalMessageModeSchema = z.enum(["queue", "steer"]);
 
 const slackRouteSchema = z.object({
   requireMention: z.boolean().default(true),
@@ -240,6 +242,7 @@ const slackRouteSchema = z.object({
   streaming: slackStreamingSchema.optional(),
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
+  additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
 });
 
@@ -252,6 +255,7 @@ const telegramTopicRouteSchema = z.object({
   streaming: slackStreamingSchema.optional(),
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
+  additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
 });
 
@@ -264,6 +268,7 @@ const telegramGroupRouteSchema = z.object({
   streaming: slackStreamingSchema.optional(),
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
+  additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
   topics: z.record(z.string(), telegramTopicRouteSchema).default({}),
 });
@@ -280,6 +285,7 @@ const telegramDirectMessagesSchema = z.object({
   streaming: slackStreamingSchema.optional(),
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
+  additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
 });
 
@@ -317,6 +323,7 @@ const telegramSchema = z.object({
   streaming: slackStreamingSchema.default("all"),
   response: slackResponseSchema.default("final"),
   responseMode: channelResponseModeSchema.default("message-tool"),
+  additionalMessageMode: channelAdditionalMessageModeSchema.default("steer"),
   followUp: slackFollowUpSchema.default({
     mode: "auto",
     participationTtlMin: 5,
@@ -346,6 +353,7 @@ const directMessagesSchema = z.object({
   streaming: slackStreamingSchema.optional(),
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
+  additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
 });
 
@@ -387,6 +395,7 @@ const slackSchema = z.object({
   streaming: slackStreamingSchema.default("all"),
   response: slackResponseSchema.default("final"),
   responseMode: channelResponseModeSchema.default("message-tool"),
+  additionalMessageMode: channelAdditionalMessageModeSchema.default("steer"),
   followUp: slackFollowUpSchema.default({
     mode: "auto",
     participationTtlMin: 5,
@@ -491,6 +500,7 @@ export const muxbotConfigSchema = z.object({
       streaming: "all",
       response: "final",
       responseMode: "message-tool",
+      additionalMessageMode: "steer",
       followUp: {
         mode: "auto",
         participationTtlMin: 5,

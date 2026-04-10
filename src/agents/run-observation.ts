@@ -1,3 +1,5 @@
+import type { LatencyDebugContext } from "../control/latency-debug.ts";
+
 export type SessionRuntimeState = "idle" | "running" | "detached";
 
 export type StoredSessionRuntime = {
@@ -33,6 +35,7 @@ export type RunObserver = {
   intervalMs?: number;
   expiresAt?: number;
   lastSentAt?: number;
+  timingContext?: LatencyDebugContext;
   onUpdate: (update: RunUpdate) => Promise<void> | void;
 };
 

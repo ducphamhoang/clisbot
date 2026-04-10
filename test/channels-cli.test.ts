@@ -154,6 +154,7 @@ describe("channels cli", () => {
     expect(output).toContain("Telegram DMs still follow channels.telegram.directMessages.policy");
     expect(output).toContain("Telegram DMs use `pairing`.");
     expect(output).toContain("muxbot pairing approve telegram <code>");
+    expect(output).toContain("additional-message-mode");
     expect(output).toContain("tmux -S ~/.muxbot/state/muxbot.sock list-sessions");
     expect(output).toContain("tmux -S ~/.muxbot/state/muxbot.sock attach -t <session-name>");
   });
@@ -290,5 +291,69 @@ describe("channels cli", () => {
 
     expect(rawConfig.channels.telegram.groups["-1001234567890"]?.topics?.["42"]?.responseMode)
       .toBe("capture-pane");
+  });
+
+  test("updates top-level channel additionalMessageMode", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
+    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
+    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    console.log = (() => {}) as typeof console.log;
+
+    await runChannelsCli(["additional-message-mode", "set", "queue", "--channel", "slack"]);
+
+    const rawConfig = JSON.parse(
+      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+    ) as {
+      channels: {
+        slack: {
+          additionalMessageMode: string;
+        };
+      };
+    };
+
+    expect(rawConfig.channels.slack.additionalMessageMode).toBe("queue");
+  });
+
+  test("updates telegram topic additionalMessageMode", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
+    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
+    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    console.log = (() => {}) as typeof console.log;
+
+    await runChannelsCli([
+      "add",
+      "telegram-group",
+      "-1001234567890",
+      "--topic",
+      "42",
+      "--agent",
+      "default",
+    ]);
+
+    await runChannelsCli([
+      "additional-message-mode",
+      "set",
+      "queue",
+      "--channel",
+      "telegram",
+      "--target",
+      "-1001234567890",
+      "--topic",
+      "42",
+    ]);
+
+    const rawConfig = JSON.parse(
+      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+    ) as {
+      channels: {
+        telegram: {
+          groups: Record<string, { topics?: Record<string, { additionalMessageMode?: string }> }>;
+        };
+      };
+    };
+
+    expect(
+      rawConfig.channels.telegram.groups["-1001234567890"]?.topics?.["42"]?.additionalMessageMode,
+    ).toBe("queue");
   });
 });

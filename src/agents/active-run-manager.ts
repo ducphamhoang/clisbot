@@ -10,6 +10,7 @@ import { deriveInteractionText, normalizePaneText } from "../shared/transcript.t
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { monitorTmuxRun } from "../runners/tmux/run-monitor.ts";
 import { RunnerSessionService } from "./runner-session.ts";
+import { logLatencyDebug } from "../control/latency-debug.ts";
 
 export type AgentExecutionResult = {
   status: Exclude<PromptExecutionStatus, "running">;
@@ -128,6 +129,7 @@ export class ActiveRunManager {
         initialSnapshot: "",
         startedAt: entry.runtime.startedAt ?? Date.now(),
         detachedAlready: entry.runtime.state === "detached",
+        timingContext: undefined,
       });
     }
   }
@@ -161,38 +163,67 @@ export class ActiveRunManager {
       );
     }
 
-    const { resolved, initialSnapshot } = await this.runnerSessions.preparePromptSession(
-      target,
-      options,
-    );
-    const startedAt = Date.now();
     const initialResult = createDeferred<AgentExecutionResult>();
+    const provisionalResolved = this.resolveTarget(target);
 
-    this.activeRuns.set(resolved.sessionKey, {
-      resolved,
+    this.activeRuns.set(provisionalResolved.sessionKey, {
+      resolved: provisionalResolved,
       observers: new Map([[observer.id, { ...observer }]]),
       initialResult,
       latestUpdate: this.createRunUpdate({
+        resolved: provisionalResolved,
+        status: "running",
+        snapshot: "",
+        fullSnapshot: "",
+        initialSnapshot: "",
+        note: "Starting runner session...",
+      }),
+    });
+    try {
+      const { resolved, initialSnapshot } = await this.runnerSessions.preparePromptSession(
+        target,
+        {
+          ...options,
+          timingContext: observer.timingContext,
+        },
+      );
+      logLatencyDebug("runner-session-ready", observer.timingContext, {
+        agentId: resolved.agentId,
+        sessionKey: resolved.sessionKey,
+        sessionName: resolved.sessionName,
+      });
+      const startedAt = Date.now();
+      const run = this.activeRuns.get(provisionalResolved.sessionKey);
+      if (!run) {
+        throw new Error(`Active run disappeared during startup for ${provisionalResolved.sessionKey}.`);
+      }
+
+      run.resolved = resolved;
+      run.latestUpdate = this.createRunUpdate({
         resolved,
         status: "running",
         snapshot: "",
         fullSnapshot: initialSnapshot,
         initialSnapshot,
-      }),
-    });
+      });
 
-    await this.sessionState.setSessionRuntime(resolved, {
-      state: "running",
-      startedAt,
-    });
-    this.startRunMonitor(resolved.sessionKey, {
-      prompt,
-      initialSnapshot,
-      startedAt,
-      detachedAlready: false,
-    });
+      await this.sessionState.setSessionRuntime(resolved, {
+        state: "running",
+        startedAt,
+      });
+      this.startRunMonitor(resolved.sessionKey, {
+        prompt,
+        initialSnapshot,
+        startedAt,
+        detachedAlready: false,
+        timingContext: observer.timingContext,
+      });
 
-    return initialResult.promise;
+      return initialResult.promise;
+    } catch (error) {
+      await this.failActiveRun(provisionalResolved.sessionKey, error);
+      throw error;
+    }
   }
 
   async observeRun(
@@ -245,6 +276,10 @@ export class ActiveRunManager {
     return {
       detached: true,
     };
+  }
+
+  hasActiveRun(target: AgentSessionTarget) {
+    return this.activeRuns.has(target.sessionKey);
   }
 
   private buildDetachedNote(resolved: ResolvedAgentTarget) {
@@ -347,6 +382,7 @@ export class ActiveRunManager {
       initialSnapshot: string;
       startedAt: number;
       detachedAlready: boolean;
+      timingContext?: RunObserver["timingContext"];
     },
   ) {
     const run = this.activeRuns.get(sessionKey);
@@ -369,6 +405,7 @@ export class ActiveRunManager {
           startedAt: params.startedAt,
           initialSnapshot: params.initialSnapshot,
           detachedAlready: params.detachedAlready,
+          timingContext: params.timingContext,
           onRunning: async (update) => {
             const currentRun = this.activeRuns.get(sessionKey);
             if (!currentRun) {

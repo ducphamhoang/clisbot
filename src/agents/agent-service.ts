@@ -24,6 +24,7 @@ import {
 export type { AgentSessionTarget } from "./resolved-target.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { AgentJobQueue } from "./job-queue.ts";
+import type { PendingQueueItem } from "./job-queue.ts";
 import {
   RunnerSessionService,
   type ShellCommandResult,
@@ -33,6 +34,7 @@ import {
   ActiveRunManager,
 } from "./active-run-manager.ts";
 export { ActiveRunInProgressError };
+import type { LatencyDebugContext } from "../control/latency-debug.ts";
 
 type StreamUpdate = RunUpdate;
 
@@ -169,6 +171,26 @@ export class AgentService {
     ).result;
   }
 
+  hasActiveRun(target: AgentSessionTarget) {
+    return this.activeRuns.hasActiveRun(target);
+  }
+
+  async submitSessionInput(target: AgentSessionTarget, text: string) {
+    return this.runnerSessions.submitSessionInput(target, text);
+  }
+
+  isSessionBusy(target: AgentSessionTarget) {
+    return this.activeRuns.hasActiveRun(target) || this.queue.isBusy(target.sessionKey);
+  }
+
+  listQueuedPrompts(target: AgentSessionTarget): PendingQueueItem[] {
+    return this.queue.listPending(target.sessionKey);
+  }
+
+  clearQueuedPrompts(target: AgentSessionTarget) {
+    return this.queue.clearPending(target.sessionKey);
+  }
+
   getWorkspacePath(target: AgentSessionTarget) {
     return this.resolveTarget(target).workspacePath;
   }
@@ -189,14 +211,21 @@ export class AgentService {
     prompt: string,
     callbacks: StreamCallbacks & {
       observerId?: string;
+      timingContext?: LatencyDebugContext;
     },
   ) {
-    return this.queue.enqueue(target.sessionKey, async () =>
-      this.activeRuns.executePrompt(target, prompt, {
+    return this.queue.enqueue(
+      target.sessionKey,
+      async () =>
+        this.activeRuns.executePrompt(target, prompt, {
         id: callbacks.observerId ?? `prompt:${target.sessionKey}`,
         mode: "live",
+        timingContext: callbacks.timingContext,
         onUpdate: callbacks.onUpdate,
-      }),
+        }),
+      {
+        text: prompt,
+      },
     );
   }
 

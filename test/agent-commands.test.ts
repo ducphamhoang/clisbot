@@ -91,4 +91,48 @@ describe("parseAgentCommand", () => {
       source: "shortcut",
     });
   });
+
+  test("parses additional message mode slash commands", () => {
+    expect(parseAgentCommand("/additionalmessagemode")).toEqual({
+      type: "control",
+      name: "additionalmessagemode",
+      action: "status",
+    });
+
+    expect(parseAgentCommand("/additionalmessagemode queue")).toEqual({
+      type: "control",
+      name: "additionalmessagemode",
+      action: "queue",
+      additionalMessageMode: "queue",
+    });
+  });
+
+  test("parses queue slash commands", () => {
+    expect(parseAgentCommand("/queue follow up after the current run")).toEqual({
+      type: "queue",
+      text: "follow up after the current run",
+    });
+  });
+
+  test("parses queue and steer shortcuts plus queue admin commands", () => {
+    expect(parseAgentCommand("\\q follow up after the current run")).toEqual({
+      type: "queue",
+      text: "follow up after the current run",
+    });
+
+    expect(parseAgentCommand("\\s focus on the regression")).toEqual({
+      type: "steer",
+      text: "focus on the regression",
+    });
+
+    expect(parseAgentCommand("/queue-list")).toEqual({
+      type: "control",
+      name: "queue-list",
+    });
+
+    expect(parseAgentCommand("/queue-clear")).toEqual({
+      type: "control",
+      name: "queue-clear",
+    });
+  });
 });

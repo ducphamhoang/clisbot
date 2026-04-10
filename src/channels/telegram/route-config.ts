@@ -19,6 +19,7 @@ export type TelegramRoute = {
   streaming: "off" | "latest" | "all";
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
+  additionalMessageMode: "queue" | "steer";
   followUp: FollowUpConfig;
 };
 
@@ -36,6 +37,7 @@ type TelegramRouteOverride = {
   streaming?: "off" | "latest" | "all";
   response?: "all" | "final";
   responseMode?: "capture-pane" | "message-tool";
+  additionalMessageMode?: "queue" | "steer";
   followUp?: {
     mode?: FollowUpConfig["mode"];
     participationTtlSec?: number;
@@ -84,6 +86,10 @@ function buildRoute(
     response: params.route?.response ?? telegramConfig.response,
     responseMode:
       params.route?.responseMode ?? agentEntry?.responseMode ?? telegramConfig.responseMode,
+    additionalMessageMode:
+      params.route?.additionalMessageMode ??
+      agentEntry?.additionalMessageMode ??
+      telegramConfig.additionalMessageMode,
     followUp: {
       mode: params.route?.followUp?.mode ?? telegramConfig.followUp.mode,
       participationTtlMs: resolveConfigDurationMs({

@@ -682,6 +682,52 @@ What changed today vs. yesterday
     expect(rendered).toBe("PONG");
   });
 
+  test("completed interaction drops delivery report lines before the final answer", () => {
+    const rendered = renderSlackInteraction({
+      status: "completed",
+      content: [
+        "Đã gửi câu trả lời vào Slack.",
+        "",
+        "• Waited for background terminal",
+        "",
+        "• Sent.",
+        "",
+        "4",
+        "",
+        "Sent the repo summary to Slack.",
+      ].join("\n"),
+      maxChars: 200,
+      responsePolicy: "final",
+    });
+
+    expect(rendered).toBe("4");
+  });
+
+  test("completed interaction keeps only the last short queued answer block", () => {
+    const rendered = renderSlackInteraction({
+      status: "completed",
+      content: [
+        "• Waited for background terminal",
+        "",
+        "• Sent.",
+        "",
+        "4",
+        "",
+        "Sent.",
+        "",
+        "6",
+        "",
+        "Sent.",
+        "",
+        "8",
+      ].join("\n"),
+      maxChars: 200,
+      responsePolicy: "final",
+    });
+
+    expect(rendered).toBe("8");
+  });
+
   test("truncateHead keeps the start of long content", () => {
     const rendered = truncateHead("abcdefghij", 8);
     expect(rendered).toBe("abcd\n...");

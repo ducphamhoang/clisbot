@@ -2,6 +2,9 @@ import { sleep } from "../../shared/process.ts";
 import { deriveInteractionText, normalizePaneText } from "../../shared/transcript.ts";
 import type { TmuxClient } from "./client.ts";
 import { submitTmuxSessionInput } from "./session-handshake.ts";
+import { logLatencyDebug, type LatencyDebugContext } from "../../control/latency-debug.ts";
+
+const FIRST_OUTPUT_POLL_INTERVAL_MS = 250;
 
 export type TmuxRunMonitorParams = {
   tmux: TmuxClient;
@@ -16,6 +19,7 @@ export type TmuxRunMonitorParams = {
   startedAt: number;
   initialSnapshot: string;
   detachedAlready: boolean;
+  timingContext?: LatencyDebugContext;
   onRunning: (params: {
     snapshot: string;
     fullSnapshot: string;
@@ -44,18 +48,28 @@ export async function monitorTmuxRun(params: TmuxRunMonitorParams) {
   let sawChange = false;
   let lastVisibleSnapshot = "";
   let detachedNotified = params.detachedAlready;
+  let firstMeaningfulDeltaLogged = false;
 
   if (params.prompt) {
+    logLatencyDebug("tmux-submit-start", params.timingContext, {
+      sessionName: params.sessionName,
+      promptSubmitDelayMs: params.promptSubmitDelayMs,
+    });
     await submitTmuxSessionInput({
       tmux: params.tmux,
       sessionName: params.sessionName,
       text: params.prompt,
       promptSubmitDelayMs: params.promptSubmitDelayMs,
     });
+    logLatencyDebug("tmux-submit-complete", params.timingContext, {
+      sessionName: params.sessionName,
+      promptSubmitDelayMs: params.promptSubmitDelayMs,
+      submitElapsedMs: Date.now() - params.startedAt,
+    });
   }
 
   while (true) {
-    await sleep(params.updateIntervalMs);
+    await sleep(sawChange ? params.updateIntervalMs : Math.min(params.updateIntervalMs, FIRST_OUTPUT_POLL_INTERVAL_MS));
     const snapshot = normalizePaneText(
       await params.tmux.capturePane(params.sessionName, params.captureLines),
     );
@@ -68,6 +82,13 @@ export async function monitorTmuxRun(params: TmuxRunMonitorParams) {
       if (interactionSnapshot && interactionSnapshot !== lastVisibleSnapshot) {
         sawChange = true;
         lastVisibleSnapshot = interactionSnapshot;
+        if (!firstMeaningfulDeltaLogged) {
+          firstMeaningfulDeltaLogged = true;
+          logLatencyDebug("tmux-first-meaningful-delta", params.timingContext, {
+            sessionName: params.sessionName,
+            elapsedMs: now - params.startedAt,
+          });
+        }
         await params.onRunning({
           snapshot: interactionSnapshot,
           fullSnapshot: snapshot,

@@ -10,6 +10,7 @@ The feature combines three pieces:
 - agent runner launch behavior that exposes that wrapper consistently
 - a channel-owned prompt envelope that tells the agent exactly how to send progress updates back to the current Slack or Telegram surface
 - a response-mode policy layer that can disable normal channel auto-settlement while keeping runner observation active
+- an additional-message policy layer that decides whether busy-session follow-up should steer the active run or queue behind it
 
 ## Scope
 
@@ -18,6 +19,9 @@ The feature combines three pieces:
 - inject a short channel context and reply command into the agent-bound prompt
 - support `responseMode: "message-tool"` so progress and final replies come from `muxbot message send`, not from pane settlement
 - resolve reply delivery in this order: surface override, agent override, provider default
+- resolve busy-session follow-up in this order: surface override, agent override, provider default
+- support explicit `/queue <message>` to force ordered queued delivery for one extra message
+- support explicit steering and queue management commands for active conversations
 - keep slash commands and privilege commands unaffected
 - make the flow easy to test on a fresh machine with `bun start`
 
@@ -25,6 +29,7 @@ The feature combines three pieces:
 
 - channels own the prompt-envelope text because the envelope is surface context
 - channels still observe runner state even when `responseMode` is `message-tool`
+- channels still monitor pane state even when additional human messages are handled as steering input
 - runners own wrapper availability inside agent processes
 - the prompt envelope only affects agent-bound prompts, not channel control commands
 - the wrapper must be stable across workspaces on the same machine

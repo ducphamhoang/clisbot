@@ -45,6 +45,7 @@ import { resolveTelegramAttachmentPaths } from "./attachments.ts";
 import { sleep } from "../../shared/process.ts";
 import type { TelegramAccountConfig } from "../../config/channel-accounts.ts";
 import { buildAgentPromptText } from "../agent-prompt.ts";
+import { logLatencyDebug } from "../../control/latency-debug.ts";
 
 type TelegramGetMeResult = {
   id: number;
@@ -91,6 +92,8 @@ const TELEGRAM_FULL_COMMANDS: TelegramRegisteredCommand[] = [
   { command: "stop", description: "Interrupt current run" },
   { command: "followup", description: "Show or change follow-up mode" },
   { command: "responsemode", description: "Show or change response mode" },
+  { command: "queue", description: "Queue a later message behind the active run" },
+  { command: "steer", description: "Steer the active run immediately" },
   { command: "bash", description: "Run bash in the agent workspace" },
 ];
 
@@ -503,6 +506,20 @@ export class TelegramPollingService {
         config: this.loadedConfig.raw.channels.telegram.agentPrompt,
         responseMode: routeInfo.route.responseMode,
       });
+      const timingContext = {
+        platform: "telegram" as const,
+        eventId,
+        agentId: routeInfo.route.agentId,
+        chatId: String(message.chat.id),
+        topicId:
+          routeInfo.topicId != null ? String(routeInfo.topicId) : undefined,
+        sessionKey: routeInfo.sessionTarget.sessionKey,
+      };
+      logLatencyDebug("telegram-event-accepted", timingContext, {
+        conversationKind: routeInfo.conversationKind,
+        responseMode: routeInfo.route.responseMode,
+        accountId: this.accountId,
+      });
       await processChannelInteraction({
         agentService: this.agentService,
         sessionTarget: routeInfo.sessionTarget,
@@ -513,6 +530,7 @@ export class TelegramPollingService {
         agentPromptText,
         route: routeInfo.route,
         maxChars: this.getTelegramMaxChars(routeInfo.route.agentId),
+        timingContext,
         postText: async (nextText) => {
           responseChunks = await postTelegramText({
             token: this.accountConfig.botToken,

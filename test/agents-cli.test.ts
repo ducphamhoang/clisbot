@@ -222,6 +222,42 @@ describe("agents cli", () => {
     expect(output.join("\n")).toContain("cleared responseMode for work");
   });
 
+  test("sets, shows, and clears agent additionalMessageMode", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
+    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
+    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    const output: string[] = [];
+    console.log = ((value: string) => {
+      output.push(value);
+    }) as typeof console.log;
+
+    await runAgentsCli(["add", "work", "--cli", "claude"]);
+    output.length = 0;
+
+    await runAgentsCli(["additional-message-mode", "set", "queue", "--agent", "work"]);
+
+    let rawConfig = JSON.parse(
+      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+    ) as {
+      agents: {
+        list: Array<{ id: string; additionalMessageMode?: string }>;
+      };
+    };
+
+    expect(rawConfig.agents.list[0]?.additionalMessageMode).toBe("queue");
+    expect(output.join("\n")).toContain("updated additionalMessageMode for work");
+
+    output.length = 0;
+    await runAgentsCli(["additional-message-mode", "status", "--agent", "work"]);
+    expect(output.join("\n")).toContain("additionalMessageMode: queue");
+
+    output.length = 0;
+    await runAgentsCli(["additional-message-mode", "clear", "--agent", "work"]);
+    rawConfig = JSON.parse(readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"));
+    expect(rawConfig.agents.list[0]?.additionalMessageMode).toBeUndefined();
+    expect(output.join("\n")).toContain("cleared additionalMessageMode for work");
+  });
+
   test("lists agent responseMode state", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
     previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
@@ -236,6 +272,7 @@ describe("agents cli", () => {
     await runAgentsCli(["list"]);
 
     expect(output.join("\n")).toContain("responseMode=inherit");
+    expect(output.join("\n")).toContain("additionalMessageMode=inherit");
   });
 
   test("bootstrap refuses overwrite without force and can overwrite with force", async () => {

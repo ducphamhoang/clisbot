@@ -47,6 +47,8 @@ The product goal depends on proving that a channel event can reach a persistent 
 - wrapped Codex prompt echoes and footer timing lines can leak into Slack if transcript shaping misses them
 - killed tmux-session recovery is proven when the session has a stored runner `sessionId`
 - runner session-id resume is working in the current runtime
+- live audit on April 10, 2026 measured about `28s` fresh-thread visible reply delay and about `9s` same-thread follow-up delay on the current Slack route
+- a second live audit after runner readiness and warm-poll changes improved the fixed startup segment but did not improve the primary visible delay metric; fresh-thread reply measured about `33s` and same-thread follow-up about `11s` on that sample
 - implicit no-mention follow-up depends on Slack delivering routed `message` events; `app_mention` alone is not enough
 - live Slack validation on April 5, 2026 showed that `parent_user_id` in a human-started thread points to the thread root author, not to the bot that replied later
 - latest OpenClaw `main` now matches the intended product behavior by remembering sent-thread participation after the bot has replied once in a Slack thread
@@ -63,5 +65,6 @@ The product goal depends on proving that a channel event can reach a persistent 
 
 - [Channels Feature](../../../features/channels/README.md)
 - [Slack Thread Follow-Up Behavior Research](../../../research/channels/2026-04-05-slack-thread-follow-up-behavior.md)
+- [Slack Latency And Stability Audit](../../../research/channels/2026-04-10-slack-latency-and-stability-audit.md)
 - [Chat-First Streaming And Transcript Request Commands](2026-04-04-chat-first-streaming-and-transcript-request-commands.md)
 - [Channels Tests](../../../tests/features/channels/README.md)

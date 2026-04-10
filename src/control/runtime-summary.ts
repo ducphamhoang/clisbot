@@ -31,6 +31,7 @@ type AgentOperatorSummary = {
   workspacePath: string;
   startupOptions: string[];
   responseMode?: "capture-pane" | "message-tool";
+  additionalMessageMode?: "queue" | "steer";
   bootstrapMode?: string;
   bootstrapState: BootstrapWorkspaceState;
   bindings: string[];
@@ -45,6 +46,7 @@ type ChannelOperatorSummary = {
   streaming: "off" | "latest" | "all";
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
+  additionalMessageMode: "queue" | "steer";
   configuredSurfaceCount: number;
   directMessagesEnabled: boolean;
   directMessagesPolicy: string;
@@ -148,6 +150,7 @@ export async function getRuntimeOperatorSummary(params: {
       workspacePath: resolved.workspacePath,
       startupOptions: tool.startupOptions,
       responseMode: entry.responseMode,
+      additionalMessageMode: entry.additionalMessageMode,
       bootstrapMode: entry.bootstrap?.mode,
       bootstrapState,
       bindings: loadedConfig.raw.bindings
@@ -177,6 +180,7 @@ export async function getRuntimeOperatorSummary(params: {
       streaming: loadedConfig.raw.channels.slack.streaming,
       response: loadedConfig.raw.channels.slack.response,
       responseMode: loadedConfig.raw.channels.slack.responseMode,
+      additionalMessageMode: loadedConfig.raw.channels.slack.additionalMessageMode,
       configuredSurfaceCount: countSlackSurfaces(loadedConfig),
       directMessagesEnabled: loadedConfig.raw.channels.slack.directMessages.enabled,
       directMessagesPolicy: loadedConfig.raw.channels.slack.directMessages.policy,
@@ -200,6 +204,7 @@ export async function getRuntimeOperatorSummary(params: {
       streaming: loadedConfig.raw.channels.telegram.streaming,
       response: loadedConfig.raw.channels.telegram.response,
       responseMode: loadedConfig.raw.channels.telegram.responseMode,
+      additionalMessageMode: loadedConfig.raw.channels.telegram.additionalMessageMode,
       configuredSurfaceCount: countTelegramSurfaces(loadedConfig),
       directMessagesEnabled: loadedConfig.raw.channels.telegram.directMessages.enabled,
       directMessagesPolicy: loadedConfig.raw.channels.telegram.directMessages.policy,
@@ -326,9 +331,11 @@ function renderAgentSummaryLines(summary: RuntimeOperatorSummary) {
           : `bootstrap=${agent.bootstrapMode}:${agent.bootstrapState}`;
       const bindings = agent.bindings.length ? ` bindings=${agent.bindings.join(",")}` : "";
       const responseMode = ` responseMode=${agent.responseMode ?? "inherit"}`;
+      const additionalMessageMode =
+        ` additionalMessageMode=${agent.additionalMessageMode ?? "inherit"}`;
       return `  - ${agent.id} tool=${agent.cliTool} ${bootstrap}${bindings} last=${formatTime(
         agent.lastActivityAt,
-      )}${responseMode}`;
+      )}${responseMode}${additionalMessageMode}`;
     }),
   ];
 }
@@ -343,7 +350,8 @@ function renderChannelSummaryLines(summary: RuntimeOperatorSummary) {
         : " last=never";
       const dm = ` dm=${channel.directMessagesEnabled ? channel.directMessagesPolicy : "disabled"}`;
       const group = channel.groupPolicy ? ` groups=${channel.groupPolicy}` : "";
-      const render = ` streaming=${channel.streaming} response=${channel.response} responseMode=${channel.responseMode}`;
+      const render =
+        ` streaming=${channel.streaming} response=${channel.response} responseMode=${channel.responseMode} additionalMessageMode=${channel.additionalMessageMode}`;
       const routeHint =
         channel.configuredSurfaceCount === 0
           ? " routes=none"

@@ -160,6 +160,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           streaming: "all",
           response: "final",
           responseMode: "message-tool",
+          additionalMessageMode: "steer",
           followUp: {
             mode: "auto",
             participationTtlMin: 5,
@@ -215,6 +216,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           streaming: "all",
           response: "final",
           responseMode: "message-tool",
+          additionalMessageMode: "steer",
           followUp: {
             mode: "auto",
             participationTtlMin: 5,

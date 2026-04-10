@@ -121,6 +121,7 @@ describe("loadConfig", () => {
             streaming: "all",
             response: "final",
             responseMode: "message-tool",
+            additionalMessageMode: "queue",
             followUp: {
               mode: "auto",
               participationTtlSec: 13,
@@ -178,6 +179,7 @@ describe("loadConfig", () => {
       bash: ["!"],
     });
     expect(loaded.raw.channels.slack.responseMode).toBe("message-tool");
+    expect(loaded.raw.channels.slack.additionalMessageMode).toBe("queue");
     expect(loaded.raw.channels.slack.streaming).toBe("all");
     expect(loaded.raw.channels.slack.response).toBe("final");
     expect(loaded.raw.channels.slack.followUp.mode).toBe("auto");

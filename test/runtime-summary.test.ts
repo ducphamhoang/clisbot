@@ -107,6 +107,7 @@ describe("runtime summaries", () => {
     expect(text).toContain("work tool=codex");
     expect(text).toContain("slack enabled=yes");
     expect(text).toContain("responseMode=message-tool");
+    expect(text).toContain("additionalMessageMode=steer");
     expect(text).toContain("Channel health:");
     expect(text).toContain("dm=pairing");
     expect(text).toContain("routes=none");

@@ -20,6 +20,7 @@ export type SlackRoute = {
   streaming: "off" | "latest" | "all";
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
+  additionalMessageMode: "queue" | "steer";
   followUp: FollowUpConfig;
 };
 
@@ -37,6 +38,7 @@ type SlackRouteOverride = {
   streaming?: "off" | "latest" | "all";
   response?: "all" | "final";
   responseMode?: "capture-pane" | "message-tool";
+  additionalMessageMode?: "queue" | "steer";
   followUp?: {
     mode?: FollowUpConfig["mode"];
     participationTtlSec?: number;
@@ -84,6 +86,10 @@ function buildRoute(loadedConfig: LoadedConfig, params: {
     streaming: params.route?.streaming ?? slackConfig.streaming,
     response: params.route?.response ?? slackConfig.response,
     responseMode: params.route?.responseMode ?? agentEntry?.responseMode ?? slackConfig.responseMode,
+    additionalMessageMode:
+      params.route?.additionalMessageMode ??
+      agentEntry?.additionalMessageMode ??
+      slackConfig.additionalMessageMode,
     followUp: {
       mode: params.route?.followUp?.mode ?? slackConfig.followUp.mode,
       participationTtlMs: resolveConfigDurationMs({

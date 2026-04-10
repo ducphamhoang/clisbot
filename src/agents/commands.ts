@@ -17,9 +17,13 @@ export type AgentControlSlashCommandName =
   | "watch"
   | "stop"
   | "followup"
-  | "responsemode";
+  | "responsemode"
+  | "additionalmessagemode"
+  | "queue-list"
+  | "queue-clear";
 export type AgentFollowUpSlashAction = "status" | "auto" | "mention-only" | "pause" | "resume";
 export type AgentResponseModeSlashAction = "status" | "capture-pane" | "message-tool";
+export type AgentAdditionalMessageModeSlashAction = "status" | "queue" | "steer";
 
 export type AgentControlSlashCommand =
   | {
@@ -71,10 +75,32 @@ export type AgentControlSlashCommand =
       name: "responsemode";
       action: AgentResponseModeSlashAction;
       responseMode?: "capture-pane" | "message-tool";
+    }
+  | {
+      type: "control";
+      name: "additionalmessagemode";
+      action: AgentAdditionalMessageModeSlashAction;
+      additionalMessageMode?: "queue" | "steer";
+    }
+  | {
+      type: "control";
+      name: "queue-list";
+    }
+  | {
+      type: "control";
+      name: "queue-clear";
     };
 
 export type AgentSlashCommand =
   | AgentControlSlashCommand
+  | {
+      type: "queue";
+      text: string;
+    }
+  | {
+      type: "steer";
+      text: string;
+    }
   | {
       type: "bash";
       command: string;
@@ -274,11 +300,65 @@ export function parseAgentCommand(
     };
   }
 
+  if (lowered === "additionalmessagemode") {
+    const action = withoutSlash.slice(command.length).trim().toLowerCase();
+    if (!action || action === "status") {
+      return {
+        type: "control",
+        name: "additionalmessagemode",
+        action: "status",
+      };
+    }
+
+    if (action === "queue" || action === "steer") {
+      return {
+        type: "control",
+        name: "additionalmessagemode",
+        action,
+        additionalMessageMode: action,
+      };
+    }
+
+    return {
+      type: "control",
+      name: "additionalmessagemode",
+      action: "status",
+    };
+  }
+
   if (lowered === "bash") {
     return {
       type: "bash",
       command: withoutSlash.slice(command.length).trim(),
       source: "slash",
+    };
+  }
+
+  if (lowered === "queue-list" || lowered === "queuelist") {
+    return {
+      type: "control",
+      name: "queue-list",
+    };
+  }
+
+  if (lowered === "queue-clear" || lowered === "queueclear") {
+    return {
+      type: "control",
+      name: "queue-clear",
+    };
+  }
+
+  if (lowered === "queue" || lowered === "q") {
+    return {
+      type: "queue",
+      text: withoutSlash.slice(command.length).trim(),
+    };
+  }
+
+  if (lowered === "steer" || lowered === "s") {
+    return {
+      type: "steer",
+      text: withoutSlash.slice(command.length).trim(),
     };
   }
 
@@ -330,6 +410,13 @@ export function renderAgentControlSlashHelp() {
     "- `/responsemode status`: show the configured response mode for this surface",
     "- `/responsemode capture-pane`: settle replies from captured pane output for this surface",
     "- `/responsemode message-tool`: expect the agent to reply through `muxbot message send` for this surface",
+    "- `/additionalmessagemode status`: show how extra messages behave while a run is already active",
+    "- `/additionalmessagemode steer`: send later user messages straight into the active session",
+    "- `/additionalmessagemode queue`: queue later user messages behind the active run for this surface",
+    "- `/queue <message>` or `\\q <message>`: enqueue a later message behind the active run and let muxbot deliver it in order",
+    "- `/steer <message>` or `\\s <message>`: inject a steering message into the active run immediately",
+    "- `/queue-list`: show queued messages that have not started yet",
+    "- `/queue-clear`: clear queued messages that have not started yet",
     "- `/bash` followed by a shell command: requires `privilegeCommands.enabled: true` on the current route",
     "- shortcut prefixes such as `!` run bash when the route allows privilege commands",
     "",
