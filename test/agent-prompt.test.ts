@@ -5,12 +5,12 @@ describe("agent prompt envelope", () => {
   let previousWrapperPath: string | undefined;
 
   afterEach(() => {
-    process.env.MUXBOT_WRAPPER_PATH = previousWrapperPath;
+    process.env.CLISBOT_WRAPPER_PATH = previousWrapperPath;
   });
 
   test("renders a Slack reply command for the current thread", () => {
-    previousWrapperPath = process.env.MUXBOT_WRAPPER_PATH;
-    process.env.MUXBOT_WRAPPER_PATH = "/tmp/muxbot-wrapper";
+    previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    process.env.CLISBOT_WRAPPER_PATH = "/tmp/clisbot-wrapper";
 
     const prompt = buildAgentPromptText({
       text: "please investigate",
@@ -30,15 +30,15 @@ describe("agent prompt envelope", () => {
     });
 
     expect(prompt).toContain("<system>");
-    expect(prompt).toContain("Use the exact local muxbot wrapper");
+    expect(prompt).toContain("Use the exact local clisbot wrapper");
     expect(prompt).toContain("channel auto-delivery is disabled for this conversation");
-    expect(prompt).toContain("/tmp/muxbot-wrapper message send \\");
+    expect(prompt).toContain("/tmp/clisbot-wrapper message send \\");
     expect(prompt).toContain("  --channel slack \\");
     expect(prompt).toContain("  --target channel:C123 \\");
     expect(prompt).toContain("  --thread-id 171234.5678 \\");
     expect(prompt).toContain("  --final \\");
-    expect(prompt).toContain("--message \"$(cat <<'__MUXBOT_MESSAGE__'");
-    expect(prompt).toContain("__MUXBOT_MESSAGE__");
+    expect(prompt).toContain("--message \"$(cat <<'__CLISBOT_MESSAGE__'");
+    expect(prompt).toContain("__CLISBOT_MESSAGE__");
     expect(prompt).toContain("progress updates: at most 3");
     expect(prompt).toContain("final response: send exactly 1 final user-facing response");
     expect(prompt).toContain("use plain ASCII spaces in the shell command");
@@ -46,8 +46,8 @@ describe("agent prompt envelope", () => {
   });
 
   test("renders a Telegram topic reply command", () => {
-    previousWrapperPath = process.env.MUXBOT_WRAPPER_PATH;
-    process.env.MUXBOT_WRAPPER_PATH = "/tmp/muxbot-wrapper";
+    previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    process.env.CLISBOT_WRAPPER_PATH = "/tmp/clisbot-wrapper";
 
     const prompt = buildAgentPromptText({
       text: "ship it",
@@ -66,7 +66,7 @@ describe("agent prompt envelope", () => {
       responseMode: "message-tool",
     });
 
-    expect(prompt).toContain("/tmp/muxbot-wrapper message send \\");
+    expect(prompt).toContain("/tmp/clisbot-wrapper message send \\");
     expect(prompt).toContain("  --channel telegram \\");
     expect(prompt).toContain("  --target -1001 \\");
     expect(prompt).toContain("  --thread-id 4 \\");

@@ -49,7 +49,7 @@ import {
   renderRuntimeErrorLines,
 } from "./control/operator-errors.ts";
 import { commandExists } from "./shared/process.ts";
-import { getMuxbotVersion } from "./version.ts";
+import { getClisbotVersion } from "./version.ts";
 
 type PreparedBootstrapState = {
   channelAvailability: ReturnType<typeof getDefaultChannelAvailability>;
@@ -74,18 +74,18 @@ function getPrimaryWorkspacePath(
 
 function printMissingBootstrapOptions(commandName: "init" | "start") {
   console.log("");
-  console.log(`warning!!! no default agent is configured yet, so muxbot did not ${commandName}.`);
+  console.log(`warning!!! no default agent is configured yet, so clisbot did not ${commandName}.`);
   console.log("First run requires both `--cli` and `--bootstrap`.");
   console.log("");
   console.log("Choose one bootstrap style:");
   console.log("  personal-assistant = one assistant for one human");
   console.log("  team-assistant     = one shared assistant for a team or channel");
   console.log(`Prepare with one of these commands:`);
-  console.log(`  muxbot ${commandName} --cli codex --bootstrap personal-assistant`);
-  console.log(`  muxbot ${commandName} --cli codex --bootstrap team-assistant`);
-  console.log(`  muxbot ${commandName} --cli claude --bootstrap personal-assistant`);
-  console.log(`  muxbot ${commandName} --cli claude --bootstrap team-assistant`);
-  console.log("Manual setup is still available with `muxbot agents add ...`.");
+  console.log(`  clisbot ${commandName} --cli codex --bootstrap personal-assistant`);
+  console.log(`  clisbot ${commandName} --cli codex --bootstrap team-assistant`);
+  console.log(`  clisbot ${commandName} --cli claude --bootstrap personal-assistant`);
+  console.log(`  clisbot ${commandName} --cli claude --bootstrap team-assistant`);
+  console.log("Manual setup is still available with `clisbot agents add ...`.");
   for (const line of renderOperatorHelpLines()) {
     console.log(line);
   }
@@ -95,7 +95,7 @@ async function prepareBootstrapState(
   options: StartCommandOptions,
   requireAvailableDefaultTokens: boolean,
 ) {
-  const configPath = expandHomePath(process.env.MUXBOT_CONFIG_PATH || DEFAULT_CONFIG_PATH);
+  const configPath = expandHomePath(process.env.CLISBOT_CONFIG_PATH || DEFAULT_CONFIG_PATH);
   const firstRun = shouldBootstrapFirstRunConfig(configPath);
   const channelAvailability = firstRun
     ? getChannelAvailabilityForBootstrap(options)
@@ -152,7 +152,7 @@ async function ensureDefaultAgentBootstrap(
   if (commandName === "start") {
     const installed = commandExists(options.cliTool);
     if (!installed) {
-      console.log(`warning ${options.cliTool} is not installed, so muxbot did not start.`);
+      console.log(`warning ${options.cliTool} is not installed, so clisbot did not start.`);
       console.log(`Install \`${options.cliTool}\`, then run start again.`);
       for (const line of renderOperatorHelpLines()) {
         console.log(line);
@@ -193,10 +193,10 @@ async function initConfig(options: StartCommandOptions = {}) {
 
 async function serveForeground() {
   const configPath = expandHomePath(
-    process.env.MUXBOT_CONFIG_PATH || DEFAULT_CONFIG_PATH,
+    process.env.CLISBOT_CONFIG_PATH || DEFAULT_CONFIG_PATH,
   );
   const pidPath = expandHomePath(
-    process.env.MUXBOT_PID_PATH || DEFAULT_RUNTIME_PID_PATH,
+    process.env.CLISBOT_PID_PATH || DEFAULT_RUNTIME_PID_PATH,
   );
   const runtimeSupervisor = new RuntimeSupervisor(configPath);
   let shuttingDown = false;
@@ -272,7 +272,7 @@ async function start(options: StartCommandOptions = {}) {
         configPath: result.configPath,
         runtimeRunning: true,
       });
-      console.log(`muxbot is already running with pid: ${result.pid}`);
+      console.log(`clisbot is already running with pid: ${result.pid}`);
       const workspacePath = getPrimaryWorkspacePath(summary);
       if (workspacePath) {
         console.log(
@@ -283,8 +283,8 @@ async function start(options: StartCommandOptions = {}) {
       console.log(`log: ${result.logPath}`);
       console.log(renderStartSummary(summary));
     } catch (error) {
-      console.log(`muxbot is already running with pid: ${result.pid}`);
-      console.log("Run `muxbot status` to inspect runtime state or `muxbot logs` to inspect recent activity.");
+      console.log(`clisbot is already running with pid: ${result.pid}`);
+      console.log("Run `clisbot status` to inspect runtime state or `clisbot logs` to inspect recent activity.");
       for (const line of renderChannelSetupHelpLines()) {
         console.log(line);
       }
@@ -304,7 +304,7 @@ async function start(options: StartCommandOptions = {}) {
       configPath: result.configPath,
       runtimeRunning: true,
     });
-    console.log(`muxbot started with pid: ${result.pid}`);
+    console.log(`clisbot started with pid: ${result.pid}`);
     const workspacePath = getPrimaryWorkspacePath(summary);
     if (workspacePath) {
       console.log(
@@ -315,7 +315,7 @@ async function start(options: StartCommandOptions = {}) {
     console.log(`log: ${result.logPath}`);
     console.log(renderStartSummary(summary));
   } catch (error) {
-    console.log(`muxbot started with pid: ${result.pid}`);
+    console.log(`clisbot started with pid: ${result.pid}`);
     console.log(`config: ${result.configPath}`);
     console.log(`log: ${result.logPath}`);
     for (const line of renderRuntimeErrorLines("failed to render start summary", error)) {
@@ -369,20 +369,20 @@ async function stop(hard = false) {
     hard,
   });
   if (!result.stopped && !hard) {
-    console.log("muxbot is not running");
+    console.log("clisbot is not running");
     return;
   }
 
   if (hard) {
     console.log(
       result.stopped
-        ? "muxbot stopped and tmux sessions cleaned up"
-        : "muxbot was not running, but tmux sessions were cleaned up",
+        ? "clisbot stopped and tmux sessions cleaned up"
+        : "clisbot was not running, but tmux sessions were cleaned up",
     );
     return;
   }
 
-  console.log("muxbot stopped");
+  console.log("clisbot stopped");
 }
 
 async function restart() {
@@ -394,7 +394,7 @@ async function restart() {
 
 async function status() {
   const runtimeStatus = await getRuntimeStatus();
-  console.log(`version: ${getMuxbotVersion()}`);
+  console.log(`version: ${getClisbotVersion()}`);
   console.log(`running: ${runtimeStatus.running ? "yes" : "no"}`);
   if (runtimeStatus.pid) {
     console.log(`pid: ${runtimeStatus.pid}`);
@@ -462,7 +462,7 @@ async function main() {
   }
 
   if (command.name === "version") {
-    console.log(getMuxbotVersion());
+    console.log(getClisbotVersion());
     return;
   }
 

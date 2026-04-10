@@ -6,7 +6,7 @@ Human intent for `additionalMessageMode` was "what should happen when the sessio
 
 ## Lesson
 
-When muxbot exposes a user-facing busy-session policy:
+When clisbot exposes a user-facing busy-session policy:
 
 - treat startup, prompt preparation, and active execution as one busy interval
 - do not gate busy-session behavior only on a late runtime marker if the human expectation starts earlier

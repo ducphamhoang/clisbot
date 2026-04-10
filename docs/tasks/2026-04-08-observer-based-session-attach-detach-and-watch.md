@@ -28,7 +28,7 @@ That creates the wrong behavior for agentic AI sessions that can run autonomousl
 - final completion delivery after observation-window detachment
 - prompt admission rules that reject overlapping new prompts while a run is still active
 - stale cleanup rules that respect active detached runs
-- status visibility for active runs in both routed `/status` output and operator `muxbot status`
+- status visibility for active runs in both routed `/status` output and operator `clisbot status`
 
 ## Non-Goals
 
@@ -46,7 +46,7 @@ That creates the wrong behavior for agentic AI sessions that can run autonomousl
 - `/detach` to stop live updates on the current thread while still receiving final settlement
 - `/watch every <duration> [for <duration>]` for interval-based updates until completion
 - one rule that new prompts are rejected while the session already has an active run
-- active-run visibility in routed `/status` output and operator `muxbot status`
+- active-run visibility in routed `/status` output and operator `clisbot status`
 
 ## Subtasks
 
@@ -58,7 +58,7 @@ That creates the wrong behavior for agentic AI sessions that can run autonomousl
 - [x] implement watch slash commands
 - [x] block new prompt submission while a run is already active
 - [x] update stale cleanup to skip active running or detached sessions
-- [x] expose active run state in routed `/status` output and operator `muxbot status`
+- [x] expose active run state in routed `/status` output and operator `clisbot status`
 - [x] add automated tests for attach, detach, watch, and final settlement after detachment
 
 ## Exit Criteria
@@ -70,7 +70,7 @@ That creates the wrong behavior for agentic AI sessions that can run autonomousl
 - `/watch` posts interval snapshots until settlement or watch expiry
 - stale cleanup does not kill an active autonomous run only because channel streaming paused
 - a second prompt cannot be queued into a session that already has an active run
-- routed `/status` and operator `muxbot status` make active detached runs visible without transcript-first inspection
+- routed `/status` and operator `clisbot status` make active detached runs visible without transcript-first inspection
 
 ## Related Docs
 

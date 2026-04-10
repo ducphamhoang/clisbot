@@ -62,7 +62,7 @@ const SEEN_MESSAGE_TTL_MS = 60_000;
 const THREAD_TS_CACHE_TTL_MS = 60_000;
 
 function debugSlackEvent(message: string, details: Record<string, unknown> = {}) {
-  if (process.env.MUXBOT_DEBUG_SLACK_EVENTS !== "1") {
+  if (process.env.CLISBOT_DEBUG_SLACK_EVENTS !== "1") {
     return;
   }
 

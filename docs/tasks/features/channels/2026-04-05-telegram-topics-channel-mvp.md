@@ -12,10 +12,10 @@ Ready
 
 Telegram topics are the closest Telegram equivalent to Slack threads, but they are not the same mechanism.
 
-`muxbot` should support Telegram in a way that:
+`clisbot` should support Telegram in a way that:
 
 - stays compatible with OpenClaw’s Telegram config and routing model
-- reuses the current `muxbot` chat-first rendering contract
+- reuses the current `clisbot` chat-first rendering contract
 - does not incorrectly copy Slack follow-up cache behavior into Telegram topics
 
 ## Scope

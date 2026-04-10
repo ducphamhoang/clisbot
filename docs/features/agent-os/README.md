@@ -2,7 +2,7 @@
 
 ## Summary
 
-Agent-OS is the backend-agnostic operating layer for agents in `muxbot`.
+Agent-OS is the backend-agnostic operating layer for agents in `clisbot`.
 
 It owns the durable mental model of an agent and its session state.
 

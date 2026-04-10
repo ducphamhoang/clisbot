@@ -6,14 +6,14 @@ export function buildPairingReply(params: {
   code: string;
 }) {
   return [
-    "muxbot: access not configured.",
+    "clisbot: access not configured.",
     "",
     params.idLine,
     "",
     `Pairing code: ${params.code}`,
     "",
     "Ask the bot owner to approve with:",
-    `muxbot pairing approve ${params.channel} ${params.code}`,
+    `clisbot pairing approve ${params.channel} ${params.code}`,
   ].join("\n");
 }
 

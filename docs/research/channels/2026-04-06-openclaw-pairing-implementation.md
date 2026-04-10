@@ -26,7 +26,7 @@ Important Slack nuance:
 - Slack `groupPolicy` falls back to `open` only when `channels.slack.groupPolicy`, `channels.defaults.groupPolicy`, and `channels.slack.channels` are all absent
 - this is a sparse-config runtime fallback, not the main secure posture shown in OpenClaw docs and examples
 
-For `muxbot`, the OpenClaw-compatible default target should be:
+For `clisbot`, the OpenClaw-compatible default target should be:
 
 - Slack and Telegram direct messages default to `pairing`
 - shared channel and group routes stay `allowlist`
@@ -55,9 +55,9 @@ This note covers:
 - where pairing state is stored
 - how pending pairing requests are created and approved
 - how channels plug into the shared pairing system
-- what this means for `muxbot`
+- what this means for `clisbot`
 
-This note does not define final `muxbot` behavior yet.
+This note does not define final `clisbot` behavior yet.
 
 ## Key Sources
 
@@ -335,9 +335,9 @@ It is better understood as:
 
 - channel-level inbound identity approval
 
-## Implications For muxbot
+## Implications For clisbot
 
-If `muxbot` wants OpenClaw-compatible pairing, the closest truthful model is:
+If `clisbot` wants OpenClaw-compatible pairing, the closest truthful model is:
 
 - pairing belongs under channels and access control
 - pairing approval should happen before session routing and runner creation
@@ -349,13 +349,13 @@ If `muxbot` wants OpenClaw-compatible pairing, the closest truthful model is:
   - allow-entry normalization
   - optional approval notification
 
-## Design Questions For muxbot
+## Design Questions For clisbot
 
 Before implementing pairing, these choices should be made explicitly:
 
 1. Should pairing be global per channel like OpenClaw, or scoped more narrowly by account or route?
-2. Should Slack and Telegram both default to `pairing` for DMs, or should muxbot keep its current more permissive DM defaults?
-3. Should approval be CLI-only at first, or should muxbot also expose control commands or API endpoints for approval?
+2. Should Slack and Telegram both default to `pairing` for DMs, or should clisbot keep its current more permissive DM defaults?
+3. Should approval be CLI-only at first, or should clisbot also expose control commands or API endpoints for approval?
 4. Should pairing support only DM message surfaces first, or also slash command surfaces such as Slack slash commands?
 
 ## Practical Takeaway
@@ -366,4 +366,4 @@ The clean OpenClaw insight is:
 - not a channel-specific hack
 - not an Agent-OS session feature
 
-That is the part worth bringing into `muxbot` if pairing work starts later.
+That is the part worth bringing into `clisbot` if pairing work starts later.

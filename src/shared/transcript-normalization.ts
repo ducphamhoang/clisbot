@@ -368,7 +368,7 @@ function shouldDropClaudeChromeLine(line: string) {
     trimmed.includes("ctrl+o to expand") ||
     trimmed.includes("ctrl+b ctrl+b") ||
     trimmed.includes("run in background") ||
-    /^~\/\.muxbot\/(?:workspace\/)?[a-z0-9._/-]+$/i.test(trimmed) ||
+    /^~\/\.clisbot\/(?:workspace\/)?[a-z0-9._/-]+$/i.test(trimmed) ||
     trimmed.includes("| claude |") ||
     /^(?:[✻*]\s*)?(?:Worked|Cooked) for \d+s$/i.test(trimmed) ||
     trimmed.startsWith("⏵⏵") ||

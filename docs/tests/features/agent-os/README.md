@@ -2,7 +2,7 @@
 
 ## Purpose
 
-These test cases define the ground truth for the agent operating model in `muxbot`.
+These test cases define the ground truth for the agent operating model in `clisbot`.
 
 They cover durable concepts that must stay coherent even if the concrete runner changes.
 
@@ -117,7 +117,7 @@ They cover durable concepts that must stay coherent even if the concrete runner 
 
 ### Expected Results
 
-- reserved control slash commands are handled by muxbot before runner input forwarding
+- reserved control slash commands are handled by clisbot before runner input forwarding
 - `/transcript` returns the current full conversation session transcript
 - `/stop` sends `Escape` to interrupt current processing in the current conversation session
 - unknown slash commands are forwarded unchanged to the native agent CLI

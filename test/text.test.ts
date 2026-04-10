@@ -74,19 +74,19 @@ Welcome to Codex, OpenAI's command-line coding agent
 
   in this workspace please
 
-  gpt-5.4 high · 97% left · ~/.muxbot/workspaces/default
+  gpt-5.4 high · 97% left · ~/.clisbot/workspaces/default
 
 ╭────────────────────────────────────────────╮
 │ >_ OpenAI Codex (v0.118.0)                 │
 │                                            │
 │ model:     gpt-5.4 high   /model to change │
-│ directory: ~/.muxbot/workspaces/default │
+│ directory: ~/.clisbot/workspaces/default │
 ╰────────────────────────────────────────────╯
 
   Tip: New Build faster with the Codex App.
 
 • I'm listing the files in the current workspace.
-• No files are present in /Users/longluong/.muxbot/workspaces/default.
+• No files are present in /Users/longluong/.clisbot/workspaces/default.
     `);
 
     expect(cleaned).not.toContain("OpenAI Codex");
@@ -111,7 +111,7 @@ Welcome to Codex, OpenAI's command-line coding agent
 › list all files
 
 • I'm listing the files in the current workspace.
-• No files are present in /Users/longluong/.muxbot/workspaces/default.
+• No files are present in /Users/longluong/.clisbot/workspaces/default.
     `;
 
     const derived = deriveInteractionText(baseline, current);
@@ -290,7 +290,7 @@ This project maps channel messages into tmux-backed agents.
 │                ▘▘ ▝▝               │                                                      │
 │                                    │                                                      │
 │   Sonnet 4.6 · API Usage Billing   │                                                      │
-│   ~/.muxbot/workspaces/claude   │                                                      │
+│   ~/.clisbot/workspaces/claude   │                                                      │
 ╰───────────────────────────────────────────────────────────────────────────────────────────╯
 
 ❯ reply with exactly PONG and nothing else.
@@ -311,7 +311,7 @@ This project maps channel messages into tmux-backed agents.
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ❯ hi em
 
@@ -337,7 +337,7 @@ AGENTS.md
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ⏺ item 089: abcdefghijklmnopqrstuvwxyz
   item 090: abcdefghijklmnopqrstuvwxyz
@@ -354,7 +354,7 @@ Worked for 36s
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ⏺ item 089: abcdefghijklmnopqrstuvwxyz
   item 090: abcdefghijklmnopqrstuvwxyz
@@ -371,7 +371,7 @@ Worked for 36s
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ❯ tìm tin tức việt nam
 
@@ -396,7 +396,7 @@ Worked for 36s
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ❯ tìm tin tức việt nam
 
@@ -418,7 +418,7 @@ Worked for 36s
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ❯ Reply with exactly 120 lines. Each line must be in the format \`item NNN:
 abcdefghijklmnopqrstuvwxyz\` where NNN starts at 001 and increments by 1. No intro. No code
@@ -437,7 +437,7 @@ fence. No extra text.
     const cleaned = cleanInteractionSnapshot(`
  ▐▛███▜▌   Claude Code v2.1.92
 ▝▜█████▛▘  Sonnet 4.6 · API Usage Billing
-  ▘▘ ▝▝    ~/.muxbot/workspaces/claude
+  ▘▘ ▝▝    ~/.clisbot/workspaces/claude
 
 ❯ hi em
 
@@ -505,10 +505,10 @@ Finagling
         content: "Still working through the repository.",
         maxChars: 200,
         note:
-          "This session has been running for over 15 minutes. muxbot left it running as-is. Use `/transcript` anytime to check it.",
+          "This session has been running for over 15 minutes. clisbot left it running as-is. Use `/transcript` anytime to check it.",
       }),
     ).toBe(
-      "Still working through the repository.\n\n_This session has been running for over 15 minutes. muxbot left it running as-is. Use `/transcript` anytime to check it._",
+      "Still working through the repository.\n\n_This session has been running for over 15 minutes. clisbot left it running as-is. Use `/transcript` anytime to check it._",
     );
   });
 
@@ -563,7 +563,7 @@ Mình đang nạp context của workspace trước đã: đọc SOUL.md, USER.md
 sẽ trả lời trong đúng ngữ cảnh của phiên này.
 
 Ran pwd
- /Users/longluong/.muxbot/workspace/default
+ /Users/longluong/.clisbot/workspace/default
 
 Explored List ls -1
 
@@ -597,7 +597,7 @@ Cho anh 2 mẩu là đủ để bắt đầu:
 Preparing workspace.
 
 $ pwd
-/Users/longluong/.muxbot/workspace/default
+/Users/longluong/.clisbot/workspace/default
 
 $ ls
 README.md

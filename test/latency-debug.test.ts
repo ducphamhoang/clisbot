@@ -2,19 +2,19 @@ import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { isLatencyDebugEnabled, logLatencyDebug } from "../src/control/latency-debug.ts";
 
 describe("latency debug", () => {
-  const originalEnv = process.env.MUXBOT_DEBUG_LATENCY;
+  const originalEnv = process.env.CLISBOT_DEBUG_LATENCY;
 
   afterEach(() => {
     if (originalEnv == null) {
-      delete process.env.MUXBOT_DEBUG_LATENCY;
+      delete process.env.CLISBOT_DEBUG_LATENCY;
     } else {
-      process.env.MUXBOT_DEBUG_LATENCY = originalEnv;
+      process.env.CLISBOT_DEBUG_LATENCY = originalEnv;
     }
     mock.restore();
   });
 
   test("stays disabled unless the env flag is enabled", () => {
-    delete process.env.MUXBOT_DEBUG_LATENCY;
+    delete process.env.CLISBOT_DEBUG_LATENCY;
     expect(isLatencyDebugEnabled()).toBe(false);
 
     const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
@@ -23,7 +23,7 @@ describe("latency debug", () => {
   });
 
   test("logs structured latency events when enabled", () => {
-    process.env.MUXBOT_DEBUG_LATENCY = "1";
+    process.env.CLISBOT_DEBUG_LATENCY = "1";
     const consoleSpy = spyOn(console, "log").mockImplementation(() => {});
 
     logLatencyDebug(
@@ -35,7 +35,7 @@ describe("latency debug", () => {
     expect(consoleSpy).toHaveBeenCalledTimes(1);
     const message = consoleSpy.mock.calls[0]?.[0];
     expect(typeof message).toBe("string");
-    expect(message).toContain("muxbot latency ");
+    expect(message).toContain("clisbot latency ");
     expect(message).toContain("\"stage\":\"tmux-first-meaningful-delta\"");
     expect(message).toContain("\"eventId\":\"evt-1\"");
     expect(message).toContain("\"sessionKey\":\"main\"");

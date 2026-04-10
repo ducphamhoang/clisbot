@@ -17,7 +17,7 @@ Active
 
 ## Why It Exists
 
-`muxbot` is strongest when Codex or Claude can work with normal local files.
+`clisbot` is strongest when Codex or Claude can work with normal local files.
 
 That means inbound channel files should become workspace-local files instead of staying as remote Slack or Telegram objects.
 
@@ -51,7 +51,7 @@ Current prompt contract is intentionally minimal:
 Example:
 
 ```text
-@/Users/example/.muxbot/workspace/default/.attachments/agent-default-main/1771/spec.md Please review this file
+@/Users/example/.clisbot/workspace/default/.attachments/agent-default-main/1771/spec.md Please review this file
 ```
 
 No extra metadata block is required in the current MVP slice.

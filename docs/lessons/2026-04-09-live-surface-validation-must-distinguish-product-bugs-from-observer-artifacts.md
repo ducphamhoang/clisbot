@@ -14,13 +14,13 @@ related:
 
 ## Context
 
-This lesson comes from live Slack validation in the `muxbot` project on April 9, 2026.
+This lesson comes from live Slack validation in the `clisbot` project on April 9, 2026.
 
 The user explicitly asked for real end-to-end Slack testing, including happy paths, edge cases, long-running tool usage, and rendering quality under streaming updates.
 
 During that work, one real transcript bug was found and fixed: soft-wrapped fragments from tmux capture could be rejoined with an extra space, which changed words such as `homepage` into `homep age`.
 
-At the same time, some punctuation and formatting issues seen in `slack-cli` CSV output turned out to be observer artifacts from the readback path rather than actual `muxbot` rendering defects in Slack.
+At the same time, some punctuation and formatting issues seen in `slack-cli` CSV output turned out to be observer artifacts from the readback path rather than actual `clisbot` rendering defects in Slack.
 
 That distinction mattered, because otherwise the debugging loop would have pushed the code toward compensating for the wrong problem.
 

@@ -1,4 +1,4 @@
-# muxbot Surface Architecture
+# clisbot Surface Architecture
 
 ## Document Information
 

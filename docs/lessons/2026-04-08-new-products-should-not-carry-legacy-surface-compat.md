@@ -13,7 +13,7 @@ related:
 
 ## Context
 
-This lesson comes from recurring Codex feedback in the `muxbot` project on April 7-8, 2026.
+This lesson comes from recurring Codex feedback in the `clisbot` project on April 7-8, 2026.
 
 It was confirmed against local Codex session history captured during project work, where the user repeatedly pushed on:
 

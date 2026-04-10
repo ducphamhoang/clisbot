@@ -7,7 +7,7 @@ import {
   type AgentCliToolId,
   inferAgentCliToolId,
 } from "../config/agent-tool-presets.ts";
-import { type MuxbotConfig } from "../config/schema.ts";
+import { type ClisbotConfig } from "../config/schema.ts";
 import { readEditableConfig, writeEditableConfig } from "../config/config-file.ts";
 import { applyBootstrapTemplate, getBootstrapWorkspaceState } from "../agents/bootstrap.ts";
 import { formatBinding } from "../config/bindings.ts";
@@ -17,7 +17,7 @@ import type {
 } from "../channels/mode-config-shared.ts";
 
 function getEditableConfigPath() {
-  return process.env.MUXBOT_CONFIG_PATH;
+  return process.env.CLISBOT_CONFIG_PATH;
 }
 
 type AgentBindingTarget = {
@@ -97,7 +97,7 @@ function removeConsumedArgs(args: string[], consumedNames: string[]) {
   return remaining;
 }
 
-function resolveWorkspacePath(config: MuxbotConfig, agentId: string, customWorkspace?: string) {
+function resolveWorkspacePath(config: ClisbotConfig, agentId: string, customWorkspace?: string) {
   const template = customWorkspace ?? config.agents.defaults.workspace;
   return expandHomePath(
     applyTemplate(template, {
@@ -128,17 +128,17 @@ export type AddAgentParams = {
   bindings?: AgentBindingTarget[];
 };
 
-function ensureAgentMissing(config: MuxbotConfig, agentId: string) {
+function ensureAgentMissing(config: ClisbotConfig, agentId: string) {
   if (config.agents.list.some((entry) => entry.id === agentId)) {
     throw new Error(`Agent already exists: ${agentId}`);
   }
 }
 
-function getAgentEntry(config: MuxbotConfig, agentId: string) {
+function getAgentEntry(config: ClisbotConfig, agentId: string) {
   return config.agents.list.find((entry) => entry.id === agentId);
 }
 
-function ensureAgentExists(config: MuxbotConfig, agentId: string) {
+function ensureAgentExists(config: ClisbotConfig, agentId: string) {
   const entry = getAgentEntry(config, agentId);
   if (!entry) {
     throw new Error(`Unknown agent: ${agentId}`);
@@ -147,7 +147,7 @@ function ensureAgentExists(config: MuxbotConfig, agentId: string) {
   return entry;
 }
 
-function resolveAgentTool(config: MuxbotConfig, agentId: string) {
+function resolveAgentTool(config: ClisbotConfig, agentId: string) {
   const entry = ensureAgentExists(config, agentId);
   const cliTool = entry.cliTool ?? inferAgentCliToolId(entry.runner?.command);
   if (!cliTool) {
@@ -157,7 +157,7 @@ function resolveAgentTool(config: MuxbotConfig, agentId: string) {
   return cliTool;
 }
 
-function upsertBinding(config: MuxbotConfig, agentId: string, target: AgentBindingTarget) {
+function upsertBinding(config: ClisbotConfig, agentId: string, target: AgentBindingTarget) {
   const existingIndex = config.bindings.findIndex((binding) => {
     return (
       binding.match.channel === target.channel &&
@@ -185,7 +185,7 @@ function upsertBinding(config: MuxbotConfig, agentId: string, target: AgentBindi
   });
 }
 
-function removeBinding(config: MuxbotConfig, agentId: string, target?: AgentBindingTarget) {
+function removeBinding(config: ClisbotConfig, agentId: string, target?: AgentBindingTarget) {
   config.bindings = config.bindings.filter((binding) => {
     if (binding.agentId !== agentId) {
       return true;

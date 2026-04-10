@@ -116,7 +116,7 @@ export function renderTelegramUnroutedRouteMessage(params: {
         `chatId: \`${params.chatId}\``,
       ]
     : [
-        `muxbot: this Telegram ${scopeLabel} is not configured yet.`,
+        `clisbot: this Telegram ${scopeLabel} is not configured yet.`,
         "",
         "Ask the bot owner to add this route with:",
       ];
@@ -137,8 +137,8 @@ export function renderTelegramUnroutedRouteMessage(params: {
 
   lines.push(
     params.topicId != null
-      ? `\`muxbot channels add telegram-group ${params.chatId} --topic ${params.topicId}\``
-      : `\`muxbot channels add telegram-group ${params.chatId}\``,
+      ? `\`clisbot channels add telegram-group ${params.chatId} --topic ${params.topicId}\``
+      : `\`clisbot channels add telegram-group ${params.chatId}\``,
   );
 
   if (params.mode === "start" || params.mode === "help" || params.mode === "status") {

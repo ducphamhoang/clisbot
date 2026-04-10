@@ -1,5 +1,5 @@
 import type { LoadedConfig } from "./load-config.ts";
-import type { MuxbotConfig } from "./schema.ts";
+import type { ClisbotConfig } from "./schema.ts";
 
 export type BindingMatch = {
   channel: "slack" | "telegram";
@@ -11,7 +11,7 @@ export function formatBinding(match: BindingMatch) {
 }
 
 export function resolveBoundAgentId(
-  config: LoadedConfig | MuxbotConfig,
+  config: LoadedConfig | ClisbotConfig,
   match: BindingMatch,
 ): string | null {
   const raw = "raw" in config ? config.raw : config;
@@ -27,7 +27,7 @@ export function resolveBoundAgentId(
 }
 
 export function resolveTopLevelBoundAgentId(
-  config: LoadedConfig | MuxbotConfig,
+  config: LoadedConfig | ClisbotConfig,
   match: BindingMatch,
 ): string | null {
   if (match.accountId) {

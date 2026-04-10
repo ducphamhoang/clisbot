@@ -6,7 +6,7 @@ summary: User-facing config and status output should prefer minutes and seconds 
 related:
   - docs/features/configuration/README.md
   - docs/user-guide/README.md
-  - config/muxbot.json.template
+  - config/clisbot.json.template
   - src/config/schema.ts
   - src/config/load-config.ts
   - src/config/duration.ts
@@ -14,7 +14,7 @@ related:
 
 ## Context
 
-This lesson comes from recurring Codex feedback in the `muxbot` project around follow-up TTL and runtime timeout configuration.
+This lesson comes from recurring Codex feedback in the `clisbot` project around follow-up TTL and runtime timeout configuration.
 
 It was confirmed against local Codex session history captured during project work, where the user repeatedly pushed for minute-based defaults, optional second-based overrides, and removal of millisecond-based config from the public surface.
 

@@ -2,13 +2,13 @@
 
 ## Summary
 
-This research maps how OpenClaw models Telegram, especially forum topics, and what `muxbot` should copy if it wants Telegram support that feels consistent with the Slack feature set already in flight.
+This research maps how OpenClaw models Telegram, especially forum topics, and what `clisbot` should copy if it wants Telegram support that feels consistent with the Slack feature set already in flight.
 
 Main conclusion:
 
 - OpenClaw treats Telegram topics as first-class conversation surfaces, not as a lightweight follow-up cache like Slack threads
 - Telegram topics are the closest Telegram equivalent to Slack threads, but the mental model is different
-- in `muxbot`, Telegram should be added as a new channel surface with topic-aware routing, session isolation, and topic-aware reply placement
+- in `clisbot`, Telegram should be added as a new channel surface with topic-aware routing, session isolation, and topic-aware reply placement
 - Slack-style follow-up participation state should not be copied blindly into Telegram topics because Telegram already provides a concrete topic identifier on inbound messages
 
 ## Scope
@@ -19,9 +19,9 @@ This note focuses on:
 - Telegram session and topic identity
 - Telegram config shape and topic inheritance
 - reply, typing, commands, and streaming behavior in topics
-- a parity plan against current `muxbot` Slack behavior
+- a parity plan against current `clisbot` Slack behavior
 
-This note does not define final `muxbot` implementation details yet.
+This note does not define final `clisbot` implementation details yet.
 
 ## Source Baseline
 
@@ -64,7 +64,7 @@ Important implementation choices:
 - `@grammyjs/transformer-throttler` is installed by default
 - Telegram API access is wrapped with explicit error logging helpers
 
-What this means for `muxbot`:
+What this means for `clisbot`:
 
 - Telegram support should not be modeled like Slack Socket Mode
 - KISS path is long-polling first
@@ -99,7 +99,7 @@ OpenClaw isolates them by appending a topic suffix:
 
 This is the most important design point to carry over.
 
-Slack thread support in `muxbot` currently needs follow-up policy state because Slack thread continuation is partly inferred from bot participation.
+Slack thread support in `clisbot` currently needs follow-up policy state because Slack thread continuation is partly inferred from bot participation.
 
 Telegram topics are different:
 
@@ -129,7 +129,7 @@ Meaning:
 - only forum topics create separate group sessions
 - ordinary reply chains in non-forum groups do not become separate sessions
 
-That should be copied into `muxbot` to avoid accidental over-fragmentation.
+That should be copied into `clisbot` to avoid accidental over-fragmentation.
 
 ## Topic-Aware Config Model In OpenClaw
 
@@ -177,7 +177,7 @@ OpenClaw source and tests show this inheritance model:
 
 This is important because it is much simpler than inventing a second parallel route system.
 
-For `muxbot`, the clean rule is:
+For `clisbot`, the clean rule is:
 
 - Telegram topics should inherit their parent group route config unless a topic override exists
 
@@ -229,13 +229,13 @@ The important exception is General topic sending:
 - typing still uses `message_thread_id: 1`
 - message sends omit `message_thread_id`
 
-For `muxbot`, this means Telegram topic support is not just routing.
+For `clisbot`, this means Telegram topic support is not just routing.
 
 It also requires topic-aware outbound delivery rules.
 
 ## Streaming In OpenClaw Telegram
 
-OpenClaw Telegram streaming is not the same as the current `muxbot` Slack strategy.
+OpenClaw Telegram streaming is not the same as the current `clisbot` Slack strategy.
 
 OpenClaw documents:
 
@@ -248,14 +248,14 @@ Important implication:
 - OpenClaw’s Telegram streaming path is specialized
 - it is not a general "edit one visible message in any Telegram surface" rule
 
-For `muxbot`, there are two different choices:
+For `clisbot`, there are two different choices:
 
 1. copy OpenClaw’s Telegram-specific draft behavior
 2. keep the current generic channel contract and implement Telegram edited live replies with the same normalized runner stream used for Slack
 
 For this project, option 2 is cleaner for MVP because:
 
-- `muxbot` already has a generic chat-first rendering model
+- `clisbot` already has a generic chat-first rendering model
 - the system goal is channel reuse of one runner output contract
 - Telegram draft streaming is interesting, but it is not required to reach Slack-level feature parity
 
@@ -269,9 +269,9 @@ It supports:
 - custom menu commands via config
 - command handling inside topics
 
-This maps well to the current `muxbot` control-command direction.
+This maps well to the current `clisbot` control-command direction.
 
-For `muxbot`, Telegram should support the same control-command vocabulary where practical:
+For `clisbot`, Telegram should support the same control-command vocabulary where practical:
 
 - `/transcript`
 - `/stop`
@@ -291,10 +291,10 @@ Relevant config:
 
 Key difference from Slack:
 
-- Slack currently has explicit UX surfaces already implemented in `muxbot`: ack reaction, assistant processing status, and live edited reply
+- Slack currently has explicit UX surfaces already implemented in `clisbot`: ack reaction, assistant processing status, and live edited reply
 - OpenClaw Telegram does not provide a Slack-style assistant-status equivalent
 
-For `muxbot`, Telegram processing feedback should be planned as:
+For `clisbot`, Telegram processing feedback should be planned as:
 
 - typing indicator first
 - live reply second
@@ -318,14 +318,14 @@ So, as of the inspected checkout, there is a discrepancy:
 - docs describe DM thread ids as transport-only
 - source appears able to create DM thread session suffixes
 
-This matters for `muxbot` because it should choose one model explicitly instead of copying ambiguity.
+This matters for `clisbot` because it should choose one model explicitly instead of copying ambiguity.
 
-Recommended `muxbot` choice:
+Recommended `clisbot` choice:
 
 - do not introduce Telegram DM thread session splitting in the first Telegram MVP
 - keep DM continuity rules aligned with existing Agent-OS session policy unless a strong use case appears
 
-## What Telegram Topics Mean For `muxbot`
+## What Telegram Topics Mean For `clisbot`
 
 ### Telegram Topics Are Not Slack Follow-Up State
 
@@ -370,7 +370,7 @@ Outbound delivery must know:
 
 This belongs in the Telegram channel adapter, not in Agent-OS.
 
-## Slack-Parity Plan For `muxbot`
+## Slack-Parity Plan For `clisbot`
 
 The goal is not to make Telegram identical to Slack.
 
@@ -378,7 +378,7 @@ The goal is to make Telegram satisfy the same product promises where those promi
 
 ## Parity Matrix
 
-| Current Slack capability in `muxbot` | Telegram equivalent | Parity shape |
+| Current Slack capability in `clisbot` | Telegram equivalent | Parity shape |
 | --- | --- | --- |
 | Channel route to one agent | Telegram account/group/topic route to one agent | Direct |
 | One conversation surface maps to one `sessionKey` | Topic-specific `sessionKey` using `:topic:<threadId>` | Direct |
@@ -442,7 +442,7 @@ Important note:
 - webhook mode
 - Telegram-specific draft streaming if it is still worth the complexity
 
-## Recommended Config Shape For `muxbot`
+## Recommended Config Shape For `clisbot`
 
 To stay compatible with OpenClaw mental models, Telegram config should follow this shape:
 
@@ -477,11 +477,11 @@ To stay compatible with OpenClaw mental models, Telegram config should follow th
 
 Guidance:
 
-- keep `streaming` and `response` aligned with the existing `muxbot` cross-channel rendering contract
+- keep `streaming` and `response` aligned with the existing `clisbot` cross-channel rendering contract
 - keep Telegram-specific transport knobs under `channels.telegram`
 - keep topic overrides inside the Telegram channel subtree, not in Agent-OS
 
-## Recommended Architectural Mapping In `muxbot`
+## Recommended Architectural Mapping In `clisbot`
 
 ### Channels
 

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Stability is a core non-functional area in `muxbot`.
+Stability is a core non-functional area in `clisbot`.
 
 It owns cross-cutting work that keeps routed conversations, sessions, runners, and operator-visible state truthful under real load and real failure conditions.
 
@@ -65,5 +65,5 @@ Current priority themes:
 
 - reduce end-to-end channel-to-runner delay
 - keep busy or idle state truthful across channel and runner layers
-- prevent silent session drift when tmux state is changed outside muxbot’s routed path
+- prevent silent session drift when tmux state is changed outside clisbot’s routed path
 - keep follow-up, queue, and final-settlement behavior deterministic under concurrent human messages

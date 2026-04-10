@@ -10,7 +10,7 @@ describe("buildPairingReply", () => {
     });
 
     expect(text).toContain("Pairing code: EUQZL644");
-    expect(text).toContain("muxbot pairing approve slack EUQZL644");
-    expect(text).not.toContain("muxbot pairing approve slack <code>");
+    expect(text).toContain("clisbot pairing approve slack EUQZL644");
+    expect(text).not.toContain("clisbot pairing approve slack <code>");
   });
 });

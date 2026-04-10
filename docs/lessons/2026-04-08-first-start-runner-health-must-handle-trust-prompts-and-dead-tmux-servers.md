@@ -14,7 +14,7 @@ related:
 
 ## Context
 
-This lesson came from debugging `muxbot` against a real remote Linux runtime on April 8, 2026.
+This lesson came from debugging `clisbot` against a real remote Linux runtime on April 8, 2026.
 
 The observed failures looked inconsistent at first:
 

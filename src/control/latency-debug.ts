@@ -15,7 +15,7 @@ export type LatencyDebugContext = {
 type LatencyDebugDetails = Record<string, unknown>;
 
 export function isLatencyDebugEnabled() {
-  return process.env.MUXBOT_DEBUG_LATENCY === "1";
+  return process.env.CLISBOT_DEBUG_LATENCY === "1";
 }
 
 export function logLatencyDebug(
@@ -28,7 +28,7 @@ export function logLatencyDebug(
   }
 
   console.log(
-    `muxbot latency ${JSON.stringify({
+    `clisbot latency ${JSON.stringify({
       ts: new Date().toISOString(),
       stage,
       ...context,

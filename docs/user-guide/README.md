@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Use `docs/user-guide/` for operator-facing instructions on how to run, inspect, and troubleshoot `muxbot`.
+Use `docs/user-guide/` for operator-facing instructions on how to run, inspect, and troubleshoot `clisbot`.
 
 This folder should explain:
 
@@ -19,13 +19,13 @@ Related pages:
 - [Channel Accounts](channel-accounts.md)
 - [Agent Progress Replies](agent-progress-replies.md)
 
-If setup is unclear, clone this repo, open it in Codex or Claude Code, and ask it to help set up `muxbot`. The docs here are kept current enough for guided setup and troubleshooting.
+If setup is unclear, clone this repo, open it in Codex or Claude Code, and ask it to help set up `clisbot`. The docs here are kept current enough for guided setup and troubleshooting.
 
 ## Service
 
 Default config path:
 
-`~/.muxbot/muxbot.json`
+`~/.clisbot/clisbot.json`
 
 Bootstrap the default config once:
 
@@ -42,7 +42,7 @@ bun run start --cli codex --bootstrap personal-assistant
 If you use the packaged CLI:
 
 ```bash
-muxbot start --cli codex --bootstrap personal-assistant
+clisbot start --cli codex --bootstrap personal-assistant
 ```
 
 Packaged CLI runtime expects Node 20+.
@@ -56,25 +56,25 @@ bun run start
 Start the packaged CLI in the background:
 
 ```bash
-npx @muxbot/muxbot start
+npx clisbot start
 ```
 
 Restart the packaged CLI:
 
 ```bash
-muxbot restart
+clisbot restart
 ```
 
 Stop the packaged CLI:
 
 ```bash
-muxbot stop
+clisbot stop
 ```
 
-Stop the packaged CLI and clean up all tmux sessions on the muxbot socket:
+Stop the packaged CLI and clean up all tmux sessions on the clisbot socket:
 
 ```bash
-muxbot stop --hard
+clisbot stop --hard
 ```
 
 Start the service in dev mode:
@@ -86,59 +86,59 @@ bun run dev
 Print the resolved default config path:
 
 ```bash
-muxbot status
+clisbot status
 ```
 
 Important distinction:
 
-- `muxbot start` seeds `~/.muxbot/muxbot.json` automatically if it does not exist
-- `muxbot start` requires Slack or Telegram token references before it bootstraps anything
+- `clisbot start` seeds `~/.clisbot/clisbot.json` automatically if it does not exist
+- `clisbot start` requires Slack or Telegram token references before it bootstraps anything
 - when no agents exist yet, `start` requires both `--cli` and `--bootstrap` to create the first `default` agent
 - `--slack-app-token`, `--slack-bot-token`, and `--telegram-bot-token` accept either bare env names like `CUSTOM_SLACK_APP_TOKEN` or placeholder form like `${CUSTOM_SLACK_APP_TOKEN}`
-- `muxbot start` prints which token env names it checks and whether each one is set or missing
+- `clisbot start` prints which token env names it checks and whether each one is set or missing
 - existing enabled channel token refs are validated before the detached runtime is spawned
 - the generated default config enables only the channels that have default tokens available
-- if default Slack or Telegram tokens exist later but the existing config still keeps that channel disabled, `muxbot start` prints the exact env names and a quick enable command
+- if default Slack or Telegram tokens exist later but the existing config still keeps that channel disabled, `clisbot start` prints the exact env names and a quick enable command
 - the generated default config does not preseed Slack channel routes, Slack groups, Telegram groups, or Telegram topics
-- you must add channel routes manually in `~/.muxbot/muxbot.json`
-- `muxbot start` prints a brief agents and channels summary after launch
-- `muxbot start` and `muxbot status` print the primary agent workspace before the config path
+- you must add channel routes manually in `~/.clisbot/clisbot.json`
+- `clisbot start` prints a brief agents and channels summary after launch
+- `clisbot start` and `clisbot status` print the primary agent workspace before the config path
 - that workspace is the default working directory for the agent and contains runtime state, sessions, personality files, and setup guidance
-- when no agents exist yet, `muxbot start` prints first-run guidance for direct `start --cli ... --bootstrap ...` usage and bootstrap completion
-- `muxbot start` runs as a background service and writes runtime pid and log files under `~/.muxbot/state`
+- when no agents exist yet, `clisbot start` prints first-run guidance for direct `start --cli ... --bootstrap ...` usage and bootstrap completion
+- `clisbot start` runs as a background service and writes runtime pid and log files under `~/.clisbot/state`
 - `bun run dev` watches source files in this repo
 - `control.configReload.watch` watches the runtime config file
 - these are separate mechanisms
 
 ## Agents CLI
 
-Use `muxbot agents ...` to manage configured agents and top-level channel bindings.
+Use `clisbot agents ...` to manage configured agents and top-level channel bindings.
 
 Current subcommands:
 
-- `muxbot agents list`
-- `muxbot agents list --bindings`
-- `muxbot agents list --json`
-- `muxbot agents add <id> --cli <codex|claude>`
-- `muxbot agents bootstrap <id> --mode <personal-assistant|team-assistant>`
-- `muxbot agents bindings`
-- `muxbot agents bindings --agent <id>`
-- `muxbot agents bind --agent <id> --bind <channel[:accountId]>`
-- `muxbot agents unbind --agent <id> --bind <channel[:accountId]>`
-- `muxbot agents unbind --agent <id> --all`
-- `muxbot agents response-mode status --agent <id>`
-- `muxbot agents response-mode set <capture-pane|message-tool> --agent <id>`
-- `muxbot agents response-mode clear --agent <id>`
-- `muxbot agents additional-message-mode status --agent <id>`
-- `muxbot agents additional-message-mode set <queue|steer> --agent <id>`
-- `muxbot agents additional-message-mode clear --agent <id>`
+- `clisbot agents list`
+- `clisbot agents list --bindings`
+- `clisbot agents list --json`
+- `clisbot agents add <id> --cli <codex|claude>`
+- `clisbot agents bootstrap <id> --mode <personal-assistant|team-assistant>`
+- `clisbot agents bindings`
+- `clisbot agents bindings --agent <id>`
+- `clisbot agents bind --agent <id> --bind <channel[:accountId]>`
+- `clisbot agents unbind --agent <id> --bind <channel[:accountId]>`
+- `clisbot agents unbind --agent <id> --all`
+- `clisbot agents response-mode status --agent <id>`
+- `clisbot agents response-mode set <capture-pane|message-tool> --agent <id>`
+- `clisbot agents response-mode clear --agent <id>`
+- `clisbot agents additional-message-mode status --agent <id>`
+- `clisbot agents additional-message-mode set <queue|steer> --agent <id>`
+- `clisbot agents additional-message-mode clear --agent <id>`
 
 Important rules:
 
 - `agents add` requires `--cli`
 - supported tools are `codex` and `claude`
 - `--startup-option` may be repeated
-- when `--startup-option` is omitted, muxbot uses the built-in startup options for the selected CLI
+- when `--startup-option` is omitted, clisbot uses the built-in startup options for the selected CLI
 - if `--bootstrap` is present, it must be `personal-assistant` or `team-assistant`
 - `personal-assistant` fits one assistant for one human
 - `team-assistant` fits one shared assistant for a team, channel, or group workflow
@@ -152,19 +152,19 @@ Important rules:
 Examples:
 
 ```bash
-muxbot agents add default --cli codex --bootstrap personal-assistant
+clisbot agents add default --cli codex --bootstrap personal-assistant
 ```
 
 ```bash
-muxbot agents add work --cli claude --startup-option --dangerously-skip-permissions --bootstrap team-assistant --bind telegram
+clisbot agents add work --cli claude --startup-option --dangerously-skip-permissions --bootstrap team-assistant --bind telegram
 ```
 
 ```bash
-muxbot agents bind --agent work --bind slack:ops
+clisbot agents bind --agent work --bind slack:ops
 ```
 
 ```bash
-muxbot agents bootstrap work --mode team-assistant --force
+clisbot agents bootstrap work --mode team-assistant --force
 ```
 
 Binding behavior:
@@ -186,34 +186,34 @@ Bootstrap behavior:
 Operational note:
 
 - the default generated channel config still points to the `default` agent
-- if your first agent uses another id, update `channels.*.defaultAgentId` and any route `agentId` values in `~/.muxbot/muxbot.json`
+- if your first agent uses another id, update `channels.*.defaultAgentId` and any route `agentId` values in `~/.clisbot/clisbot.json`
 
 ## Channels CLI
 
-Use `muxbot channels ...` to flip channel enablement in config without editing JSON by hand.
+Use `clisbot channels ...` to flip channel enablement in config without editing JSON by hand.
 
 Current subcommands:
 
-- `muxbot channels enable slack`
-- `muxbot channels disable slack`
-- `muxbot channels enable telegram`
-- `muxbot channels disable telegram`
-- `muxbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]`
-- `muxbot channels remove telegram-group <chatId> [--topic <topicId>]`
-- `muxbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]`
-- `muxbot channels remove slack-channel <channelId>`
-- `muxbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]`
-- `muxbot channels remove slack-group <groupId>`
-- `muxbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
-- `muxbot channels clear-token <slack-app|slack-bot|telegram-bot>`
-- `muxbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
-- `muxbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
-- `muxbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
-- `muxbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
-- `muxbot channels privilege enable <target>`
-- `muxbot channels privilege disable <target>`
-- `muxbot channels privilege allow-user <target> <userId>`
-- `muxbot channels privilege remove-user <target> <userId>`
+- `clisbot channels enable slack`
+- `clisbot channels disable slack`
+- `clisbot channels enable telegram`
+- `clisbot channels disable telegram`
+- `clisbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]`
+- `clisbot channels remove telegram-group <chatId> [--topic <topicId>]`
+- `clisbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]`
+- `clisbot channels remove slack-channel <channelId>`
+- `clisbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]`
+- `clisbot channels remove slack-group <groupId>`
+- `clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
+- `clisbot channels clear-token <slack-app|slack-bot|telegram-bot>`
+- `clisbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
+- `clisbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
+- `clisbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
+- `clisbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
+- `clisbot channels privilege enable <target>`
+- `clisbot channels privilege disable <target>`
+- `clisbot channels privilege allow-user <target> <userId>`
+- `clisbot channels privilege remove-user <target> <userId>`
 
 Important behavior:
 
@@ -238,11 +238,11 @@ Important behavior:
   - `/queue-list`
   - `/queue-clear`
 - if the service is already running, restart it after changing channel enablement
-- `muxbot channels` and `muxbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and privilege commands
+- `clisbot channels` and `clisbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and privilege commands
 
 ## Start And Status Output
 
-`muxbot start` now prints an operator summary after startup.
+`clisbot start` now prints an operator summary after startup.
 
 What it includes:
 
@@ -250,7 +250,7 @@ What it includes:
 - configured Slack and Telegram channel summaries with connection state and last activity
 - first-run guidance when no agents are configured
 - bootstrap follow-up guidance when an agent workspace is `missing` or `not-bootstrapped`
-- direct next steps for `muxbot --help` and the user guide when no agents are configured
+- direct next steps for `clisbot --help` and the user guide when no agents are configured
 - channel-specific token checks such as `Slack channel: found token...` or `Telegram channel: token not found...`
 - the same operator help even when the service is already running
 
@@ -259,7 +259,7 @@ What it includes:
 If your shell uses different environment variable names, pass them directly on first run:
 
 ```bash
-muxbot start \
+clisbot start \
   --cli codex \
   --bootstrap personal-assistant \
   --slack-app-token CUSTOM_SLACK_APP_TOKEN \
@@ -269,7 +269,7 @@ muxbot start \
 Or for Telegram:
 
 ```bash
-muxbot start \
+clisbot start \
   --cli claude \
   --bootstrap team-assistant \
   --telegram-bot-token CUSTOM_TELEGRAM_BOT_TOKEN
@@ -277,13 +277,13 @@ muxbot start \
 
 Important behavior:
 
-- these values are written into `~/.muxbot/muxbot.json` exactly as provided
+- these values are written into `~/.clisbot/clisbot.json` exactly as provided
 - bare env names are normalized into `${ENV_NAME}` placeholders in config
-- `muxbot` does not resolve or print the secret value during config bootstrap
+- `clisbot` does not resolve or print the secret value during config bootstrap
 - this is meant for custom env variable names, not raw secret literals
-- if you still prefer manual setup, `muxbot init` accepts the same `--cli`, `--bootstrap`, and token-reference flags as `muxbot start`, but it does not start the runtime
+- if you still prefer manual setup, `clisbot init` accepts the same `--cli`, `--bootstrap`, and token-reference flags as `clisbot start`, but it does not start the runtime
 
-`muxbot status` now prints:
+`clisbot status` now prints:
 
 - process status, pid, config path, log path, and tmux socket
 - aggregate stats for agents, bootstrapped agents, pending bootstrap agents, and running tmux sessions
@@ -311,12 +311,12 @@ Current config points are:
 Current meaning:
 
 - `idleTimeoutMs: 6000`
-  - once a turn has already produced visible output, muxbot treats it as completed after 6 seconds with no pane changes
+  - once a turn has already produced visible output, clisbot treats it as completed after 6 seconds with no pane changes
 - `noOutputTimeoutMs: 20000`
-  - if a turn produces no visible output for 20 seconds from the start, muxbot returns a timeout
+  - if a turn produces no visible output for 20 seconds from the start, clisbot returns a timeout
 - `maxRuntimeMin: 15`
   - default observation window of 15 minutes for one turn
-  - if the session is still active after that window, muxbot stops waiting, leaves the session running, and tells you to use `/transcript` to inspect it later
+  - if the session is still active after that window, clisbot stops waiting, leaves the session running, and tells you to use `/transcript` to inspect it later
 - `maxRuntimeSec`
   - optional second-based observation window when you need tighter tests or shorter limits
 
@@ -329,7 +329,7 @@ Important distinction:
 
 ## Long-Running Session Commands
 
-When a run keeps going beyond the initial observation window, `muxbot` keeps monitoring it and can keep this thread attached in different ways.
+When a run keeps going beyond the initial observation window, `clisbot` keeps monitoring it and can keep this thread attached in different ways.
 
 Current commands:
 
@@ -360,100 +360,100 @@ Current status visibility:
 
 - `/status` now shows whether the routed session is `idle`, `running`, or `detached`
 - when available, `/status` also shows `run.startedAt` and `run.detachedAt`
-- `muxbot status` now lists active runs too, so detached autonomous sessions are visible without using `/transcript` or re-attaching a thread
+- `clisbot status` now lists active runs too, so detached autonomous sessions are visible without using `/transcript` or re-attaching a thread
 
-## muxbot tmux Server
+## clisbot tmux Server
 
-`muxbot` does not use your default tmux server.
+`clisbot` does not use your default tmux server.
 
 It starts and manages its own tmux server through a dedicated socket:
 
-`~/.muxbot/state/muxbot.sock`
+`~/.clisbot/state/clisbot.sock`
 
-That means normal tmux commands such as `tmux list-sessions` will not show the sessions created by `muxbot`.
+That means normal tmux commands such as `tmux list-sessions` will not show the sessions created by `clisbot`.
 
 Use the socket-aware commands below instead.
 
 ## Common Commands
 
-List sessions managed by `muxbot`:
+List sessions managed by `clisbot`:
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock list-sessions
+tmux -S ~/.clisbot/state/clisbot.sock list-sessions
 ```
 
 Attach to the default agent session:
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock attach-session -t <session-name>
+tmux -S ~/.clisbot/state/clisbot.sock attach-session -t <session-name>
 ```
 
 Kill the default agent session:
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock kill-session -t <session-name>
+tmux -S ~/.clisbot/state/clisbot.sock kill-session -t <session-name>
 ```
 
-Kill the entire `muxbot` tmux server:
+Kill the entire `clisbot` tmux server:
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock kill-server
+tmux -S ~/.clisbot/state/clisbot.sock kill-server
 ```
 
 ## Runtime State
 
 Important runtime paths:
 
-- config: `~/.muxbot/muxbot.json`
-- tmux socket: `~/.muxbot/state/muxbot.sock`
-- runtime pid: `~/.muxbot/state/muxbot.pid`
-- runtime log: `~/.muxbot/state/muxbot.log`
-- session store: `~/.muxbot/state/sessions.json`
-- activity store: `~/.muxbot/state/activity.json`
-- pairing store: `~/.muxbot/state/pairing`
+- config: `~/.clisbot/clisbot.json`
+- tmux socket: `~/.clisbot/state/clisbot.sock`
+- runtime pid: `~/.clisbot/state/clisbot.pid`
+- runtime log: `~/.clisbot/state/clisbot.log`
+- session store: `~/.clisbot/state/sessions.json`
+- activity store: `~/.clisbot/state/activity.json`
+- pairing store: `~/.clisbot/state/pairing`
 
 Useful checks:
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock list-sessions
+tmux -S ~/.clisbot/state/clisbot.sock list-sessions
 ```
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock attach -t agent-default-main
+tmux -S ~/.clisbot/state/clisbot.sock attach -t agent-default-main
 ```
 
 ```bash
-cat ~/.muxbot/state/sessions.json
+cat ~/.clisbot/state/sessions.json
 ```
 
 ```bash
-cat ~/.muxbot/state/activity.json
+cat ~/.clisbot/state/activity.json
 ```
 
 ```bash
-ls -la ~/.muxbot/state/pairing
+ls -la ~/.clisbot/state/pairing
 ```
 
 ```bash
-tail -f ~/.muxbot/state/muxbot.log
+tail -f ~/.clisbot/state/clisbot.log
 ```
 
 Codex trust prompt troubleshooting:
 
-- muxbot already keeps `trustWorkspace: true` by default for Codex
-- if Codex still shows `Do you trust the contents of this directory?`, also mark the muxbot workspace as trusted in `~/.codex/config.toml`
+- clisbot already keeps `trustWorkspace: true` by default for Codex
+- if Codex still shows `Do you trust the contents of this directory?`, also mark the clisbot workspace as trusted in `~/.codex/config.toml`
 
 Example:
 
 ```toml
-[projects."/home/node/.muxbot/workspaces/default"]
+[projects."/home/node/.clisbot/workspaces/default"]
 trust_level = "trusted"
 ```
 
 - if the trust screen is still visible, attach to the tmux session and continue from there:
 
 ```bash
-tmux -S ~/.muxbot/state/muxbot.sock attach -t agent-default-main
+tmux -S ~/.clisbot/state/clisbot.sock attach -t agent-default-main
 ```
 
 - if Codex warns that `bubblewrap` is missing on Linux, install `bubblewrap` in the runtime environment
@@ -464,12 +464,12 @@ Inside each agent workspace, inbound channel files are stored under:
 
 Current prompt behavior is minimal:
 
-- `muxbot` prepends `@/absolute/path` mentions for stored files
+- `clisbot` prepends `@/absolute/path` mentions for stored files
 - then it appends the user message text
 
 ## Stale tmux Cleanup
 
-muxbot can reclaim idle tmux sessions without resetting the logical conversation.
+clisbot can reclaim idle tmux sessions without resetting the logical conversation.
 
 Current config points are:
 
@@ -490,10 +490,10 @@ Current meaning:
 Important rule:
 
 - stale cleanup kills the live tmux session only
-- it does not delete the stored `sessionKey -> sessionId` mapping in `~/.muxbot/state/sessions.json`
+- it does not delete the stored `sessionKey -> sessionId` mapping in `~/.clisbot/state/sessions.json`
 - the next message on the same conversation can recreate tmux and resume the prior AI CLI session when the runner supports resume
-- idle is determined from muxbot session activity, not from tmux CPU or pane movement directly
-- the cleanup loop skips sessions that are currently busy in the muxbot queue
+- idle is determined from clisbot session activity, not from tmux CPU or pane movement directly
+- the cleanup loop skips sessions that are currently busy in the clisbot queue
 - one old user message does not make a still-busy active run look stale
 
 Example:
@@ -520,7 +520,7 @@ Example:
 How to verify:
 
 1. send one prompt so the conversation creates a tmux session
-2. confirm the tmux session exists on `~/.muxbot/state/muxbot.sock`
+2. confirm the tmux session exists on `~/.clisbot/state/clisbot.sock`
 3. wait past the configured stale threshold
 4. confirm the session disappears from `tmux list-sessions` on that socket
 5. send another prompt in the same channel or thread
@@ -535,7 +535,7 @@ Config reload is controlled by:
 
 Meaning:
 
-- `watch: true` enables file watching for `~/.muxbot/muxbot.json`
+- `watch: true` enables file watching for `~/.clisbot/clisbot.json`
 - `watchDebounceMs` delays reload slightly so one save operation does not trigger multiple reloads
 
 Important rule:
@@ -558,8 +558,8 @@ Example:
 
 Operational behavior:
 
-- saving `~/.muxbot/muxbot.json` should trigger an in-process reload
-- the service should log `muxbot reloaded config ...`
+- saving `~/.clisbot/clisbot.json` should trigger an in-process reload
+- the service should log `clisbot reloaded config ...`
 - later Slack messages should use the new config without a manual restart
 
 Safe way to verify:
@@ -572,7 +572,7 @@ Safe way to verify:
 
 Runtime follow-up state is stored per `sessionKey` in:
 
-`~/.muxbot/state/sessions.json`
+`~/.clisbot/state/sessions.json`
 
 Useful fields are:
 
@@ -593,7 +593,7 @@ Optional second-based tuning is also supported:
 
 ## Notes
 
-- the default workspace for agent `default` is `~/.muxbot/workspaces/default`
+- the default workspace for agent `default` is `~/.clisbot/workspaces/default`
 - tmux session names now derive from session keys, so one agent can have multiple tmux sessions at once
 - the default session name template is `agents.defaults.session.name = "{sessionKey}"`
 - tmux session names are created by normalizing the rendered value into a tmux-safe name, replacing every non-alphanumeric character with `-`

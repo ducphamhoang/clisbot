@@ -14,8 +14,8 @@ They should stay separate from end-user channel behavior.
 
 ### Steps
 
-1. Run `tmux -S ~/.muxbot/state/muxbot.sock list-sessions`
-2. Run `tmux -S ~/.muxbot/state/muxbot.sock attach -t default`
+1. Run `tmux -S ~/.clisbot/state/clisbot.sock list-sessions`
+2. Run `tmux -S ~/.clisbot/state/clisbot.sock attach -t default`
 
 ### Expected Results
 

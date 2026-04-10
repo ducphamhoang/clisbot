@@ -7,7 +7,7 @@ import { upsertChannelPairingRequest } from "../src/channels/pairing/store.ts";
 
 describe("pairing cli", () => {
   test("lists pending requests as text", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-pairing-cli-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
     try {
       await upsertChannelPairingRequest({
         channel: "slack",
@@ -37,7 +37,7 @@ describe("pairing cli", () => {
   });
 
   test("approves a pending code", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-pairing-cli-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
     try {
       const created = await upsertChannelPairingRequest({
         channel: "telegram",

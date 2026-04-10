@@ -2,7 +2,7 @@
 
 ## Summary
 
-Expand the muxbot config so it can truthfully express channels, Agent-OS, runners, control, and policy.
+Expand the clisbot config so it can truthfully express channels, Agent-OS, runners, control, and policy.
 
 ## Status
 
@@ -30,7 +30,7 @@ The current config is enough for the first Slack MVP, but the system model alrea
 - support Slack feedback configuration for accepted and in-progress work
 - support configuration hooks for runtime policy override storage and resolution
 - document config invariants and examples
-- keep `~/.muxbot/muxbot.json` easy to initialize and inspect
+- keep `~/.clisbot/clisbot.json` easy to initialize and inspect
 
 ## Non-Goals
 

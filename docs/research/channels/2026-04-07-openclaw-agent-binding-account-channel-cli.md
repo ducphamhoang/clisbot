@@ -27,7 +27,7 @@ This note focuses on:
 - how account ids map to config
 - how multi-account routing is represented in `openclaw.json`
 
-This note does not define final `muxbot` implementation behavior.
+This note does not define final `clisbot` implementation behavior.
 
 ## Source Baseline
 
@@ -282,7 +282,7 @@ Example shape:
 }
 ```
 
-This is the cleanest mental model to carry into `muxbot`:
+This is the cleanest mental model to carry into `clisbot`:
 
 - accounts live under channels
 - agents live under agents
@@ -435,7 +435,7 @@ Relevant consequence:
 
 This means account routing is not just cosmetic. It can change which workspace and session store are selected.
 
-## Implications For `muxbot`
+## Implications For `clisbot`
 
 The OpenClaw-compatible target model is:
 
@@ -453,7 +453,7 @@ The key behaviors worth copying are:
 
 ## Recommendation
 
-For `muxbot`, prefer this interpretation of OpenClaw:
+For `clisbot`, prefer this interpretation of OpenClaw:
 
 1. keep agents as the durable workspace and session boundary
 2. treat channel accounts as channel-owned provider instances

@@ -267,7 +267,7 @@ export function renderSlackTranscript(params: {
   note?: string;
 }) {
   const lines = [
-    `muxbot`,
+    `clisbot`,
     `agent: ${params.agentId}`,
     `session: ${params.sessionName}`,
     `workspace: ${params.workspacePath}`,

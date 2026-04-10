@@ -82,7 +82,7 @@ Current rule:
   - `/bash <command>`
   - configured bash shortcuts such as `!<command>`
 
-When the route does not enable them, muxbot must deny the command instead of forwarding or executing it.
+When the route does not enable them, clisbot must deny the command instead of forwarding or executing it.
 
 ## Bash Execution Model
 
@@ -104,12 +104,12 @@ Why this model:
 
 ## Native Slash Commands
 
-If a slash command is not reserved by muxbot control dispatch, it should be forwarded to the agent unchanged.
+If a slash command is not reserved by clisbot control dispatch, it should be forwarded to the agent unchanged.
 
 Examples:
 
 - `/model`
-- `/help` for a future native runner, if muxbot does not reserve it
+- `/help` for a future native runner, if clisbot does not reserve it
 - other agent CLI slash commands
 
 ## Current Notes

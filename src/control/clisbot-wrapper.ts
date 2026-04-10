@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import { fileExists, writeTextFile } from "../shared/fs.ts";
 import { APP_HOME_DIR, ensureDir, expandHomePath } from "../shared/paths.ts";
 
-export const DEFAULT_MUXBOT_BIN_DIR = join(APP_HOME_DIR, "bin");
-export const DEFAULT_MUXBOT_WRAPPER_PATH = join(DEFAULT_MUXBOT_BIN_DIR, "muxbot");
+export const DEFAULT_CLISBOT_BIN_DIR = join(APP_HOME_DIR, "bin");
+export const DEFAULT_CLISBOT_WRAPPER_PATH = join(DEFAULT_CLISBOT_BIN_DIR, "clisbot");
 
 function shellQuote(value: string) {
   if (/^[a-zA-Z0-9_./:@=-]+$/.test(value)) {
@@ -14,21 +14,21 @@ function shellQuote(value: string) {
   return `'${value.replaceAll("'", `'\"'\"'`)}'`;
 }
 
-function getMuxbotMainScriptPath() {
+function getClisbotMainScriptPath() {
   return fileURLToPath(new URL("../main.ts", import.meta.url));
 }
 
-export function getMuxbotWrapperPath() {
-  return expandHomePath(process.env.MUXBOT_WRAPPER_PATH || DEFAULT_MUXBOT_WRAPPER_PATH);
+export function getClisbotWrapperPath() {
+  return expandHomePath(process.env.CLISBOT_WRAPPER_PATH || DEFAULT_CLISBOT_WRAPPER_PATH);
 }
 
-export function getMuxbotWrapperDir() {
-  return dirname(getMuxbotWrapperPath());
+export function getClisbotWrapperDir() {
+  return dirname(getClisbotWrapperPath());
 }
 
-export function renderMuxbotWrapperScript() {
+export function renderClisbotWrapperScript() {
   const execPath = process.execPath;
-  const mainScriptPath = getMuxbotMainScriptPath();
+  const mainScriptPath = getClisbotMainScriptPath();
 
   return [
     "#!/usr/bin/env bash",
@@ -38,12 +38,12 @@ export function renderMuxbotWrapperScript() {
   ].join("\n");
 }
 
-export async function ensureMuxbotWrapper() {
-  const wrapperPath = getMuxbotWrapperPath();
+export async function ensureClisbotWrapper() {
+  const wrapperPath = getClisbotWrapperPath();
   const wrapperDir = dirname(wrapperPath);
   await ensureDir(wrapperDir);
 
-  const nextScript = renderMuxbotWrapperScript();
+  const nextScript = renderClisbotWrapperScript();
   const existing = await fileExists(wrapperPath) ? await Bun.file(wrapperPath).text() : null;
   if (existing !== nextScript) {
     await writeTextFile(wrapperPath, nextScript);

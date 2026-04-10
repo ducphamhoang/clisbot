@@ -9,7 +9,7 @@ describe("TmuxClient", () => {
 
   afterEach(async () => {
     if (socketDir) {
-      const socketPath = join(socketDir, "muxbot.sock");
+      const socketPath = join(socketDir, "clisbot.sock");
       await Bun.spawn(["tmux", "-S", socketPath, "kill-server"], {
         stdout: "ignore",
         stderr: "ignore",
@@ -19,8 +19,8 @@ describe("TmuxClient", () => {
   });
 
   test("creates a session, sends text, and captures output", async () => {
-    socketDir = mkdtempSync(join(tmpdir(), "muxbot-socket-"));
-    const socketPath = join(socketDir, "muxbot.sock");
+    socketDir = mkdtempSync(join(tmpdir(), "clisbot-socket-"));
+    const socketPath = join(socketDir, "clisbot.sock");
     const client = new TmuxClient(socketPath);
     const sessionName = "echo-test";
 
@@ -30,20 +30,20 @@ describe("TmuxClient", () => {
       command: "cat",
     });
 
-    await client.sendLiteral(sessionName, "hello from muxbot");
+    await client.sendLiteral(sessionName, "hello from clisbot");
     await Bun.sleep(100);
     await client.sendKey(sessionName, "Enter");
     await Bun.sleep(300);
 
     const pane = await client.capturePane(sessionName, 20);
-    expect(pane).toContain("hello from muxbot");
+    expect(pane).toContain("hello from clisbot");
 
     await client.killSession(sessionName);
   }, 10000);
 
   test("creates a transient window and captures its pane output", async () => {
-    socketDir = mkdtempSync(join(tmpdir(), "muxbot-socket-"));
-    const socketPath = join(socketDir, "muxbot.sock");
+    socketDir = mkdtempSync(join(tmpdir(), "clisbot-socket-"));
+    const socketPath = join(socketDir, "clisbot.sock");
     const client = new TmuxClient(socketPath);
     const sessionName = "window-test";
 
@@ -69,8 +69,8 @@ describe("TmuxClient", () => {
   }, 10000);
 
   test("finds and reuses a named window target", async () => {
-    socketDir = mkdtempSync(join(tmpdir(), "muxbot-socket-"));
-    const socketPath = join(socketDir, "muxbot.sock");
+    socketDir = mkdtempSync(join(tmpdir(), "clisbot-socket-"));
+    const socketPath = join(socketDir, "clisbot.sock");
     const client = new TmuxClient(socketPath);
     const sessionName = "reuse-window-test";
 

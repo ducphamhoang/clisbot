@@ -6,7 +6,7 @@ import { ActivityStore } from "../src/control/activity-store.ts";
 import { RuntimeHealthStore } from "../src/control/runtime-health-store.ts";
 import { getRuntimeOperatorSummary, renderStartSummary, renderStatusSummary } from "../src/control/runtime-summary.ts";
 import { writeEditableConfig } from "../src/config/config-file.ts";
-import { muxbotConfigSchema } from "../src/config/schema.ts";
+import { clisbotConfigSchema } from "../src/config/schema.ts";
 import { renderDefaultConfigTemplate } from "../src/config/template.ts";
 
 describe("runtime summaries", () => {
@@ -27,9 +27,9 @@ describe("runtime summaries", () => {
   test("renders first-run guidance when no agents exist", async () => {
     process.env.SLACK_APP_TOKEN = "app";
     process.env.SLACK_BOT_TOKEN = "bot";
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
-    const configPath = join(tempDir, "muxbot.json");
-    const config = muxbotConfigSchema.parse(
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-summary-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = clisbotConfigSchema.parse(
       JSON.parse(
         renderDefaultConfigTemplate({
           slackEnabled: true,
@@ -49,17 +49,17 @@ describe("runtime summaries", () => {
     expect(text).toContain("First run requires both `--cli` and `--bootstrap`.");
     expect(text).toContain("personal-assistant = one assistant for one human.");
     expect(text).toContain("team-assistant = one shared assistant for a team or channel.");
-    expect(text).toContain("muxbot start --cli codex --bootstrap personal-assistant");
-    expect(text).toContain("Help: muxbot --help");
+    expect(text).toContain("clisbot start --cli codex --bootstrap personal-assistant");
+    expect(text).toContain("Help: clisbot --help");
   });
 
   test("renders agent and channel activity in status output", async () => {
     process.env.SLACK_APP_TOKEN = "app";
     process.env.SLACK_BOT_TOKEN = "bot";
     process.env.TELEGRAM_BOT_TOKEN = "telegram";
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
-    const configPath = join(tempDir, "muxbot.json");
-    const config = muxbotConfigSchema.parse(
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-summary-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = clisbotConfigSchema.parse(
       JSON.parse(
         renderDefaultConfigTemplate({
           slackEnabled: true,
@@ -115,20 +115,20 @@ describe("runtime summaries", () => {
     expect(startText).toContain("telegram: no explicit group or topic routes are configured yet");
     expect(startText).toContain("Telegram DMs use `pairing`.");
     expect(startText).toContain("Send `/start` or `hi` to the Telegram bot to get a pairing code.");
-    expect(startText).toContain("muxbot pairing approve telegram <code>");
+    expect(startText).toContain("clisbot pairing approve telegram <code>");
     expect(startText).toContain("Slack DMs use `pairing`.");
     expect(startText).toContain("Say `hi` to the Slack bot to get a pairing code.");
-    expect(startText).toContain("muxbot pairing approve slack <code>");
-    expect(startText).toContain("tmux -S ~/.muxbot/state/muxbot.sock list-sessions");
-    expect(startText).toContain("tmux -S ~/.muxbot/state/muxbot.sock attach -t <session-name>");
+    expect(startText).toContain("clisbot pairing approve slack <code>");
+    expect(startText).toContain("tmux -S ~/.clisbot/state/clisbot.sock list-sessions");
+    expect(startText).toContain("tmux -S ~/.clisbot/state/clisbot.sock attach -t <session-name>");
   });
 
   test("renders active runs in operator status output", async () => {
     process.env.SLACK_APP_TOKEN = "app";
     process.env.SLACK_BOT_TOKEN = "bot";
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
-    const configPath = join(tempDir, "muxbot.json");
-    const config = muxbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate({
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-summary-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = clisbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate({
       slackEnabled: true,
       telegramEnabled: false,
     })));
@@ -178,10 +178,10 @@ describe("runtime summaries", () => {
   });
 
   test("distinguishes missing, not-bootstrapped, and bootstrapped bootstrap states", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
-    const configPath = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-summary-"));
+    const configPath = join(tempDir, "clisbot.json");
     const baseWorkspace = join(tempDir, "workspaces");
-    const config = muxbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate()));
+    const config = clisbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate()));
     config.agents.list = [
       {
         id: "codex-missing",
@@ -231,8 +231,8 @@ describe("runtime summaries", () => {
     expect(startText).toContain("next: chat with the bot or open the workspace");
     expect(startText).toContain("follow: BOOTSTRAP.md and the team-assistant personality files");
     expect(startText).toContain("Next steps after bootstrap:");
-    expect(startText).toContain("tmux -S ~/.muxbot/state/muxbot.sock list-sessions");
-    expect(startText).toContain("tmux -S ~/.muxbot/state/muxbot.sock attach -t <session-name>");
+    expect(startText).toContain("tmux -S ~/.clisbot/state/clisbot.sock list-sessions");
+    expect(startText).toContain("tmux -S ~/.clisbot/state/clisbot.sock attach -t <session-name>");
   });
 
   test("falls back to raw config when token env vars are missing in the operator shell", async () => {
@@ -240,9 +240,9 @@ describe("runtime summaries", () => {
     delete process.env.SLACK_BOT_TOKEN;
     delete process.env.TELEGRAM_BOT_TOKEN;
 
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
-    const configPath = join(tempDir, "muxbot.json");
-    const config = muxbotConfigSchema.parse(
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-summary-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = clisbotConfigSchema.parse(
       JSON.parse(
         renderDefaultConfigTemplate({
           slackEnabled: true,
@@ -273,10 +273,10 @@ describe("runtime summaries", () => {
   test("renders persisted channel diagnostics when Slack startup fails", async () => {
     process.env.SLACK_APP_TOKEN = "app";
     process.env.SLACK_BOT_TOKEN = "bot";
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-summary-"));
-    const configPath = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-summary-"));
+    const configPath = join(tempDir, "clisbot.json");
     const healthPath = join(tempDir, "runtime-health.json");
-    const config = muxbotConfigSchema.parse(
+    const config = clisbotConfigSchema.parse(
       JSON.parse(
         renderDefaultConfigTemplate({
           slackEnabled: true,

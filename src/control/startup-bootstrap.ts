@@ -20,7 +20,7 @@ export const USER_GUIDE_DOC_PATH = "docs/user-guide/README.md";
 export const SLACK_TOKEN_DOC_URL = "https://api.slack.com/apps";
 export const TELEGRAM_TOKEN_DOC_URL = "https://core.telegram.org/bots#6-botfather";
 export const REPO_HELP_HINT =
-  "If you still need help: clone https://github.com/longbkit/muxbot, open it in Codex or Claude Code, and ask for setup help.";
+  "If you still need help: clone https://github.com/longbkit/clisbot, open it in Codex or Claude Code, and ask for setup help.";
 
 export type DefaultChannelAvailability = {
   slack: boolean;
@@ -89,7 +89,7 @@ export function renderDisabledConfiguredChannelWarningLines(
       "warning default Slack tokens are available in SLACK_APP_TOKEN and SLACK_BOT_TOKEN, but channels.slack.enabled is false in the existing config.",
     );
     lines.push(
-      "Run `muxbot channels enable slack` to enable Slack quickly, or update ~/.muxbot/muxbot.json manually.",
+      "Run `clisbot channels enable slack` to enable Slack quickly, or update ~/.clisbot/clisbot.json manually.",
     );
   }
 
@@ -98,7 +98,7 @@ export function renderDisabledConfiguredChannelWarningLines(
       "warning default Telegram token is available in TELEGRAM_BOT_TOKEN, but channels.telegram.enabled is false in the existing config.",
     );
     lines.push(
-      "Run `muxbot channels enable telegram` to enable Telegram quickly, or update ~/.muxbot/muxbot.json manually.",
+      "Run `clisbot channels enable telegram` to enable Telegram quickly, or update ~/.clisbot/clisbot.json manually.",
     );
   }
 
@@ -118,12 +118,12 @@ export function renderMissingTokenWarningLines(
   );
 
   return [
-    "warning no default Slack or Telegram tokens were found, so muxbot did not start.",
+    "warning no default Slack or Telegram tokens were found, so clisbot did not start.",
     `Slack token refs: app=${slackApp.envName} (${slackApp.hasValue ? "set" : "missing"}), bot=${slackBot.envName} (${slackBot.hasValue ? "set" : "missing"})`,
     `Telegram token ref: ${telegramBot.envName} (${telegramBot.hasValue ? "set" : "missing"})`,
     "Set either Slack app+bot tokens or a Telegram bot token in your shell, then run start again.",
     "If you use different env var names, pass them explicitly with --slack-app-token, --slack-bot-token, and --telegram-bot-token.",
-    "Example: muxbot start --cli codex --bootstrap personal-assistant --slack-app-token CUSTOM_SLACK_APP_TOKEN --slack-bot-token CUSTOM_SLACK_BOT_TOKEN",
+    "Example: clisbot start --cli codex --bootstrap personal-assistant --slack-app-token CUSTOM_SLACK_APP_TOKEN --slack-bot-token CUSTOM_SLACK_BOT_TOKEN",
     `Repo docs path (local or GitHub): ${CHANNEL_ACCOUNT_DOC_PATH}`,
     `Slack docs: ${SLACK_TOKEN_DOC_URL}`,
     `Telegram docs: ${TELEGRAM_TOKEN_DOC_URL}`,
@@ -207,7 +207,7 @@ export function renderConfiguredChannelTokenIssueLines(
 
   if (hardErrorLines.length > 0) {
     return [
-      "warning configured channel tokens are invalid, so muxbot did not start.",
+      "warning configured channel tokens are invalid, so clisbot did not start.",
       ...hardErrorLines,
       "Set the missing token value in config or switch the channel token field back to an env placeholder.",
       `Docs: ${CHANNEL_ACCOUNT_DOC_PATH}`,
@@ -226,7 +226,7 @@ export function renderConfiguredChannelTokenIssueLines(
   ];
 
   return [
-    "warning!!! configured channel token references are missing, so muxbot did not start.",
+    "warning!!! configured channel token references are missing, so clisbot did not start.",
     ...lines,
     ...shellHint,
     REPO_HELP_HINT,
@@ -281,7 +281,7 @@ export function renderRepoHelpLines(prefix = "") {
 
 export function renderOperatorHelpLines(prefix = "") {
   return [
-    `${prefix}Help: muxbot --help`,
+    `${prefix}Help: clisbot --help`,
     `${prefix}Docs: ${USER_GUIDE_DOC_PATH}`,
     ...renderRepoHelpLines(prefix),
   ];
@@ -318,7 +318,7 @@ export function renderPairingSetupHelpLines(
       `${prefix}  - Telegram DMs use \`pairing\`. Send \`/start\` or \`hi\` to the Telegram bot to get a pairing code.`,
     );
     lines.push(
-      `${prefix}  - Approve the returned Telegram code with: \`muxbot pairing approve telegram <code>\``,
+      `${prefix}  - Approve the returned Telegram code with: \`clisbot pairing approve telegram <code>\``,
     );
   }
 
@@ -327,7 +327,7 @@ export function renderPairingSetupHelpLines(
       `${prefix}  - Slack DMs use \`pairing\`. Say \`hi\` to the Slack bot to get a pairing code.`,
     );
     lines.push(
-      `${prefix}  - Approve the returned Slack code with: \`muxbot pairing approve slack <code>\``,
+      `${prefix}  - Approve the returned Slack code with: \`clisbot pairing approve slack <code>\``,
     );
   }
 
@@ -337,8 +337,8 @@ export function renderPairingSetupHelpLines(
 export function renderTmuxDebugHelpLines(prefix = "") {
   return [
     `${prefix}tmux debug:`,
-    `${prefix}  - list sessions: \`tmux -S ~/.muxbot/state/muxbot.sock list-sessions\``,
-    `${prefix}  - attach to a session: \`tmux -S ~/.muxbot/state/muxbot.sock attach -t <session-name>\``,
+    `${prefix}  - list sessions: \`tmux -S ~/.clisbot/state/clisbot.sock list-sessions\``,
+    `${prefix}  - attach to a session: \`tmux -S ~/.clisbot/state/clisbot.sock attach -t <session-name>\``,
   ];
 }
 

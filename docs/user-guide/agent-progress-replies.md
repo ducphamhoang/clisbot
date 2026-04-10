@@ -4,11 +4,11 @@
 
 Use this page when you want to test the chatbot flow where Codex or Claude sends short progress updates back to Slack or Telegram while it is still working.
 
-## What muxbot Does
+## What clisbot Does
 
 Current local developer flow has three parts:
 
-1. `muxbot` creates a stable local wrapper at `~/.muxbot/bin/muxbot`
+1. `clisbot` creates a stable local wrapper at `~/.clisbot/bin/clisbot`
 2. runner-launched agent sessions get that wrapper path exported during startup
 3. Slack and Telegram prepend a short hidden system block to the agent-bound prompt with the exact reply command for the current conversation
 
@@ -16,7 +16,7 @@ That means the agent can be running inside another workspace and still send prog
 
 ## Fastest Test Flow
 
-Start muxbot normally:
+Start clisbot normally:
 
 ```bash
 bun run start --cli codex --bootstrap team-assistant
@@ -25,30 +25,30 @@ bun run start --cli codex --bootstrap team-assistant
 Then:
 
 1. send a real human message in the configured Slack or Telegram test surface
-2. let muxbot route that message to the configured agent
+2. let clisbot route that message to the configured agent
 3. the agent prompt now includes the exact local reply command for that conversation
-4. the agent can send progress updates and the final reply through `muxbot message send ...`
+4. the agent can send progress updates and the final reply through `clisbot message send ...`
 
 Preferred reply pattern for multi-line or quote-heavy content:
 
 ```bash
-~/.muxbot/bin/muxbot message send \
+~/.clisbot/bin/clisbot message send \
   --channel slack \
   --target channel:C1234567890 \
   --thread-id 1712345678.123456 \
-  --message "$(cat <<'__MUXBOT_MESSAGE__'
+  --message "$(cat <<'__CLISBOT_MESSAGE__'
 working on it
 
 step 1 complete
-__MUXBOT_MESSAGE__
+__CLISBOT_MESSAGE__
 )"
 ```
 
 ## Important Rules
 
 - send a real human message to trigger the flow
-- do not try to simulate the inbound user turn with `muxbot message send ...`
-- the wrapper path is stable on the local machine: `~/.muxbot/bin/muxbot`
+- do not try to simulate the inbound user turn with `clisbot message send ...`
+- the wrapper path is stable on the local machine: `~/.clisbot/bin/clisbot`
 - use normal ASCII spaces when copying shell examples
 - the injected prompt tells the agent to keep progress updates short
 - current prompt policy defaults are:
@@ -57,7 +57,7 @@ __MUXBOT_MESSAGE__
 
 ## Why The Wrapper Exists
 
-Agent sessions do not run in the `muxbot` repo root.
+Agent sessions do not run in the `clisbot` repo root.
 
 So repo-local commands such as:
 
@@ -67,7 +67,7 @@ bun run src/main.ts message send ...
 
 are poor runtime instructions for the agent.
 
-The local wrapper fixes that by always pointing back to the active local `muxbot` checkout.
+The local wrapper fixes that by always pointing back to the active local `clisbot` checkout.
 
 ## Config
 
@@ -81,7 +81,7 @@ Slack and Telegram now expose a small prompt policy block:
 }
 ```
 
-If you disable `agentPrompt.enabled`, muxbot stops injecting the reply instruction block into agent-bound prompts for that provider.
+If you disable `agentPrompt.enabled`, clisbot stops injecting the reply instruction block into agent-bound prompts for that provider.
 
 User-visible reply delivery is configured beside `streaming` and `response`:
 
@@ -92,10 +92,10 @@ User-visible reply delivery is configured beside `streaming` and `response`:
 "additionalMessageMode": "steer"
 ```
 
-- `capture-pane`: existing muxbot behavior. The channel posts progress or final settlement from normalized runner output.
-- `message-tool`: muxbot still captures and observes the runner pane for state, but normal progress and final reply delivery are expected to happen through `muxbot message send ...` from the agent prompt flow.
+- `capture-pane`: existing clisbot behavior. The channel posts progress or final settlement from normalized runner output.
+- `message-tool`: clisbot still captures and observes the runner pane for state, but normal progress and final reply delivery are expected to happen through `clisbot message send ...` from the agent prompt flow.
 - `steer`: when a session is already active, later human messages are sent straight into that live session as steering input.
-- `queue`: when a session is already active, later human messages wait behind the current run and muxbot settles them one by one.
+- `queue`: when a session is already active, later human messages wait behind the current run and clisbot settles them one by one.
 
 Use `message-tool` when you want to avoid duplicate replies or raw pane-derived final settlement while still keeping tmux observation available for status, attach, watch, and internal runtime logic.
 
@@ -103,20 +103,20 @@ Use `additionalMessageMode: "steer"` when you want natural chatbot follow-ups to
 
 Use `additionalMessageMode: "queue"` when you want each later human message to become its own queued turn instead.
 
-If the route keeps `streaming: "off"`, queued turns still settle through muxbot, but you should only expect the final queued answer on the surface, not an interim queued placeholder.
+If the route keeps `streaming: "off"`, queued turns still settle through clisbot, but you should only expect the final queued answer on the surface, not an interim queued placeholder.
 
 ## Debug Reply Delay
 
-When you need to measure where reply latency is happening, start muxbot with:
+When you need to measure where reply latency is happening, start clisbot with:
 
 ```bash
-MUXBOT_DEBUG_LATENCY=1 muxbot start
+CLISBOT_DEBUG_LATENCY=1 clisbot start
 ```
 
 Then reproduce the routed message and inspect the log:
 
 ```bash
-muxbot logs | rg 'muxbot latency'
+clisbot logs | rg 'clisbot latency'
 ```
 
 Latency stages currently include:
@@ -144,7 +144,7 @@ Resolved `responseMode` now follows one order:
 3. provider default
 4. built-in default `message-tool`
 
-That means muxbot still captures the pane in every case, but decides whether user-visible delivery comes from pane settlement or from `muxbot message send ...` using the first configured match above.
+That means clisbot still captures the pane in every case, but decides whether user-visible delivery comes from pane settlement or from `clisbot message send ...` using the first configured match above.
 
 Top-level Slack example:
 
@@ -244,68 +244,68 @@ Agent override example:
 Channel or surface response-mode status:
 
 ```bash
-muxbot channels response-mode status --channel slack
-muxbot channels response-mode status --channel slack --target channel:C1234567890
-muxbot channels response-mode status --channel slack --target group:G1234567890
-muxbot channels response-mode status --channel slack --target dm:D1234567890
-muxbot channels response-mode status --channel telegram --target -1001234567890
-muxbot channels response-mode status --channel telegram --target -1001234567890 --topic 42
-muxbot channels response-mode status --channel telegram --target 123456789
+clisbot channels response-mode status --channel slack
+clisbot channels response-mode status --channel slack --target channel:C1234567890
+clisbot channels response-mode status --channel slack --target group:G1234567890
+clisbot channels response-mode status --channel slack --target dm:D1234567890
+clisbot channels response-mode status --channel telegram --target -1001234567890
+clisbot channels response-mode status --channel telegram --target -1001234567890 --topic 42
+clisbot channels response-mode status --channel telegram --target 123456789
 ```
 
 Channel or surface response-mode updates:
 
 ```bash
-muxbot channels response-mode set message-tool --channel slack --target channel:C1234567890
-muxbot channels response-mode set capture-pane --channel slack --target group:G1234567890
-muxbot channels response-mode set message-tool --channel slack --target dm:D1234567890
-muxbot channels response-mode set message-tool --channel telegram --target -1001234567890
-muxbot channels response-mode set capture-pane --channel telegram --target -1001234567890 --topic 42
-muxbot channels response-mode set message-tool --channel telegram --target 123456789
+clisbot channels response-mode set message-tool --channel slack --target channel:C1234567890
+clisbot channels response-mode set capture-pane --channel slack --target group:G1234567890
+clisbot channels response-mode set message-tool --channel slack --target dm:D1234567890
+clisbot channels response-mode set message-tool --channel telegram --target -1001234567890
+clisbot channels response-mode set capture-pane --channel telegram --target -1001234567890 --topic 42
+clisbot channels response-mode set message-tool --channel telegram --target 123456789
 ```
 
 Channel or surface additional-message-mode status:
 
 ```bash
-muxbot channels additional-message-mode status --channel slack
-muxbot channels additional-message-mode status --channel slack --target channel:C1234567890
-muxbot channels additional-message-mode status --channel slack --target group:G1234567890
-muxbot channels additional-message-mode status --channel slack --target dm:D1234567890
-muxbot channels additional-message-mode status --channel telegram --target -1001234567890
-muxbot channels additional-message-mode status --channel telegram --target -1001234567890 --topic 42
-muxbot channels additional-message-mode status --channel telegram --target 123456789
+clisbot channels additional-message-mode status --channel slack
+clisbot channels additional-message-mode status --channel slack --target channel:C1234567890
+clisbot channels additional-message-mode status --channel slack --target group:G1234567890
+clisbot channels additional-message-mode status --channel slack --target dm:D1234567890
+clisbot channels additional-message-mode status --channel telegram --target -1001234567890
+clisbot channels additional-message-mode status --channel telegram --target -1001234567890 --topic 42
+clisbot channels additional-message-mode status --channel telegram --target 123456789
 ```
 
 Channel or surface additional-message-mode updates:
 
 ```bash
-muxbot channels additional-message-mode set steer --channel slack --target channel:C1234567890
-muxbot channels additional-message-mode set queue --channel slack --target group:G1234567890
-muxbot channels additional-message-mode set steer --channel slack --target dm:D1234567890
-muxbot channels additional-message-mode set steer --channel telegram --target -1001234567890
-muxbot channels additional-message-mode set queue --channel telegram --target -1001234567890 --topic 42
-muxbot channels additional-message-mode set steer --channel telegram --target 123456789
+clisbot channels additional-message-mode set steer --channel slack --target channel:C1234567890
+clisbot channels additional-message-mode set queue --channel slack --target group:G1234567890
+clisbot channels additional-message-mode set steer --channel slack --target dm:D1234567890
+clisbot channels additional-message-mode set steer --channel telegram --target -1001234567890
+clisbot channels additional-message-mode set queue --channel telegram --target -1001234567890 --topic 42
+clisbot channels additional-message-mode set steer --channel telegram --target 123456789
 ```
 
 Agent response-mode status and updates:
 
 ```bash
-muxbot agents response-mode status --agent default
-muxbot agents response-mode set message-tool --agent default
-muxbot agents response-mode clear --agent reviewer
+clisbot agents response-mode status --agent default
+clisbot agents response-mode set message-tool --agent default
+clisbot agents response-mode clear --agent reviewer
 ```
 
 Agent additional-message-mode status and updates:
 
 ```bash
-muxbot agents additional-message-mode status --agent default
-muxbot agents additional-message-mode set steer --agent default
-muxbot agents additional-message-mode clear --agent reviewer
+clisbot agents additional-message-mode status --agent default
+clisbot agents additional-message-mode set steer --agent default
+clisbot agents additional-message-mode clear --agent reviewer
 ```
 
 Status surfaces:
 
-- `muxbot status` shows provider-level `responseMode` and `additionalMessageMode` for Slack and Telegram plus any per-agent overrides in the agent summary.
+- `clisbot status` shows provider-level `responseMode` and `additionalMessageMode` for Slack and Telegram plus any per-agent overrides in the agent summary.
 - `/status` shows the active route `responseMode` and `additionalMessageMode` for the current conversation.
 - `/responsemode status` shows the active route value plus the current persisted surface target value.
 - `/additionalmessagemode status` shows the active route busy-session behavior plus the current persisted surface target value.

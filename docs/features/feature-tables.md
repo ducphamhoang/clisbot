@@ -1,4 +1,4 @@
-# muxbot Feature Tables
+# clisbot Feature Tables
 
 ## Purpose
 

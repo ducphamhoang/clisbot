@@ -9,18 +9,18 @@ import {
 import { readTextFile } from "../shared/fs.ts";
 import { resolveConfigDurationMs } from "./duration.ts";
 import { resolveConfigEnvVars } from "./env-substitution.ts";
-import { type AgentEntry, type MuxbotConfig, muxbotConfigSchema } from "./schema.ts";
+import { type AgentEntry, type ClisbotConfig, clisbotConfigSchema } from "./schema.ts";
 
 export type ResolvedAgentConfig = {
   agentId: string;
   sessionName: string;
   workspacePath: string;
-  runner: MuxbotConfig["agents"]["defaults"]["runner"];
-  stream: Omit<MuxbotConfig["agents"]["defaults"]["stream"], "maxRuntimeSec" | "maxRuntimeMin"> & {
+  runner: ClisbotConfig["agents"]["defaults"]["runner"];
+  stream: Omit<ClisbotConfig["agents"]["defaults"]["stream"], "maxRuntimeSec" | "maxRuntimeMin"> & {
     maxRuntimeLabel: string;
     maxRuntimeMs: number;
   };
-  session: MuxbotConfig["agents"]["defaults"]["session"];
+  session: ClisbotConfig["agents"]["defaults"]["session"];
 };
 
 export function resolveMaxRuntimeMs(stream: {
@@ -38,7 +38,7 @@ export type LoadedConfig = {
   configPath: string;
   processedEventsPath: string;
   stateDir: string;
-  raw: MuxbotConfig;
+  raw: ClisbotConfig;
 };
 
 export async function loadConfig(configPath = DEFAULT_CONFIG_PATH): Promise<LoadedConfig> {
@@ -48,7 +48,7 @@ export async function loadConfig(configPath = DEFAULT_CONFIG_PATH): Promise<Load
   const substituted = resolveConfigEnvVars(parsed, process.env, {
     skipPaths: getDisabledChannelTokenPaths(parsed),
   }) as unknown;
-  const validated = muxbotConfigSchema.parse(substituted);
+  const validated = clisbotConfigSchema.parse(substituted);
 
   return materializeLoadedConfig(expandedConfigPath, validated);
 }
@@ -59,14 +59,14 @@ export async function loadConfigWithoutEnvResolution(
   const expandedConfigPath = expandHomePath(configPath);
   const text = await readTextFile(expandedConfigPath);
   const parsed = JSON.parse(text);
-  const validated = muxbotConfigSchema.parse(parsed);
+  const validated = clisbotConfigSchema.parse(parsed);
 
   return materializeLoadedConfig(expandedConfigPath, validated);
 }
 
 function materializeLoadedConfig(
   expandedConfigPath: string,
-  validated: MuxbotConfig,
+  validated: ClisbotConfig,
 ): LoadedConfig {
   return {
     configPath: expandedConfigPath,

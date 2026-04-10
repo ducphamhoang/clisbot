@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: System architecture notes for the muxbot repository.
+description: System architecture notes for the clisbot repository.
 ---
 
 This section is the stable entry point for repository-level architecture rules.

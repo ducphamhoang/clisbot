@@ -131,7 +131,7 @@ function renderRouteStatusMessage(params: {
   };
 }) {
   const lines = [
-    "muxbot status",
+    "clisbot status",
     "",
     `platform: \`${params.identity.platform}\``,
     `conversationKind: \`${params.identity.conversationKind}\``,
@@ -204,7 +204,7 @@ function renderResponseModeStatusMessage(params: {
   };
 }) {
   const lines = [
-    "muxbot response mode",
+    "clisbot response mode",
     "",
     `activeRoute.responseMode: \`${params.route.responseMode}\``,
   ];
@@ -217,8 +217,8 @@ function renderResponseModeStatusMessage(params: {
   lines.push(
     "",
     "Available values:",
-    "- `capture-pane`: muxbot posts pane-derived progress and final settlement",
-    "- `message-tool`: muxbot still monitors the pane, but the agent should reply with `muxbot message send`",
+    "- `capture-pane`: clisbot posts pane-derived progress and final settlement",
+    "- `message-tool`: clisbot still monitors the pane, but the agent should reply with `clisbot message send`",
   );
 
   return lines.join("\n");
@@ -232,7 +232,7 @@ function renderAdditionalMessageModeStatusMessage(params: {
   };
 }) {
   const lines = [
-    "muxbot additional message mode",
+    "clisbot additional message mode",
     "",
     `activeRoute.additionalMessageMode: \`${params.route.additionalMessageMode}\``,
   ];
@@ -272,7 +272,7 @@ function buildChannelObserverId(identity: ChannelInteractionIdentity) {
 function buildSteeringMessage(text: string) {
   return [
     "",
-    "[muxbot steering message]",
+    "[clisbot steering message]",
     "A new user message arrived while you were already processing the current run.",
     "Adjust the current work if needed and continue.",
     "",
@@ -485,7 +485,7 @@ export async function processChannelInteraction<TChunk>(params: {
       );
       await params.postText(
         detached.detached
-          ? "Detached this thread from live updates. muxbot will still post the final settlement here when the run completes."
+          ? "Detached this thread from live updates. clisbot will still post the final settlement here when the run completes."
           : "This thread was not attached to an active run.",
       );
       await params.agentService.recordConversationReply(params.sessionTarget);

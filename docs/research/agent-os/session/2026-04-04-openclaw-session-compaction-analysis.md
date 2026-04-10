@@ -7,9 +7,9 @@ This research captures how OpenClaw handles long conversations when compaction i
 - whether the `sessionId` changes
 - whether the transcript file changes
 - what compaction persists into JSONL history
-- which design techniques matter for `muxbot`
+- which design techniques matter for `clisbot`
 
-It is research first, not a final `muxbot` architecture contract.
+It is research first, not a final `clisbot` architecture contract.
 
 ## Important Overview
 
@@ -196,7 +196,7 @@ So the truthful split is:
 
 ## Techniques Worth Bringing To The Table
 
-These are the main design ideas OpenClaw uses that matter for `muxbot`.
+These are the main design ideas OpenClaw uses that matter for `clisbot`.
 
 ### 1. Logical compaction instead of transcript rotation
 
@@ -208,7 +208,7 @@ This preserves:
 - stable inspection path
 - a single source of truth for one session's history
 
-Questions for `muxbot`:
+Questions for `clisbot`:
 
 - Do we want one stable transcript per session, or transcript segments after each compaction?
 - Do operators prefer one file for debugging, or explicit segments for archival clarity?
@@ -224,7 +224,7 @@ The important persisted state is:
 
 That means the runtime can reconstruct a compacted conversation boundary without pretending the older branch never existed.
 
-Questions for `muxbot`:
+Questions for `clisbot`:
 
 - If we compact tmux transcript state, what is the equivalent of `firstKeptEntryId`?
 - Do we need a structured cut-point marker in our own transcript model?
@@ -238,7 +238,7 @@ OpenClaw separates:
 
 That makes it possible to keep one conversation bucket while occasionally rotating to a new transcript on reset or expiry.
 
-Questions for `muxbot`:
+Questions for `clisbot`:
 
 - Should one Slack thread map to one stable `sessionKey` but sometimes rotate transcript ids under it?
 - Should transcript ids exist independently from runner instance ids or tmux pane ids?
@@ -254,7 +254,7 @@ as different outcomes.
 
 That is operationally important.
 
-Questions for `muxbot`:
+Questions for `clisbot`:
 
 - What should users see when compaction succeeds?
 - What should users see when compaction fails and the system must reset?
@@ -273,7 +273,7 @@ It is:
 3. compact if needed
 4. retry the run
 
-Questions for `muxbot`:
+Questions for `clisbot`:
 
 - Do we need a pre-compaction hook for agent memory, transcript snapshots, or operator markers?
 - Which backends can support that reliably?
@@ -289,7 +289,7 @@ OpenClaw distinguishes:
 
 That separation is useful and should stay explicit in design discussions.
 
-Questions for `muxbot`:
+Questions for `clisbot`:
 
 - Do we need both a persistent compaction model and a lighter transient pruning model?
 - Which layer should own each one: runner, session model, or channel delivery pipeline?
@@ -303,4 +303,4 @@ The most truthful current reading is:
 - it persists compaction state inside that transcript rather than splitting the conversation into a new transcript file
 - the main exception is compaction failure recovery, where OpenClaw may reset the session and create a new `sessionId`
 
-That distinction should be explicit in any `muxbot` discussion about long-session handling.
+That distinction should be explicit in any `clisbot` discussion about long-session handling.

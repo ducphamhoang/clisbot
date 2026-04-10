@@ -2,11 +2,11 @@
 
 ## Goal
 
-Close the remaining gap between muxbot session behavior and OpenClaw's broader routing and session-management model.
+Close the remaining gap between clisbot session behavior and OpenClaw's broader routing and session-management model.
 
 ## Why This Exists
 
-muxbot now supports the core OpenClaw-compatible split between:
+clisbot now supports the core OpenClaw-compatible split between:
 
 - `agentId`
 - `sessionKey`
@@ -31,7 +31,7 @@ It is not yet the full OpenClaw session system.
 
 ## Acceptance Criteria
 
-- muxbot can import or closely mirror the most important OpenClaw session config ideas without renaming them
+- clisbot can import or closely mirror the most important OpenClaw session config ideas without renaming them
 - bindings and session policy are documented separately from channel transport logic
 - control and channel surfaces can inspect session identity without reverse-engineering tmux session names
 - docs clearly describe which OpenClaw session features are fully supported versus partially supported
@@ -39,4 +39,4 @@ It is not yet the full OpenClaw session system.
 Notes:
 
 - OpenClaw-style `sessionKey` compatibility is still valuable
-- but `muxbot` must also account for AI CLI-native `sessionId` resume behavior, because tmux is only the host layer here
+- but `clisbot` must also account for AI CLI-native `sessionId` resume behavior, because tmux is only the host layer here

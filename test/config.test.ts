@@ -15,13 +15,13 @@ describe("loadConfig", () => {
   });
 
   test("loads config and expands env vars", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-config-"));
-    const configPath = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
     await Bun.write(
       configPath,
       JSON.stringify({
         tmux: {
-          socketPath: "~/.muxbot/state/test.sock",
+          socketPath: "~/.clisbot/state/test.sock",
         },
         session: {
           mainKey: "main",
@@ -33,7 +33,7 @@ describe("loadConfig", () => {
         },
         agents: {
           defaults: {
-            workspace: "~/.muxbot/workspaces/{agentId}",
+            workspace: "~/.clisbot/workspaces/{agentId}",
             runner: {
               command: "codex",
               args: ["-C", "{workspace}"],
@@ -215,17 +215,17 @@ describe("loadConfig", () => {
   });
 
   test("applies codex session-id defaults when runner config omits sessionId", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-config-"));
-    const configPath = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
     await Bun.write(
       configPath,
       JSON.stringify({
         tmux: {
-          socketPath: "~/.muxbot/state/test.sock",
+          socketPath: "~/.clisbot/state/test.sock",
         },
         agents: {
           defaults: {
-            workspace: "~/.muxbot/workspaces/{agentId}",
+            workspace: "~/.clisbot/workspaces/{agentId}",
             runner: {
               command: "codex",
               args: ["-C", "{workspace}"],
@@ -405,17 +405,17 @@ describe("loadConfig", () => {
   });
 
   test("does not require token env vars for disabled channels", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-config-"));
-    const configPath = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
     await Bun.write(
       configPath,
       JSON.stringify({
         tmux: {
-          socketPath: "~/.muxbot/state/test.sock",
+          socketPath: "~/.clisbot/state/test.sock",
         },
         agents: {
           defaults: {
-            workspace: "~/.muxbot/workspaces/{agentId}",
+            workspace: "~/.clisbot/workspaces/{agentId}",
             runner: {
               command: "codex",
               args: ["-C", "{workspace}"],

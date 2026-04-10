@@ -1,4 +1,4 @@
-# muxbot Architecture Overview
+# clisbot Architecture Overview
 
 ## Document Information
 
@@ -31,7 +31,7 @@ That boundary is the main architecture rule for the repository.
 ## Top-Level Diagram
 
 ```text
-                                 muxbot
+                                 clisbot
 
     Humans / clients                           Operators
            |                                      |
@@ -56,7 +56,7 @@ That boundary is the main architecture rule for the repository.
                     +----------------------+
                     |    CONFIGURATION     |
                     |----------------------|
-                    | muxbot.json          |
+                    | clisbot.json          |
                     | env vars             |
                     | route mapping        |
                     | agent defs           |

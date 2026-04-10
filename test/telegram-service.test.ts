@@ -151,7 +151,7 @@ describe("renderTelegramUnroutedRouteMessage", () => {
         isForum: true,
       }),
     ).toContain(
-      "`muxbot channels add telegram-group -1003455688247 --topic 3`",
+      "`clisbot channels add telegram-group -1003455688247 --topic 3`",
     );
   });
 
@@ -164,7 +164,7 @@ describe("renderTelegramUnroutedRouteMessage", () => {
       isForum: true,
     });
 
-    expect(text).toContain("muxbot: this Telegram topic is not configured yet.");
+    expect(text).toContain("clisbot: this Telegram topic is not configured yet.");
     expect(text).toContain("Ask the bot owner to add this route with:");
     expect(text).toContain("After that, group commands such as `/transcript`, `/stop`, `/followup`, and `/bash` will work here.");
   });
@@ -178,7 +178,7 @@ describe("renderTelegramUnroutedRouteMessage", () => {
       isForum: true,
     });
 
-    expect(text).toContain("muxbot: this Telegram topic is not configured yet.");
+    expect(text).toContain("clisbot: this Telegram topic is not configured yet.");
     expect(text).toContain("Ask the bot owner to add this route with:");
     expect(text).toContain("After that, group commands such as `/transcript`, `/stop`, `/followup`, and `/bash` will work here.");
   });
@@ -192,7 +192,7 @@ describe("renderTelegramUnroutedRouteMessage", () => {
       isForum: true,
     });
 
-    expect(text).toContain("muxbot: this Telegram topic is not configured yet.");
+    expect(text).toContain("clisbot: this Telegram topic is not configured yet.");
     expect(text).toContain("After that, group commands such as `/transcript`, `/stop`, `/followup`, and `/bash` will work here.");
   });
 });

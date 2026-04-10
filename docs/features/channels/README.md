@@ -2,7 +2,7 @@
 
 ## Summary
 
-Channels is the user-facing surface system in `muxbot`.
+Channels is the user-facing surface system in `clisbot`.
 
 It owns every external conversation surface:
 
@@ -61,7 +61,7 @@ Channels is where those surfaces live.
 - [OpenClaw Telegram Topics And Slack-Parity Plan](../../research/channels/2026-04-05-openclaw-telegram-topics-and-parity-plan.md)
 - [OpenClaw Pairing Implementation](../../research/channels/2026-04-06-openclaw-pairing-implementation.md)
 - [OpenClaw CLI Command Surfaces And Slack Telegram Send Syntax](../../research/channels/2026-04-09-openclaw-cli-command-surfaces-and-slack-telegram-send-syntax.md)
-- [OpenClaw Channel Standardization Vs Muxbot Gaps](../../research/channels/2026-04-10-openclaw-channel-standardization-vs-muxbot-gaps.md)
+- [OpenClaw Channel Standardization Vs Clisbot Gaps](../../research/channels/2026-04-10-openclaw-channel-standardization-vs-clisbot-gaps.md)
 
 ## Related Feature Docs
 
@@ -84,7 +84,7 @@ Keep the Slack MVP truthful on `SLACK_TEST_CHANNEL`.
 - implicit no-mention thread follow-up depends on Slack app `message.*` event subscriptions for the routed conversation kind
 - live Slack validation proved that `parent_user_id` in a human-started thread is the thread root author, so root-author-only gating is not truthful for general Slack thread continuation
 - latest OpenClaw `main` now models Slack follow-up as "the bot has already replied in this thread" via a sent-thread participation cache
-- current `muxbot` now reaches that same user-visible rule with session-scoped follow-up state
+- current `clisbot` now reaches that same user-visible rule with session-scoped follow-up state
 - live validation on April 5, 2026 proved that enabling Slack `message.channels` unblocked natural no-mention continuation for channel threads after the bot had already replied once
 - direct-message access control now follows an OpenClaw-shaped gate before session routing:
   - `open` accepts the sender immediately
@@ -93,7 +93,7 @@ Keep the Slack MVP truthful on `SLACK_TEST_CHANNEL`.
   - `disabled` ignores the DM surface
 - Slack and Telegram direct messages now default to `policy: "pairing"` to match OpenClaw
 - shared surfaces keep the OpenClaw-style secure posture of `allowlist` plus `requireMention: true` by default
-- OpenClaw’s Slack-only sparse-config fallback to `groupPolicy: "open"` is documented as research nuance, not copied as a `muxbot` default
+- OpenClaw’s Slack-only sparse-config fallback to `groupPolicy: "open"` is documented as research nuance, not copied as a `clisbot` default
 - Slack should acknowledge accepted inbound messages immediately with a configurable reaction, Slack assistant thread status, and a live in-thread processing reply
 - default Slack feedback should keep `ackReaction: ":heavy_check_mark:"`, `typingReaction: ""`, and `processingStatus.enabled: true`
 - active long-running sessions should support `/attach`, `/detach`, and `/watch every <duration>` so users can control how this thread follows the run without switching to raw transcript by default

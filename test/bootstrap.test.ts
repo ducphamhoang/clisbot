@@ -6,7 +6,7 @@ import { resolveTemplateRoot } from "../src/agents/bootstrap.ts";
 
 describe("bootstrap template root resolution", () => {
   test("resolves repo layout from src/agents", () => {
-    const baseDir = mkdtempSync(join(tmpdir(), "muxbot-bootstrap-paths-"));
+    const baseDir = mkdtempSync(join(tmpdir(), "clisbot-bootstrap-paths-"));
 
     try {
       const moduleDir = join(baseDir, "src", "agents");
@@ -21,7 +21,7 @@ describe("bootstrap template root resolution", () => {
   });
 
   test("resolves packaged layout from dist", () => {
-    const baseDir = mkdtempSync(join(tmpdir(), "muxbot-bootstrap-paths-"));
+    const baseDir = mkdtempSync(join(tmpdir(), "clisbot-bootstrap-paths-"));
 
     try {
       const moduleDir = join(baseDir, "dist");

@@ -17,7 +17,7 @@ related:
 
 ## Context
 
-This lesson comes from implementing long-running autonomous session behavior in `muxbot` on April 8, 2026.
+This lesson comes from implementing long-running autonomous session behavior in `clisbot` on April 8, 2026.
 
 The earlier shape was still too request-centric:
 
@@ -57,4 +57,4 @@ This lesson was applied by:
 - adding attach, detach, and interval watch commands for routed threads
 - keeping tmux-backed runs monitored after observation-window detachment
 - preventing stale cleanup from killing detached but still-active sessions
-- surfacing active runs in both routed `/status` and operator `muxbot status`
+- surfacing active runs in both routed `/status` and operator `clisbot status`

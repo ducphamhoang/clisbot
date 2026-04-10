@@ -2,18 +2,18 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { ensureDir as ensureDirPath, writeTextFile } from "./fs.ts";
 
-export const APP_HOME_DIR = join(homedir(), ".muxbot");
-export const DEFAULT_CONFIG_PATH = join(APP_HOME_DIR, "muxbot.json");
+export const APP_HOME_DIR = join(homedir(), ".clisbot");
+export const DEFAULT_CONFIG_PATH = join(APP_HOME_DIR, "clisbot.json");
 export const DEFAULT_STATE_DIR = join(APP_HOME_DIR, "state");
 export const DEFAULT_WORKSPACE_ROOT = join(APP_HOME_DIR, "workspaces");
-export const DEFAULT_TMUX_SOCKET_PATH = join(DEFAULT_STATE_DIR, "muxbot.sock");
+export const DEFAULT_TMUX_SOCKET_PATH = join(DEFAULT_STATE_DIR, "clisbot.sock");
 export const DEFAULT_PROCESSED_EVENTS_PATH = join(DEFAULT_STATE_DIR, "processed-slack-events.json");
 export const DEFAULT_SESSION_STORE_PATH = join(DEFAULT_STATE_DIR, "sessions.json");
 export const DEFAULT_PAIRING_DIR = join(DEFAULT_STATE_DIR, "pairing");
 export const DEFAULT_ACTIVITY_STORE_PATH = join(DEFAULT_STATE_DIR, "activity.json");
 export const DEFAULT_RUNTIME_HEALTH_PATH = join(DEFAULT_STATE_DIR, "runtime-health.json");
-export const DEFAULT_RUNTIME_PID_PATH = join(DEFAULT_STATE_DIR, "muxbot.pid");
-export const DEFAULT_RUNTIME_LOG_PATH = join(DEFAULT_STATE_DIR, "muxbot.log");
+export const DEFAULT_RUNTIME_PID_PATH = join(DEFAULT_STATE_DIR, "clisbot.pid");
+export const DEFAULT_RUNTIME_LOG_PATH = join(DEFAULT_STATE_DIR, "clisbot.log");
 
 export function expandHomePath(rawPath: string): string {
   if (rawPath === "~") {

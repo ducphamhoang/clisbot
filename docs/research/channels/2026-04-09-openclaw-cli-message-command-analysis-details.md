@@ -71,7 +71,7 @@ These are in-chat messages such as:
 
 OpenClaw’s slash-command docs explicitly say these are gateway-handled chat commands, usually sent as standalone messages beginning with `/`. They are not the same system as terminal CLI commands. The same doc also separates slash commands from inline directives and inline shortcuts.
 
-Practical implication for `muxbot`:
+Practical implication for `clisbot`:
 
 - if the goal is operator shell compatibility, inspect `openclaw ...`
 - if the goal is user-facing in-channel command compatibility, inspect `/...`
@@ -79,7 +79,7 @@ Practical implication for `muxbot`:
 
 ## OpenClaw CLI Families Relevant To Channel Work
 
-From the source and CLI docs, the command families most relevant to `muxbot` are:
+From the source and CLI docs, the command families most relevant to `clisbot` are:
 
 - `openclaw message`
 - `openclaw channels`
@@ -119,7 +119,7 @@ Key subcommands:
 - `login`
 - `logout`
 
-For `muxbot`, the most relevant ones are:
+For `clisbot`, the most relevant ones are:
 
 - `channels add` for account provisioning
 - `channels status --probe` for runtime validation
@@ -139,7 +139,7 @@ Key subcommands:
 - `set-identity`
 - `delete`
 
-For `muxbot`, the routing-relevant commands are:
+For `clisbot`, the routing-relevant commands are:
 
 - `agents add`
 - `agents bindings`
@@ -230,7 +230,7 @@ The message action runner then:
 - normalizes `threadId`
 - passes one normalized outbound request into the channel adapter layer
 
-For `muxbot`, this is the most useful abstraction boundary to copy, because it avoids writing Slack-only and Telegram-only CLI parsers too early.
+For `clisbot`, this is the most useful abstraction boundary to copy, because it avoids writing Slack-only and Telegram-only CLI parsers too early.
 
 ## Slack CLI Send Behavior
 
@@ -406,7 +406,7 @@ The human-facing CLI docs inspected here do not show a dedicated `--as-voice` fl
 - the channel/runtime model supports voice-note-style sending
 - the current terminal CLI surface does not appear to expose it directly in `register.send.ts`
 
-This is an important distinction for `muxbot`:
+This is an important distinction for `clisbot`:
 
 - OpenClaw runtime capability is broader than the current shell flag surface
 
@@ -452,9 +452,9 @@ Slack and Telegram native slash or menu behavior differs:
 
 These chat-native command systems are separate from the CLI shell command system.
 
-## Implications For `muxbot`
+## Implications For `clisbot`
 
-If `muxbot` wants OpenClaw-compatible operator CLI behavior, the most important compatibility targets are:
+If `clisbot` wants OpenClaw-compatible operator CLI behavior, the most important compatibility targets are:
 
 1. `message send`
 2. `channels add`
@@ -469,7 +469,7 @@ For outbound media behavior, the key parity rules are:
 - Slack:
   - treat all outbound media as file uploads
   - support `thread_ts`
-  - do not invent image-specific or audio-specific transport branches unless `muxbot` intentionally diverges
+  - do not invent image-specific or audio-specific transport branches unless `clisbot` intentionally diverges
 - Telegram:
   - branch by media type
   - preserve topic and DM-thread semantics
@@ -488,7 +488,7 @@ For API and internal design, the best OpenClaw-shaped abstraction is:
   - optional voice or video-note style hints
 - provider adapters then specialize the transport
 
-## Recommended `muxbot` Interpretation
+## Recommended `clisbot` Interpretation
 
 - keep shell CLI compatibility separate from in-channel slash command compatibility
 - copy the `message send` operator ergonomics first

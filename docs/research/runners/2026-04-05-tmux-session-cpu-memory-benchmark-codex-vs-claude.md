@@ -20,7 +20,7 @@ Environment:
 - tmux: `3.5a`
 - Codex CLI: `0.118.0`
 - Claude Code: `2.1.92`
-- tmux socket: `/Users/longluong/.muxbot/state/muxbot.sock`
+- tmux socket: `/Users/longluong/.clisbot/state/clisbot.sock`
 
 Live tmux state at capture time:
 
@@ -37,13 +37,13 @@ Notes:
 
 ## Method
 
-The benchmark was taken from the live local muxbot environment, not from a synthetic harness.
+The benchmark was taken from the live local clisbot environment, not from a synthetic harness.
 
 Commands used:
 
 ```bash
-tmux -S /Users/longluong/.muxbot/state/muxbot.sock list-sessions
-tmux -S /Users/longluong/.muxbot/state/muxbot.sock list-panes -a -F '#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_start_command}'
+tmux -S /Users/longluong/.clisbot/state/clisbot.sock list-sessions
+tmux -S /Users/longluong/.clisbot/state/clisbot.sock list-panes -a -F '#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_start_command}'
 ps -axo pid=,ppid=,rss=,%cpu=,etime=,command=
 ```
 

@@ -22,13 +22,13 @@ They are the ground truth for validating how concrete backends expose input, out
 
 ### Steps
 
-1. Start `muxbot`
+1. Start `clisbot`
 2. Trigger a prompt for agent `default`
-3. Run `tmux -S ~/.muxbot/state/muxbot.sock list-sessions`
+3. Run `tmux -S ~/.clisbot/state/clisbot.sock list-sessions`
 
 ### Expected Results
 
-- a dedicated tmux server exists at `~/.muxbot/state/muxbot.sock`
+- a dedicated tmux server exists at `~/.clisbot/state/clisbot.sock`
 - session `default` is created automatically on that socket
 - the tmux runner exposes enough metadata for the rest of the system to reference the live backend session
 

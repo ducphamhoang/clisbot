@@ -18,10 +18,10 @@ import {
   runTmuxShellCommand,
 } from "../runners/tmux/shell-command.ts";
 import {
-  ensureMuxbotWrapper,
-  getMuxbotWrapperDir,
-  getMuxbotWrapperPath,
-} from "../control/muxbot-wrapper.ts";
+  ensureClisbotWrapper,
+  getClisbotWrapperDir,
+  getClisbotWrapperPath,
+} from "../control/clisbot-wrapper.ts";
 import { logLatencyDebug, type LatencyDebugContext } from "../control/latency-debug.ts";
 
 export type ShellCommandResult = {
@@ -55,11 +55,11 @@ function buildCommandString(command: string, args: string[]) {
 }
 
 function buildRunnerLaunchCommand(command: string, args: string[]) {
-  const wrapperDir = getMuxbotWrapperDir();
-  const wrapperPath = getMuxbotWrapperPath();
+  const wrapperDir = getClisbotWrapperDir();
+  const wrapperPath = getClisbotWrapperPath();
   const exports = [
     `export PATH=${shellQuote(wrapperDir)}:"$PATH"`,
-    `export MUXBOT_BIN=${shellQuote(wrapperPath)}`,
+    `export CLISBOT_BIN=${shellQuote(wrapperPath)}`,
   ];
   return `${exports.join("; ")}; exec ${buildCommandString(command, args)}`;
 }
@@ -212,7 +212,7 @@ export class RunnerSessionService {
 
         await this.tmux.killSession(resolved.sessionName);
         console.log(
-          `muxbot sunset stale session ${resolved.sessionName} after ${staleAfterMinutes}m idle`,
+          `clisbot sunset stale session ${resolved.sessionName} after ${staleAfterMinutes}m idle`,
         );
       }
     } finally {
@@ -224,7 +224,7 @@ export class RunnerSessionService {
     target: AgentSessionTarget,
     options: { allowFreshRetry?: boolean; timingContext?: LatencyDebugContext } = {},
   ): Promise<ResolvedAgentTarget> {
-    await ensureMuxbotWrapper();
+    await ensureClisbotWrapper();
     const resolved = this.resolveTarget(target);
     const timingContext = {
       ...options.timingContext,

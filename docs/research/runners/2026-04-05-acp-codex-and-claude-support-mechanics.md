@@ -4,7 +4,7 @@
 
 Capture what technically powers the features exposed by `codex-acp` and `claude-agent-acp`.
 
-This note exists to separate protocol facts from product assumptions before `muxbot` chooses between tmux capture, CLI JSON streaming, ACP, or SDK-backed runners.
+This note exists to separate protocol facts from product assumptions before `clisbot` chooses between tmux capture, CLI JSON streaming, ACP, or SDK-backed runners.
 
 ## Repos Reviewed
 
@@ -113,7 +113,7 @@ In practice:
 - `claude-agent-acp` gets its power from the Claude Agent SDK
 - ACP makes both look similar to an ACP client
 
-## Implications For muxbot
+## Implications For clisbot
 
 This research suggests four distinct integration strategies:
 
@@ -176,7 +176,7 @@ Costs:
 
 ACP looks valuable as a standard runner contract and control surface.
 
-But ACP alone does not prove that `muxbot` can safely replace the current tmux method for interrupt and live steering.
+But ACP alone does not prove that `clisbot` can safely replace the current tmux method for interrupt and live steering.
 
 That still depends on whether the backend exposes:
 
@@ -185,7 +185,7 @@ That still depends on whether the backend exposes:
 - structured tool and terminal events
 - an input or steering method during a live turn, or at least a reliable interrupt plus follow-up turn path
 
-For `muxbot`, the current tmux runner still has one practical advantage that the research does not yet disprove:
+For `clisbot`, the current tmux runner still has one practical advantage that the research does not yet disprove:
 
 - it already supports interruption and steering by injecting prompt text or sending terminal control keys
 

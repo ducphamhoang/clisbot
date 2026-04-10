@@ -10,14 +10,14 @@ Done
 
 ## Why
 
-`muxbot` already uses OpenClaw-like concepts in config and routing, but the operator CLI is still too thin:
+`clisbot` already uses OpenClaw-like concepts in config and routing, but the operator CLI is still too thin:
 
 - no agent-oriented add or inspect flow
 - no explicit bootstrap personality state
 - `start` does not help the operator finish first-time setup
 - `status` does not explain agent, channel, and bootstrap health at a glance
 
-The goal is to improve OpenClaw familiarity without breaking the current muxbot architecture:
+The goal is to improve OpenClaw familiarity without breaking the current clisbot architecture:
 
 - agent definitions stay in configuration
 - channels stay channel-owned

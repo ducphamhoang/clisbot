@@ -2,14 +2,14 @@
 
 ## Summary
 
-This research captures what Slack actually does for threaded follow-up messages and why that matters for OpenClaw-compatible mention behavior in `muxbot`.
+This research captures what Slack actually does for threaded follow-up messages and why that matters for OpenClaw-compatible mention behavior in `clisbot`.
 
 The main verified result from live testing on April 5, 2026 is:
 
 - in a Slack thread started by a human, `parent_user_id` on later replies points to the thread root author, not to the bot that replied later in the thread
 - because of that, any Slack implementation that relies only on `parent_user_id === botUserId` is narrower than the user-facing doc claim
 - OpenClaw `main` now includes a participant-based fallback cache for Slack thread continuation, while the older `develop` checkout previously inspected did not
-- in the current live Slack app setup for `muxbot`, no-mention thread follow-up still does not arrive as a routed inbound `message` event, so delivery is also a separate blocker
+- in the current live Slack app setup for `clisbot`, no-mention thread follow-up still does not arrive as a routed inbound `message` event, so delivery is also a separate blocker
 
 ## Why This Matters
 
@@ -18,7 +18,7 @@ The product goal is to let Slack threads continue naturally after a bot reply.
 That behavior depends on two different truths:
 
 1. what Slack actually sends in event payloads
-2. what rule `muxbot` chooses to use for "implicit follow-up" once those events are delivered
+2. what rule `clisbot` chooses to use for "implicit follow-up" once those events are delivered
 
 If those two are confused, the product can appear correct in docs while behaving differently in the live app.
 
@@ -28,8 +28,8 @@ If those two are confused, the product can appear correct in docs while behaving
 - [OpenClaw Slack prepare logic](https://github.com/openclaw/openclaw/blob/develop/src/slack/monitor/message-handler/prepare.ts)
 - [OpenClaw Slack thread resolution](https://github.com/openclaw/openclaw/blob/develop/src/slack/monitor/thread-resolution.ts)
 - [OpenClaw implicit thread-follow-up test](https://github.com/openclaw/openclaw/blob/develop/src/slack/monitor.tool-result.sends-tool-summaries-responseprefix.test.ts)
-- [muxbot Slack service](../../../src/slack/service.ts)
-- [muxbot Slack message helpers](../../../src/slack/message.ts)
+- [clisbot Slack service](../../../src/slack/service.ts)
+- [clisbot Slack message helpers](../../../src/slack/message.ts)
 - [Slack retrieving messages docs](https://docs.slack.dev/messaging/retrieving-messages/)
 
 ## OpenClaw Doc Claim
@@ -319,11 +319,11 @@ However, that behavior is cache-based, not Slack-payload-based.
 
 So the latest OpenClaw `main` does not solve this by proving that `parent_user_id` points to the bot. It solves it by remembering that OpenClaw itself already replied in that thread.
 
-## Consequence For muxbot
+## Consequence For clisbot
 
-`muxbot` should not treat `parent_user_id === botUserId` as the canonical Slack rule for natural thread follow-up.
+`clisbot` should not treat `parent_user_id === botUserId` as the canonical Slack rule for natural thread follow-up.
 
-If `muxbot` wants the product behavior to be:
+If `clisbot` wants the product behavior to be:
 
 - once the bot has replied in a thread, later no-mention follow-up in that thread can continue naturally
 
@@ -338,7 +338,7 @@ not:
 That is now aligned with latest OpenClaw `main`, though the mechanisms differ:
 
 - OpenClaw `main`: in-memory sent-thread participation cache
-- current `muxbot`: Slack thread participant lookup
+- current `clisbot`: Slack thread participant lookup
 
 ## Separate Delivery Finding
 
@@ -356,7 +356,7 @@ Even a correct mention rule cannot work in production if the app never receives 
 
 ## Current Project Guidance
 
-For `muxbot`, the truthful current guidance is:
+For `clisbot`, the truthful current guidance is:
 
 - keep documenting that implicit no-mention follow-up depends on routed Slack `message.*` delivery
 - do not claim that `parent_user_id === botUserId` is the right Slack rule for general thread continuation
@@ -366,7 +366,7 @@ For `muxbot`, the truthful current guidance is:
 ## Open Questions
 
 - Which exact Slack event subscription combination is still missing in the live app, given that the explicit mention reached the app but the no-mention follow-up did not?
-- Should `muxbot` define its product rule as:
+- Should `clisbot` define its product rule as:
   - bot participated anywhere in thread
   - or only bot-authored visible reply anchor
 - If the product uses "bot participated in thread", should the thread-participation check be cached exactly once per thread and then trusted until reset?

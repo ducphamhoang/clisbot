@@ -72,7 +72,7 @@ function summarizeSlackHealthError(error: unknown) {
       actions: [
         "add the missing Slack scopes and event subscriptions for the routes you expect to handle",
         "reinstall the Slack app after changing scopes",
-        "run `muxbot logs` again after reinstall to confirm the missing-scope error is gone",
+        "run `clisbot logs` again after reinstall to confirm the missing-scope error is gone",
       ],
     };
   }
@@ -80,9 +80,9 @@ function summarizeSlackHealthError(error: unknown) {
   return {
     summary: "Slack channel failed to start.",
     actions: [
-      "run `muxbot logs` and inspect the latest Slack startup error",
+      "run `clisbot logs` and inspect the latest Slack startup error",
       "verify the Slack app token, bot token, and workspace match",
-      "verify Socket Mode and the required Slack scopes are enabled before restarting `muxbot`",
+      "verify Socket Mode and the required Slack scopes are enabled before restarting `clisbot`",
     ],
   };
 }
@@ -94,7 +94,7 @@ function summarizeTelegramHealthError(error: unknown) {
     actions: [
       "verify `channels.telegram.botToken` resolves to the intended bot token",
       "confirm no other Telegram bot instance is polling the same token",
-      "run `muxbot logs` again after restarting to confirm the startup error is gone",
+      "run `clisbot logs` again after restarting to confirm the startup error is gone",
     ],
   };
 }

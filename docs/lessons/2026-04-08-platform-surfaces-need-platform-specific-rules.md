@@ -14,7 +14,7 @@ related:
 
 ## Context
 
-This lesson comes from recurring Codex feedback in the `muxbot` project around Telegram versus Slack behavior.
+This lesson comes from recurring Codex feedback in the `clisbot` project around Telegram versus Slack behavior.
 
 It was confirmed against local Codex session history captured during project work, where Telegram-specific issues around group routing, `/whoami`, `/start`, command menus, and rendering kept surfacing separately from Slack thread behavior.
 

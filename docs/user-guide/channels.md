@@ -14,7 +14,7 @@ Useful slash commands on routed Slack and Telegram conversations:
 - `/whoami`
 - `/stop`
 
-`muxbot` also supports session-scoped Slack and Telegram follow-up policy.
+`clisbot` also supports session-scoped Slack and Telegram follow-up policy.
 
 Current control commands inside a conversation are:
 
@@ -45,26 +45,26 @@ Operational notes:
 
 ## Operator Commands
 
-Use the `muxbot channels ...` CLI to update route config without editing JSON by hand.
+Use the `clisbot channels ...` CLI to update route config without editing JSON by hand.
 
 Current commands:
 
-- `muxbot channels enable slack`
-- `muxbot channels disable slack`
-- `muxbot channels enable telegram`
-- `muxbot channels disable telegram`
-- `muxbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]`
-- `muxbot channels remove telegram-group <chatId> [--topic <topicId>]`
-- `muxbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]`
-- `muxbot channels remove slack-channel <channelId>`
-- `muxbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]`
-- `muxbot channels remove slack-group <groupId>`
-- `muxbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
-- `muxbot channels clear-token <slack-app|slack-bot|telegram-bot>`
-- `muxbot channels privilege enable <target>`
-- `muxbot channels privilege disable <target>`
-- `muxbot channels privilege allow-user <target> <userId>`
-- `muxbot channels privilege remove-user <target> <userId>`
+- `clisbot channels enable slack`
+- `clisbot channels disable slack`
+- `clisbot channels enable telegram`
+- `clisbot channels disable telegram`
+- `clisbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]`
+- `clisbot channels remove telegram-group <chatId> [--topic <topicId>]`
+- `clisbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]`
+- `clisbot channels remove slack-channel <channelId>`
+- `clisbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]`
+- `clisbot channels remove slack-group <groupId>`
+- `clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
+- `clisbot channels clear-token <slack-app|slack-bot|telegram-bot>`
+- `clisbot channels privilege enable <target>`
+- `clisbot channels privilege disable <target>`
+- `clisbot channels privilege allow-user <target> <userId>`
+- `clisbot channels privilege remove-user <target> <userId>`
 
 Practical notes:
 
@@ -89,13 +89,13 @@ Reaction notes:
 
 - the live in-thread reply is still the main processing indicator
 - Slack reactions need bot scope `reactions:write`
-- if `reactions:write` is missing, `muxbot` should keep replying normally and fall back to the live in-thread processing reply only
+- if `reactions:write` is missing, `clisbot` should keep replying normally and fall back to the live in-thread processing reply only
 
 Assistant status notes:
 
 - Slack assistant thread status currently accepts bot scope `chat:write` and still temporarily accepts `assistant:write`
 - this is the UI line that looks like `<bot name> Working...` or rotates configured loading messages
-- if Slack status writes are unavailable, `muxbot` should keep replying normally and fall back to reactions plus the live in-thread processing reply
+- if Slack status writes are unavailable, `clisbot` should keep replying normally and fall back to reactions plus the live in-thread processing reply
 
 ## Sensitive Commands
 
@@ -163,7 +163,7 @@ Important rule:
 - shortcut prefixes are configured through `channels.<platform>.commandPrefixes`
 - defaults are `slash: ["::", "\\"]` and `bash: ["!"]`
 - the `privilege` CLI is the fastest way to enable or restrict `/transcript` and `/bash` without editing JSON by hand
-- DM targets are literal: use `muxbot channels privilege enable slack-dm` or `muxbot channels privilege enable telegram-dm`
+- DM targets are literal: use `clisbot channels privilege enable slack-dm` or `clisbot channels privilege enable telegram-dm`
 
 ## Slack Event Subscriptions
 
@@ -175,8 +175,8 @@ For channel threads, the critical subscription is:
 
 If `message.channels` is missing:
 
-- explicit `@tmuxbot ...` messages can still work through `app_mention`
-- plain thread follow-up after the bot has already replied will not reach `muxbot`
+- explicit `@tclisbot ...` messages can still work through `app_mention`
+- plain thread follow-up after the bot has already replied will not reach `clisbot`
 - the follow-up policy status can look correct while the bot still appears silent, because the inbound Slack event never arrives
 
 For other Slack conversation kinds, the matching routed subscriptions are also needed:
@@ -272,7 +272,7 @@ Practical notes:
 - private groups usually use ids that start with `G`
 - Slack DMs also have a conversation id, but DM routing is controlled by `channels.slack.directMessages`, not by adding a DM id under `channels.slack.channels`
 - `/whoami` only works after the Slack conversation is already routed to an agent
-- if the bot is not responding yet, check `muxbot logs` after sending a message and confirm the required `message.channels`, `message.groups`, `message.im`, or `message.mpim` subscription exists
+- if the bot is not responding yet, check `clisbot logs` after sending a message and confirm the required `message.channels`, `message.groups`, `message.im`, or `message.mpim` subscription exists
 
 Example:
 
@@ -346,7 +346,7 @@ Practical rule:
 
 Use one of these practical paths:
 
-1. Start `muxbot`, add the bot to the target Telegram group, and send `/start`, `/status`, or `/whoami` in that group.
+1. Start `clisbot`, add the bot to the target Telegram group, and send `/start`, `/status`, or `/whoami` in that group.
 2. Read the reply.
 3. Copy `chatId` into `channels.telegram.groups.<chatId>`.
 4. Copy `topicId` into `channels.telegram.groups.<chatId>.topics.<topicId>` when you are using a forum topic.
@@ -362,7 +362,7 @@ What `/whoami` gives you:
 When the group or topic is not routed yet:
 
 - Telegram still exposes a minimal command menu with `/start`, `/status`, `/help`, and `/whoami`
-- the reply includes the exact `muxbot channels add telegram-group ...` command to run
+- the reply includes the exact `clisbot channels add telegram-group ...` command to run
 - more sensitive commands such as `/transcript`, `/stop`, `/followup`, and `/bash` only appear after the route is added and allowed
 
 Practical notes:
@@ -370,7 +370,7 @@ Practical notes:
 - a normal Telegram group only needs `chatId`
 - a Telegram forum supergroup topic needs both `chatId` and `topicId`
 - the General topic usually uses topic id `1`
-- if the bot is not responding yet, check `muxbot logs` after sending a message in the group and look for Telegram activity before assuming the token is wrong
+- if the bot is not responding yet, check `clisbot logs` after sending a message in the group and look for Telegram activity before assuming the token is wrong
 
 Example:
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 let cachedVersion: string | undefined;
 
-export function getMuxbotVersion() {
+export function getClisbotVersion() {
   if (cachedVersion) {
     return cachedVersion;
   }

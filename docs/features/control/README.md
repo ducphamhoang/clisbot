@@ -2,7 +2,7 @@
 
 ## Summary
 
-Control is the operator-facing system for inspecting and intervening in `muxbot`.
+Control is the operator-facing system for inspecting and intervening in `clisbot`.
 
 ## State
 

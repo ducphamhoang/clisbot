@@ -13,9 +13,9 @@ related:
 
 ## Context
 
-This lesson comes from local runtime testing in the `muxbot` project on April 9, 2026.
+This lesson comes from local runtime testing in the `clisbot` project on April 9, 2026.
 
-While validating Slack privilege-command flows, two operator CLI mutations were run in parallel against `~/.muxbot/muxbot.json`.
+While validating Slack privilege-command flows, two operator CLI mutations were run in parallel against `~/.clisbot/clisbot.json`.
 
 That corrupted the local config file and had to be repaired manually before runtime testing could continue.
 

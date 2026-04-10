@@ -10,7 +10,7 @@ describe("channels cli", () => {
   const originalLog = console.log;
 
   afterEach(() => {
-    process.env.MUXBOT_CONFIG_PATH = previousConfigPath;
+    process.env.CLISBOT_CONFIG_PATH = previousConfigPath;
     console.log = originalLog;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
@@ -18,9 +18,9 @@ describe("channels cli", () => {
   });
 
   test("adds and removes telegram group routes", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli([
@@ -34,7 +34,7 @@ describe("channels cli", () => {
     ]);
 
     let rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         telegram: {
@@ -56,15 +56,15 @@ describe("channels cli", () => {
     await runChannelsCli(["remove", "telegram-group", "-1001234567890"]);
 
     rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     );
     expect(rawConfig.channels.telegram.groups).toEqual({});
   });
 
   test("adds telegram topic routes under the group", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli([
@@ -78,7 +78,7 @@ describe("channels cli", () => {
     ]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         telegram: {
@@ -94,9 +94,9 @@ describe("channels cli", () => {
   });
 
   test("prints policy guidance after adding a telegram route", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const logs: string[] = [];
     console.log = ((value?: unknown) => {
       logs.push(String(value ?? ""));
@@ -120,15 +120,15 @@ describe("channels cli", () => {
   });
 
   test("updates token references", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli(["set-token", "telegram-bot", "${CUSTOM_TELEGRAM_BOT_TOKEN}"]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         telegram: {
@@ -149,14 +149,14 @@ describe("channels cli", () => {
     await runChannelsCli([]);
 
     const output = logs.join("\n");
-    expect(output).toContain("muxbot channels");
+    expect(output).toContain("clisbot channels");
     expect(output).toContain("Policy guide:");
     expect(output).toContain("Telegram DMs still follow channels.telegram.directMessages.policy");
     expect(output).toContain("Telegram DMs use `pairing`.");
-    expect(output).toContain("muxbot pairing approve telegram <code>");
+    expect(output).toContain("clisbot pairing approve telegram <code>");
     expect(output).toContain("additional-message-mode");
-    expect(output).toContain("tmux -S ~/.muxbot/state/muxbot.sock list-sessions");
-    expect(output).toContain("tmux -S ~/.muxbot/state/muxbot.sock attach -t <session-name>");
+    expect(output).toContain("tmux -S ~/.clisbot/state/clisbot.sock list-sessions");
+    expect(output).toContain("tmux -S ~/.clisbot/state/clisbot.sock attach -t <session-name>");
   });
 
   test("prints the same help for channels --help", async () => {
@@ -168,15 +168,15 @@ describe("channels cli", () => {
     await runChannelsCli(["--help"]);
 
     const output = logs.join("\n");
-    expect(output).toContain("muxbot channels");
+    expect(output).toContain("clisbot channels");
     expect(output).toContain("Discovery tips:");
     expect(output).toContain("Next steps:");
   });
 
   test("updates route privilege commands", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli([
@@ -206,7 +206,7 @@ describe("channels cli", () => {
     ]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         telegram: {
@@ -231,15 +231,15 @@ describe("channels cli", () => {
   });
 
   test("updates top-level channel responseMode", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli(["response-mode", "set", "capture-pane", "--channel", "slack"]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         slack: {
@@ -252,9 +252,9 @@ describe("channels cli", () => {
   });
 
   test("updates telegram topic responseMode", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli([
@@ -280,7 +280,7 @@ describe("channels cli", () => {
     ]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         telegram: {
@@ -294,15 +294,15 @@ describe("channels cli", () => {
   });
 
   test("updates top-level channel additionalMessageMode", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli(["additional-message-mode", "set", "queue", "--channel", "slack"]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         slack: {
@@ -315,9 +315,9 @@ describe("channels cli", () => {
   });
 
   test("updates telegram topic additionalMessageMode", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-channels-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     console.log = (() => {}) as typeof console.log;
 
     await runChannelsCli([
@@ -343,7 +343,7 @@ describe("channels cli", () => {
     ]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       channels: {
         telegram: {

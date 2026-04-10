@@ -4,7 +4,7 @@
 
 This document captures the initial analysis of how OpenClaw organizes session state, conversation transcripts, workspace context, and durable memory.
 
-It is research first, not a final `muxbot` architecture contract.
+It is research first, not a final `clisbot` architecture contract.
 
 ## Status
 
@@ -12,7 +12,7 @@ Done
 
 ## Why This Exists
 
-`muxbot` is moving toward OpenClaw-compatible session concepts.
+`clisbot` is moving toward OpenClaw-compatible session concepts.
 
 Before copying folder layouts or config names, we need to separate:
 
@@ -351,11 +351,11 @@ That means one of these is true:
 1. another later stage filters memory files by chat type before prompt injection
 2. the docs describe intended behavior, but the current runtime is broader than the docs claim
 
-This should be verified before `muxbot` copies the behavior.
+This should be verified before `clisbot` copies the behavior.
 
-## Implications For muxbot
+## Implications For clisbot
 
-If `muxbot` wants to align with OpenClaw, it should not copy only the folder names.
+If `clisbot` wants to align with OpenClaw, it should not copy only the folder names.
 
 It needs explicit design decisions for:
 
@@ -380,9 +380,9 @@ Before implementation, these questions should be explicit:
 
 ## Recommended Follow-Up Work
 
-This analysis suggests the next `muxbot` design work should produce:
+This analysis suggests the next `clisbot` design work should produce:
 
-1. a `muxbot` session-context contract
+1. a `clisbot` session-context contract
 2. a durable memory ownership model
 3. a privacy model for multi-user agents
 4. a decision on whether transcript retrieval and durable memory should stay separate
@@ -397,4 +397,4 @@ OpenClaw should be understood as:
 - session key = transcript isolation boundary
 - workspace design = long-term memory sharing boundary
 
-That distinction is the minimum model `muxbot` should carry forward into its own session and context architecture.
+That distinction is the minimum model `clisbot` should carry forward into its own session and context architecture.

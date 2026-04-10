@@ -4,21 +4,21 @@ import {
   resolveSlackAccountConfig,
   resolveTelegramAccountConfig,
 } from "../src/config/channel-accounts.ts";
-import type { MuxbotConfig } from "../src/config/schema.ts";
+import type { ClisbotConfig } from "../src/config/schema.ts";
 
-function createConfig(): MuxbotConfig {
+function createConfig(): ClisbotConfig {
   return {
     meta: { schemaVersion: 1 },
-    tmux: { socketPath: "~/.muxbot/state/muxbot.sock" },
+    tmux: { socketPath: "~/.clisbot/state/clisbot.sock" },
     session: {
       mainKey: "main",
       dmScope: "main",
       identityLinks: {},
-      storePath: "~/.muxbot/state/sessions.json",
+      storePath: "~/.clisbot/state/sessions.json",
     },
     agents: {
       defaults: {
-        workspace: "~/.muxbot/workspaces/{agentId}",
+        workspace: "~/.clisbot/workspaces/{agentId}",
         runner: {
           command: "codex",
           args: ["-C", "{workspace}"],

@@ -5,7 +5,7 @@ import { type ChannelPlugin } from "../channels/channel-plugin.ts";
 import type { ParsedMessageCommand, MessageAction } from "../channels/message-command.ts";
 
 function getConfigPath() {
-  return process.env.MUXBOT_CONFIG_PATH;
+  return process.env.CLISBOT_CONFIG_PATH;
 }
 
 type MessageCliDependencies = {
@@ -113,20 +113,20 @@ function parseMessageCommand(args: string[]): ParsedMessageCommand | null {
 
 export function renderMessageHelp() {
   return [
-    "muxbot message",
+    "clisbot message",
     "",
     "Usage:",
-    "  muxbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--force-document] [--silent] [--progress|--final]",
-    "  muxbot message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <id>] [--silent]",
-    "  muxbot message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]",
-    "  muxbot message reactions --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
-    "  muxbot message read --channel <slack|telegram> --target <dest> [--account <id>] [--limit <n>]",
-    "  muxbot message edit --channel <slack|telegram> --target <dest> --message-id <id> --message <text> [--account <id>]",
-    "  muxbot message delete --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
-    "  muxbot message pin --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
-    "  muxbot message unpin --channel <slack|telegram> --target <dest> [--message-id <id>] [--account <id>]",
-    "  muxbot message pins --channel <slack|telegram> --target <dest> [--account <id>]",
-    "  muxbot message search --channel <slack|telegram> --target <dest> --query <text> [--account <id>] [--limit <n>]",
+    "  clisbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--force-document] [--silent] [--progress|--final]",
+    "  clisbot message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <id>] [--silent]",
+    "  clisbot message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]",
+    "  clisbot message reactions --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
+    "  clisbot message read --channel <slack|telegram> --target <dest> [--account <id>] [--limit <n>]",
+    "  clisbot message edit --channel <slack|telegram> --target <dest> --message-id <id> --message <text> [--account <id>]",
+    "  clisbot message delete --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
+    "  clisbot message pin --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
+    "  clisbot message unpin --channel <slack|telegram> --target <dest> [--message-id <id>] [--account <id>]",
+    "  clisbot message pins --channel <slack|telegram> --target <dest> [--account <id>]",
+    "  clisbot message search --channel <slack|telegram> --target <dest> --query <text> [--account <id>] [--limit <n>]",
   ].join("\n");
 }
 

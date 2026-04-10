@@ -329,11 +329,11 @@ function buildConfig(params: {
 
 describe("AgentService session identity", () => {
   test("captures runner-generated session id from status output and reuses it on resume", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -386,7 +386,7 @@ describe("AgentService session identity", () => {
         RUNNER_GENERATED_ID,
       );
       expect(fakeTmux.sessionCommands[0]).toContain("export PATH=");
-      expect(fakeTmux.sessionCommands[0]).toContain("export MUXBOT_BIN=");
+      expect(fakeTmux.sessionCommands[0]).toContain("export CLISBOT_BIN=");
       expect(fakeTmux.sessionCommands[0]).toContain("fake-cli -C");
       expect(fakeTmux.sessionCommands[0]).not.toContain("resume");
 
@@ -408,11 +408,11 @@ describe("AgentService session identity", () => {
   });
 
   test("passes explicit session ids to the runner and reuses them after restart", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -484,11 +484,11 @@ describe("AgentService session identity", () => {
   });
 
   test("falls back to a fresh runner session when resume startup dies immediately", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -557,11 +557,11 @@ describe("AgentService session identity", () => {
   });
 
   test("falls back to a fresh runner session when the resumed runner disappears before prompt submission", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -630,11 +630,11 @@ describe("AgentService session identity", () => {
   });
 
   test("waits for a delayed trust prompt on first startup", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -692,11 +692,11 @@ describe("AgentService session identity", () => {
   });
 
   test("recovers when the tmux socket exists but the server is not running", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -752,11 +752,11 @@ describe("AgentService session identity", () => {
   });
 
   test("persists conversation follow-up overrides and bot participation timestamps", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -815,11 +815,11 @@ describe("AgentService session identity", () => {
   });
 
   test("sunsets stale tmux sessions without discarding the stored session id", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -905,11 +905,11 @@ describe("AgentService session identity", () => {
   });
 
   test("detaches long-running prompts instead of timing them out and protects them from stale cleanup", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -996,11 +996,11 @@ describe("AgentService session identity", () => {
   });
 
   test("rejects a new prompt while a detached active run is still being monitored", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -1069,11 +1069,11 @@ describe("AgentService session identity", () => {
   });
 
   test("reconciles persisted detached runtime state on service start", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -1153,11 +1153,11 @@ describe("AgentService session identity", () => {
   });
 
   test("surfaces a clean error when the tmux session disappears mid-prompt", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,
@@ -1215,11 +1215,11 @@ describe("AgentService session identity", () => {
   });
 
   test("recovers when tmux reports duplicate session during concurrent startup", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-agent-service-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
-      const socketPath = join(tempDir, "muxbot.sock");
-      const configPath = join(tempDir, "muxbot.json");
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
       const storePath = join(tempDir, "sessions.json");
       await Bun.write(
         configPath,

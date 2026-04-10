@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { kill } from "node:process";
 import { loadConfig } from "../config/load-config.ts";
 import { renderDefaultConfigTemplate } from "../config/template.ts";
-import { ensureMuxbotWrapper } from "./muxbot-wrapper.ts";
+import { ensureClisbotWrapper } from "./clisbot-wrapper.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { readTextFile, readTextFileSlice, writeTextFile } from "../shared/fs.ts";
 import {
@@ -23,15 +23,15 @@ const STOP_WAIT_TIMEOUT_MS = 10_000;
 const PROCESS_POLL_INTERVAL_MS = 100;
 
 function resolveConfigPath(configPath?: string) {
-  return expandHomePath(configPath ?? process.env.MUXBOT_CONFIG_PATH ?? DEFAULT_CONFIG_PATH);
+  return expandHomePath(configPath ?? process.env.CLISBOT_CONFIG_PATH ?? DEFAULT_CONFIG_PATH);
 }
 
 function resolvePidPath(pidPath?: string) {
-  return expandHomePath(pidPath ?? process.env.MUXBOT_PID_PATH ?? DEFAULT_RUNTIME_PID_PATH);
+  return expandHomePath(pidPath ?? process.env.CLISBOT_PID_PATH ?? DEFAULT_RUNTIME_PID_PATH);
 }
 
 function resolveLogPath(logPath?: string) {
-  return expandHomePath(logPath ?? process.env.MUXBOT_LOG_PATH ?? DEFAULT_RUNTIME_LOG_PATH);
+  return expandHomePath(logPath ?? process.env.CLISBOT_LOG_PATH ?? DEFAULT_RUNTIME_LOG_PATH);
 }
 
 export type RuntimeStartResult = {
@@ -99,7 +99,7 @@ export async function ensureConfigFile(
   configPath?: string,
   options: ConfigBootstrapOptions = {},
 ) {
-  await ensureMuxbotWrapper();
+  await ensureClisbotWrapper();
   const expandedConfigPath = resolveConfigPath(configPath);
   await ensureDir(dirname(expandedConfigPath));
 
@@ -160,16 +160,16 @@ export async function startDetachedRuntime(params: {
     detached: true,
     env: {
       ...process.env,
-      MUXBOT_CONFIG_PATH: configResult.configPath,
-      MUXBOT_PID_PATH: pidPath,
-      MUXBOT_LOG_PATH: logPath,
+      CLISBOT_CONFIG_PATH: configResult.configPath,
+      CLISBOT_PID_PATH: pidPath,
+      CLISBOT_LOG_PATH: logPath,
     },
   });
   closeSync(logFd);
   child.unref();
   const childPid = child.pid;
   if (childPid == null) {
-    throw new Error("muxbot failed to spawn detached runtime process");
+    throw new Error("clisbot failed to spawn detached runtime process");
   }
 
   const started = await waitForStart({
@@ -181,7 +181,7 @@ export async function startDetachedRuntime(params: {
     const cleanedUp = await cleanupFailedStartChild(started);
     const reason = renderStartFailureReason(started, pidPath, cleanedUp);
     throw new StartDetachedRuntimeError(
-      `muxbot failed to start within ${START_WAIT_TIMEOUT_MS}ms (${reason}). Check ${logPath}`,
+      `clisbot failed to start within ${START_WAIT_TIMEOUT_MS}ms (${reason}). Check ${logPath}`,
       logPath,
       logStartOffset,
     );
@@ -211,7 +211,7 @@ export async function stopDetachedRuntime(params: {
     kill(existingPid, "SIGTERM");
     const exited = await waitForProcessExit(existingPid, STOP_WAIT_TIMEOUT_MS);
     if (!exited) {
-      throw new Error(`muxbot did not stop within ${STOP_WAIT_TIMEOUT_MS}ms`);
+      throw new Error(`clisbot did not stop within ${STOP_WAIT_TIMEOUT_MS}ms`);
     }
     stopped = true;
   }
@@ -224,7 +224,7 @@ export async function stopDetachedRuntime(params: {
     try {
       await tmux.killServer();
     } catch {
-      // No muxbot tmux server is also an acceptable hard-stop outcome.
+      // No clisbot tmux server is also an acceptable hard-stop outcome.
     }
   }
 
@@ -377,7 +377,7 @@ function renderStartFailureReason(
   cleanedUp = false,
 ) {
   const cleanupSuffix = cleanedUp
-    ? `; muxbot terminated the orphan runtime pid ${result.childPid}`
+    ? `; clisbot terminated the orphan runtime pid ${result.childPid}`
     : "";
 
   if (result.reason === "child-exited-before-pid") {

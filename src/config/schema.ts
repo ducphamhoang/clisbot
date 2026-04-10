@@ -117,7 +117,7 @@ const sessionConfigSchema = z.object({
   mainKey: z.string().min(1).default("main"),
   dmScope: sessionDmScopeSchema.default("main"),
   identityLinks: z.record(z.string(), z.array(z.string())).default({}),
-  storePath: z.string().default("~/.muxbot/state/sessions.json"),
+  storePath: z.string().default("~/.clisbot/state/sessions.json"),
 });
 
 const runnerOverrideSchema = z.object({
@@ -159,7 +159,7 @@ const agentEntrySchema = agentOverrideSchema.extend({
 });
 
 const agentDefaultsSchema = z.object({
-  workspace: z.string().default("~/.muxbot/workspaces/{agentId}"),
+  workspace: z.string().default("~/.clisbot/workspaces/{agentId}"),
   runner: runnerSchema.default({
     command: "codex",
     args: [
@@ -431,7 +431,7 @@ const controlSchema = z.object({
   }),
 });
 
-export const muxbotConfigSchema = z.object({
+export const clisbotConfigSchema = z.object({
   meta: z
     .object({
       schemaVersion: z.number().int().positive().default(1),
@@ -441,13 +441,13 @@ export const muxbotConfigSchema = z.object({
       schemaVersion: 1,
     }),
   tmux: z.object({
-    socketPath: z.string().default("~/.muxbot/state/muxbot.sock"),
+    socketPath: z.string().default("~/.clisbot/state/clisbot.sock"),
   }),
   session: sessionConfigSchema.default({
     mainKey: "main",
     dmScope: "main",
     identityLinks: {},
-    storePath: "~/.muxbot/state/sessions.json",
+    storePath: "~/.clisbot/state/sessions.json",
   }),
   agents: z.object({
     defaults: agentDefaultsSchema,
@@ -521,6 +521,6 @@ export const muxbotConfigSchema = z.object({
   }),
 });
 
-export type MuxbotConfig = z.infer<typeof muxbotConfigSchema>;
+export type ClisbotConfig = z.infer<typeof clisbotConfigSchema>;
 export type AgentOverride = z.infer<typeof agentOverrideSchema>;
 export type AgentEntry = z.infer<typeof agentEntrySchema>;

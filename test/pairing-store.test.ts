@@ -11,7 +11,7 @@ import {
 
 describe("pairing store", () => {
   test("reuses a pending code for the same sender", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-pairing-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-"));
     try {
       const first = await upsertChannelPairingRequest({
         channel: "slack",
@@ -34,7 +34,7 @@ describe("pairing store", () => {
   });
 
   test("approving a code removes the pending request and populates allowFrom", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-pairing-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-"));
     try {
       const created = await upsertChannelPairingRequest({
         channel: "telegram",
@@ -56,7 +56,7 @@ describe("pairing store", () => {
   });
 
   test("expires stale pending requests on read", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-pairing-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-"));
     try {
       const created = await upsertChannelPairingRequest({
         channel: "telegram",

@@ -10,7 +10,7 @@ describe("agents cli", () => {
   const originalLog = console.log;
 
   afterEach(() => {
-    process.env.MUXBOT_CONFIG_PATH = previousConfigPath;
+    process.env.CLISBOT_CONFIG_PATH = previousConfigPath;
     console.log = originalLog;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
@@ -18,9 +18,9 @@ describe("agents cli", () => {
   });
 
   test("adds an agent with cli defaults, bootstrap files, and bindings", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const output: string[] = [];
     console.log = ((value: string) => {
       output.push(value);
@@ -40,7 +40,7 @@ describe("agents cli", () => {
     ]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       agents: {
         list: Array<{
@@ -76,9 +76,9 @@ describe("agents cli", () => {
   });
 
   test("team-assistant bootstrap overrides base USER.md with the team template", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
 
     await runAgentsCli([
       "add",
@@ -102,14 +102,14 @@ describe("agents cli", () => {
   });
 
   test("keeps runner override when the selected tool differs from defaults", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
 
     await runAgentsCli(["add", "work", "--cli", "claude"]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       agents: {
         list: Array<{
@@ -128,9 +128,9 @@ describe("agents cli", () => {
   });
 
   test("keeps startup option and runner overrides when startup options differ from tool defaults", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
 
     await runAgentsCli([
       "add",
@@ -146,7 +146,7 @@ describe("agents cli", () => {
     ]);
 
     const rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       agents: {
         list: Array<{
@@ -171,9 +171,9 @@ describe("agents cli", () => {
   });
 
   test("lists bindings for configured agents", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const output: string[] = [];
     console.log = ((value: string) => {
       output.push(value);
@@ -187,9 +187,9 @@ describe("agents cli", () => {
   });
 
   test("sets, shows, and clears agent responseMode", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const output: string[] = [];
     console.log = ((value: string) => {
       output.push(value);
@@ -201,7 +201,7 @@ describe("agents cli", () => {
     await runAgentsCli(["response-mode", "set", "capture-pane", "--agent", "work"]);
 
     let rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       agents: {
         list: Array<{ id: string; responseMode?: string }>;
@@ -217,15 +217,15 @@ describe("agents cli", () => {
 
     output.length = 0;
     await runAgentsCli(["response-mode", "clear", "--agent", "work"]);
-    rawConfig = JSON.parse(readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"));
+    rawConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
     expect(rawConfig.agents.list[0]?.responseMode).toBeUndefined();
     expect(output.join("\n")).toContain("cleared responseMode for work");
   });
 
   test("sets, shows, and clears agent additionalMessageMode", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const output: string[] = [];
     console.log = ((value: string) => {
       output.push(value);
@@ -237,7 +237,7 @@ describe("agents cli", () => {
     await runAgentsCli(["additional-message-mode", "set", "queue", "--agent", "work"]);
 
     let rawConfig = JSON.parse(
-      readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"),
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
     ) as {
       agents: {
         list: Array<{ id: string; additionalMessageMode?: string }>;
@@ -253,15 +253,15 @@ describe("agents cli", () => {
 
     output.length = 0;
     await runAgentsCli(["additional-message-mode", "clear", "--agent", "work"]);
-    rawConfig = JSON.parse(readFileSync(process.env.MUXBOT_CONFIG_PATH!, "utf8"));
+    rawConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
     expect(rawConfig.agents.list[0]?.additionalMessageMode).toBeUndefined();
     expect(output.join("\n")).toContain("cleared additionalMessageMode for work");
   });
 
   test("lists agent responseMode state", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const output: string[] = [];
     console.log = ((value: string) => {
       output.push(value);
@@ -276,9 +276,9 @@ describe("agents cli", () => {
   });
 
   test("bootstrap refuses overwrite without force and can overwrite with force", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-agents-cli-"));
-    previousConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    process.env.MUXBOT_CONFIG_PATH = join(tempDir, "muxbot.json");
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
     const output: string[] = [];
     console.log = ((value: string) => {
       output.push(value);

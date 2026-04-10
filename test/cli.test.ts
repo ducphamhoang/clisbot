@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseCliArgs, renderCliHelp } from "../src/cli.ts";
-import { getMuxbotVersion } from "../src/version.ts";
+import { getClisbotVersion } from "../src/version.ts";
 
 describe("parseCliArgs", () => {
   test("parses stop --hard", () => {
@@ -129,8 +129,8 @@ describe("renderCliHelp", () => {
   test("includes lifecycle commands and npm usage", () => {
     const help = renderCliHelp();
 
-    expect(help).toContain(`muxbot v${getMuxbotVersion()}`);
-    expect(help).toContain("muxbot start");
+    expect(help).toContain(`clisbot v${getClisbotVersion()}`);
+    expect(help).toContain("clisbot start");
     expect(help).toContain("personal-assistant");
     expect(help).toContain("team-assistant");
     expect(help).toContain("SLACK_APP_TOKEN");
@@ -139,21 +139,21 @@ describe("renderCliHelp", () => {
     expect(help).toContain("uses standard env names automatically on first run");
     expect(help).toContain("One human gets one dedicated long-lived assistant workspace and session path");
     expect(help).toContain("One shared channel or group routes into one shared assistant workspace and session path");
-    expect(help).toContain("muxbot start --cli codex --bootstrap personal-assistant");
-    expect(help).toContain("muxbot restart");
-    expect(help).toContain("muxbot stop [--hard]");
-    expect(help).toContain("muxbot status");
-    expect(help).toContain("muxbot version");
-    expect(help).toContain("muxbot logs [--lines N]");
-    expect(help).toContain("muxbot channels <subcommand>");
-    expect(help).toContain("muxbot message <subcommand>");
-    expect(help).toContain("muxbot agents <subcommand>");
-    expect(help).toContain("muxbot init [--cli <codex|claude>] [--bootstrap <personal-assistant|team-assistant>]");
+    expect(help).toContain("clisbot start --cli codex --bootstrap personal-assistant");
+    expect(help).toContain("clisbot restart");
+    expect(help).toContain("clisbot stop [--hard]");
+    expect(help).toContain("clisbot status");
+    expect(help).toContain("clisbot version");
+    expect(help).toContain("clisbot logs [--lines N]");
+    expect(help).toContain("clisbot channels <subcommand>");
+    expect(help).toContain("clisbot message <subcommand>");
+    expect(help).toContain("clisbot agents <subcommand>");
+    expect(help).toContain("clisbot init [--cli <codex|claude>] [--bootstrap <personal-assistant|team-assistant>]");
     expect(help).not.toContain("print-config-path");
-    expect(help).toContain("npx @muxbot/muxbot start");
-    expect(help).toContain("npm install -g @muxbot/muxbot && muxbot start");
+    expect(help).toContain("npx clisbot start");
+    expect(help).toContain("npm install -g clisbot && clisbot start");
     expect(help).toContain("Docs: docs/user-guide/README.md");
-    expect(help).toContain("clone https://github.com/longbkit/muxbot");
+    expect(help).toContain("clone https://github.com/longbkit/clisbot");
     expect(help).toContain("Codex or Claude Code");
   });
 });

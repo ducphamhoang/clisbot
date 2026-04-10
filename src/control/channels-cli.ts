@@ -23,31 +23,31 @@ type ChannelAction = "enable" | "disable";
 type TokenTarget = "slack-app" | "slack-bot" | "telegram-bot";
 
 function getEditableConfigPath() {
-  return process.env.MUXBOT_CONFIG_PATH;
+  return process.env.CLISBOT_CONFIG_PATH;
 }
 
 export function renderChannelsHelp() {
   return [
-    "muxbot channels",
+    "clisbot channels",
     "",
     "Usage:",
-    "  muxbot channels",
-    "  muxbot channels --help",
-    "  muxbot channels enable <slack|telegram>",
-    "  muxbot channels disable <slack|telegram>",
-    "  muxbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]",
-    "  muxbot channels remove telegram-group <chatId> [--topic <topicId>]",
-    "  muxbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]",
-    "  muxbot channels remove slack-channel <channelId>",
-    "  muxbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]",
-    "  muxbot channels remove slack-group <groupId>",
-    "  muxbot channels privilege <enable|disable|allow-user|remove-user> <target> ...",
-    "  muxbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
-    "  muxbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
-    "  muxbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
-    "  muxbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
-    "  muxbot channels set-token <slack-app|slack-bot|telegram-bot> <value>",
-    "  muxbot channels clear-token <slack-app|slack-bot|telegram-bot>",
+    "  clisbot channels",
+    "  clisbot channels --help",
+    "  clisbot channels enable <slack|telegram>",
+    "  clisbot channels disable <slack|telegram>",
+    "  clisbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]",
+    "  clisbot channels remove telegram-group <chatId> [--topic <topicId>]",
+    "  clisbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]",
+    "  clisbot channels remove slack-channel <channelId>",
+    "  clisbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]",
+    "  clisbot channels remove slack-group <groupId>",
+    "  clisbot channels privilege <enable|disable|allow-user|remove-user> <target> ...",
+    "  clisbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
+    "  clisbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
+    "  clisbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
+    "  clisbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
+    "  clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>",
+    "  clisbot channels clear-token <slack-app|slack-bot|telegram-bot>",
     "",
     "Policy guide:",
     "  - Slack DMs still follow channels.slack.directMessages.policy",
@@ -57,7 +57,7 @@ export function renderChannelsHelp() {
     "  - Telegram groups need channels.telegram.groups.<chatId>",
     "  - Telegram forum topics need channels.telegram.groups.<chatId>.topics.<topicId>",
     "  - Adding a route puts that surface on the allowlist; other channels, groups, or topics still need to be added explicitly",
-    "  - Tune route settings such as requireMention, privilegeCommands, and followUp in muxbot.json when a surface should behave differently",
+    "  - Tune route settings such as requireMention, privilegeCommands, and followUp in clisbot.json when a surface should behave differently",
     "  - Response delivery can be tuned with responseMode: `capture-pane` or `message-tool`",
     "  - Busy-session follow-up can be tuned with additionalMessageMode: `steer` or `queue`",
     "  - Slack response-mode targets use `channel:<id>`, `group:<id>`, or `dm:<id>`",
@@ -68,28 +68,28 @@ export function renderChannelsHelp() {
     "  - Use pairing or allowlist DM policy when you do not want open direct-message access",
     "",
     "Response mode examples:",
-    "  - muxbot channels response-mode status --channel slack",
-    "  - muxbot channels response-mode set message-tool --channel slack --target channel:C123",
-    "  - muxbot channels response-mode set capture-pane --channel slack --target group:G123",
-    "  - muxbot channels response-mode set message-tool --channel slack --target dm:D123",
-    "  - muxbot channels response-mode set message-tool --channel telegram --target -1001234567890",
-    "  - muxbot channels response-mode set capture-pane --channel telegram --target -1001234567890 --topic 42",
-    "  - muxbot channels response-mode set message-tool --channel telegram --target 123456789",
-    "  - muxbot channels additional-message-mode status --channel slack --target channel:C123",
-    "  - muxbot channels additional-message-mode set steer --channel slack --target channel:C123",
-    "  - muxbot channels additional-message-mode set queue --channel slack --target group:G123",
-    "  - muxbot channels additional-message-mode set steer --channel slack --target dm:D123",
-    "  - muxbot channels additional-message-mode set steer --channel telegram --target -1001234567890",
-    "  - muxbot channels additional-message-mode set queue --channel telegram --target -1001234567890 --topic 42",
-    "  - muxbot channels additional-message-mode set steer --channel telegram --target 123456789",
+    "  - clisbot channels response-mode status --channel slack",
+    "  - clisbot channels response-mode set message-tool --channel slack --target channel:C123",
+    "  - clisbot channels response-mode set capture-pane --channel slack --target group:G123",
+    "  - clisbot channels response-mode set message-tool --channel slack --target dm:D123",
+    "  - clisbot channels response-mode set message-tool --channel telegram --target -1001234567890",
+    "  - clisbot channels response-mode set capture-pane --channel telegram --target -1001234567890 --topic 42",
+    "  - clisbot channels response-mode set message-tool --channel telegram --target 123456789",
+    "  - clisbot channels additional-message-mode status --channel slack --target channel:C123",
+    "  - clisbot channels additional-message-mode set steer --channel slack --target channel:C123",
+    "  - clisbot channels additional-message-mode set queue --channel slack --target group:G123",
+    "  - clisbot channels additional-message-mode set steer --channel slack --target dm:D123",
+    "  - clisbot channels additional-message-mode set steer --channel telegram --target -1001234567890",
+    "  - clisbot channels additional-message-mode set queue --channel telegram --target -1001234567890 --topic 42",
+    "  - clisbot channels additional-message-mode set steer --channel telegram --target 123456789",
     "",
     "Discovery tips:",
     "  - Telegram: use `/whoami` in the target group or topic to get chatId and topicId",
     "  - Slack: get channelId or groupId from the Slack conversation link",
     "",
     "Next steps:",
-    "  - Run `muxbot status` to inspect routes and current channel state",
-    "  - Run `muxbot logs` if the bot is still not responding",
+    "  - Run `clisbot status` to inspect routes and current channel state",
+    "  - Run `clisbot logs` if the bot is still not responding",
     ...renderGenericPrivilegeCommandHelpLines(),
     ...renderChannelSetupHelpLines("", { includePrivilegeHelp: false }),
   ].join("\n");
@@ -100,7 +100,7 @@ function parseChannelId(raw: string | undefined): ChannelId {
     return raw;
   }
 
-  throw new Error("Usage: muxbot channels <enable|disable> <slack|telegram>");
+  throw new Error("Usage: clisbot channels <enable|disable> <slack|telegram>");
 }
 
 function parseChannelAction(raw: string | undefined): ChannelAction {
@@ -108,7 +108,7 @@ function parseChannelAction(raw: string | undefined): ChannelAction {
     return raw;
   }
 
-  throw new Error("Usage: muxbot channels <enable|disable> <slack|telegram>");
+  throw new Error("Usage: clisbot channels <enable|disable> <slack|telegram>");
 }
 
 function parseTokenTarget(raw: string | undefined): TokenTarget {
@@ -117,7 +117,7 @@ function parseTokenTarget(raw: string | undefined): TokenTarget {
   }
 
   throw new Error(
-    "Usage: muxbot channels <set-token|clear-token> <slack-app|slack-bot|telegram-bot> [value]",
+    "Usage: clisbot channels <set-token|clear-token> <slack-app|slack-bot|telegram-bot> [value]",
   );
 }
 
@@ -228,7 +228,7 @@ async function addTelegramGroup(args: string[]) {
   const chatId = args[0]?.trim();
   if (!chatId) {
     throw new Error(
-      "Usage: muxbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]",
+      "Usage: clisbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]",
     );
   }
 
@@ -285,7 +285,7 @@ async function removeTelegramGroup(args: string[]) {
   const chatId = args[0]?.trim();
   if (!chatId) {
     throw new Error(
-      "Usage: muxbot channels remove telegram-group <chatId> [--topic <topicId>]",
+      "Usage: clisbot channels remove telegram-group <chatId> [--topic <topicId>]",
     );
   }
 
@@ -323,7 +323,7 @@ async function addSlackRoute(kind: "channel" | "group", args: string[]) {
   const routeId = args[0]?.trim();
   if (!routeId) {
     throw new Error(
-      `Usage: muxbot channels add slack-${kind} <${kind}Id> [--agent <id>] [--require-mention true|false]`,
+      `Usage: clisbot channels add slack-${kind} <${kind}Id> [--agent <id>] [--require-mention true|false]`,
     );
   }
 
@@ -352,7 +352,7 @@ async function addSlackRoute(kind: "channel" | "group", args: string[]) {
 async function removeSlackRoute(kind: "channel" | "group", args: string[]) {
   const routeId = args[0]?.trim();
   if (!routeId) {
-    throw new Error(`Usage: muxbot channels remove slack-${kind} <${kind}Id>`);
+    throw new Error(`Usage: clisbot channels remove slack-${kind} <${kind}Id>`);
   }
 
   const { config, configPath } = await readEditableConfig(getEditableConfigPath());
@@ -523,7 +523,7 @@ async function runAdditionalMessageModeCli(args: string[]) {
 
 function renderPostChangeGuidance(action: ChannelAction, channel: ChannelId) {
   if (action === "disable") {
-    console.log("Run `muxbot status` to confirm the runtime state after config reload.");
+    console.log("Run `clisbot status` to confirm the runtime state after config reload.");
     return;
   }
 
@@ -541,8 +541,8 @@ function renderPostChangeGuidance(action: ChannelAction, channel: ChannelId) {
     console.log("  - use `/whoami` inside Telegram to get chatId and topicId");
   }
 
-  console.log("Run `muxbot status` to inspect routes and current channel state.");
-  console.log("Run `muxbot logs` if the bot is still not responding.");
+  console.log("Run `clisbot status` to inspect routes and current channel state.");
+  console.log("Run `clisbot logs` if the bot is still not responding.");
   for (const line of renderChannelSetupHelpLines()) {
     console.log(line);
   }
@@ -598,7 +598,7 @@ function renderRouteAddGuidance(params: {
       "  - if you want pairing-style access control for DMs, set channels.telegram.directMessages.policy to `pairing`",
     );
     console.log(
-      "  - tune route settings such as requireMention, privilegeCommands, and followUp in muxbot.json if this surface should behave differently",
+      "  - tune route settings such as requireMention, privilegeCommands, and followUp in clisbot.json if this surface should behave differently",
     );
     for (const line of renderPrivilegeCommandHelpLines({
       platform: "telegram",
@@ -610,8 +610,8 @@ function renderRouteAddGuidance(params: {
     }
   }
 
-  console.log("Run `muxbot status` to inspect routes and current channel state.");
-  console.log("Run `muxbot logs` if the bot is still not responding.");
+  console.log("Run `clisbot status` to inspect routes and current channel state.");
+  console.log("Run `clisbot logs` if the bot is still not responding.");
   for (const line of renderChannelSetupHelpLines()) {
     console.log(line);
   }
@@ -685,7 +685,7 @@ export async function runChannelsCli(args: string[]) {
     const value = args[2]?.trim();
     if (!value) {
       throw new Error(
-        "Usage: muxbot channels set-token <slack-app|slack-bot|telegram-bot> <value>",
+        "Usage: clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>",
       );
     }
     await setToken(target, value);

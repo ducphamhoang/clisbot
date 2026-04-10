@@ -1,4 +1,4 @@
-# muxbot Runtime Architecture
+# clisbot Runtime Architecture
 
 ## Document Information
 

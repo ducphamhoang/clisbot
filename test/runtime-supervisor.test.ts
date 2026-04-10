@@ -9,9 +9,9 @@ import type { ChannelPlugin } from "../src/channels/channel-plugin.ts";
 
 function createLoadedConfig(): LoadedConfig {
   return {
-    configPath: "/tmp/muxbot.json",
+    configPath: "/tmp/clisbot.json",
     processedEventsPath: "/tmp/processed-events.json",
-    stateDir: "/tmp/muxbot-state",
+    stateDir: "/tmp/clisbot-state",
     raw: {
       meta: {
         schemaVersion: 1,
@@ -23,7 +23,7 @@ function createLoadedConfig(): LoadedConfig {
         storePath: "/tmp/sessions.json",
       },
       tmux: {
-        socketPath: "/tmp/muxbot.sock",
+        socketPath: "/tmp/clisbot.sock",
       },
       agents: {
         defaults: {
@@ -176,7 +176,7 @@ describe("RuntimeSupervisor", () => {
   });
 
   test("marks already-started channels as stopped when a later plugin fails during startup", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-runtime-supervisor-"));
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-supervisor-"));
     const runtimeHealthStore = new RuntimeHealthStore(join(tempDir, "runtime-health.json"));
     const stopCalls: string[] = [];
 

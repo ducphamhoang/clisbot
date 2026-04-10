@@ -2,7 +2,7 @@
 title: Early-Phase Product Should Not Add Fallback Or Compatibility Modes
 date: 2026-04-10
 area: product, runtime, configuration
-summary: While muxbot is still early, optimize the intended path directly instead of adding fallback modes, compatibility branches, or temporary dual behavior.
+summary: While clisbot is still early, optimize the intended path directly instead of adding fallback modes, compatibility branches, or temporary dual behavior.
 related:
   - docs/lessons/2026-04-08-new-products-should-not-carry-legacy-surface-compat.md
   - docs/research/channels/2026-04-10-slack-latency-and-stability-audit.md

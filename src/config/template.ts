@@ -32,17 +32,17 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
         lastTouchedAt: new Date().toISOString(),
       },
       tmux: {
-        socketPath: "~/.muxbot/state/muxbot.sock",
+        socketPath: "~/.clisbot/state/clisbot.sock",
       },
       session: {
         mainKey: "main",
         dmScope: "main",
         identityLinks: {},
-        storePath: "~/.muxbot/state/sessions.json",
+        storePath: "~/.clisbot/state/sessions.json",
       },
       agents: {
         defaults: {
-          workspace: "~/.muxbot/workspaces/{agentId}",
+          workspace: "~/.clisbot/workspaces/{agentId}",
           runner: {
             command: "codex",
             args: [

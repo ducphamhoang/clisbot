@@ -14,7 +14,7 @@ related:
 
 ## Context
 
-This lesson comes from the conversation history in this `muxbot` project with Codex on April 7-8, 2026.
+This lesson comes from the conversation history in this `clisbot` project with Codex on April 7-8, 2026.
 
 It was confirmed against local Codex session history captured during project work, including repeated user corrections about duplicated README guidance, DM privilege-command wording, and setup instructions that were still too abstract.
 
@@ -58,8 +58,8 @@ Before considering operator help done, check:
 
 This lesson was applied by:
 
-- rewriting DM privilege help to show full commands such as `muxbot channels privilege enable slack-dm`
+- rewriting DM privilege help to show full commands such as `clisbot channels privilege enable slack-dm`
 - removing duplicated setup wording from `README.md`
-- removing duplicated privilege-help output from `muxbot channels --help`
+- removing duplicated privilege-help output from `clisbot channels --help`
 - moving packaged CLI setup earlier in the README quick start
 - making shell startup file guidance explicit in quick start steps

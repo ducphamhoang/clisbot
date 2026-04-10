@@ -14,7 +14,7 @@ related:
 
 ## Context
 
-This lesson comes from repeated Codex feedback in the `muxbot` project around `start`, config reload, missing env vars, and Telegram startup conflicts.
+This lesson comes from repeated Codex feedback in the `clisbot` project around `start`, config reload, missing env vars, and Telegram startup conflicts.
 
 It was confirmed against local Codex session history captured during project work, including explicit user corrections asking for active token checks, clearer warning emphasis, and removal of raw exception stacks from normal operator output.
 

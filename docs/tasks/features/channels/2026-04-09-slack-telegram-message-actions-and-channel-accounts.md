@@ -10,13 +10,13 @@ In Progress
 
 ## Why
 
-Current `muxbot` bindings already carry `accountId`, but Slack and Telegram config and runtime still mostly behave like single-account channels.
+Current `clisbot` bindings already carry `accountId`, but Slack and Telegram config and runtime still mostly behave like single-account channels.
 
-At the same time, `muxbot` has no operator-facing `message` CLI surface for direct provider actions such as `send`, `react`, `read`, or `delete`.
+At the same time, `clisbot` has no operator-facing `message` CLI surface for direct provider actions such as `send`, `react`, `read`, or `delete`.
 
 ## Scope
 
-- add `muxbot message ...`
+- add `clisbot message ...`
 - add Slack and Telegram account maps plus `defaultAccount`
 - route bindings through `channel[:accountId]`
 - make runtime startup account-aware for Slack and Telegram
@@ -40,7 +40,7 @@ At the same time, `muxbot` has no operator-facing `message` CLI surface for dire
 - [x] update config bootstrap and validation for account maps
 - [x] start one Slack runtime service per configured account
 - [x] start one Telegram runtime service per configured account
-- [x] add `muxbot message` CLI parsing and help
+- [x] add `clisbot message` CLI parsing and help
 - [x] implement Slack message actions
 - [x] implement Telegram message actions where the Bot API supports them
 - [x] return explicit unsupported errors where provider capability is absent
@@ -69,7 +69,7 @@ At the same time, `muxbot` has no operator-facing `message` CLI surface for dire
 
 ## Exit Criteria
 
-- `muxbot message` exists as a documented operator CLI surface
+- `clisbot message` exists as a documented operator CLI surface
 - Slack and Telegram can resolve configured accounts by `defaultAccount` or explicit `--account`
 - account-specific bindings affect route resolution and session identity
 - Slack live validation covers the configured test channel and the configured allowed DM surface

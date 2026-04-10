@@ -1,4 +1,4 @@
-import type { MuxbotConfig } from "../config/schema.ts";
+import type { ClisbotConfig } from "../config/schema.ts";
 import type { ChannelInteractionIdentity } from "./interaction-processing.ts";
 
 export type ResponseMode = "capture-pane" | "message-tool";
@@ -39,7 +39,7 @@ function setModeValue<TField extends SurfaceModeField>(
 }
 
 function resolveSlackConfigTarget<TField extends SurfaceModeField>(
-  config: MuxbotConfig,
+  config: ClisbotConfig,
   field: TField,
   params: {
     target?: string;
@@ -107,7 +107,7 @@ function resolveSlackConfigTarget<TField extends SurfaceModeField>(
 }
 
 function resolveTelegramConfigTarget<TField extends SurfaceModeField>(
-  config: MuxbotConfig,
+  config: ClisbotConfig,
   field: TField,
   params: {
     target?: string;
@@ -179,7 +179,7 @@ function resolveTelegramConfigTarget<TField extends SurfaceModeField>(
 }
 
 export function resolveConfiguredSurfaceModeTarget<TField extends SurfaceModeField>(
-  config: MuxbotConfig,
+  config: ClisbotConfig,
   field: TField,
   params: ConfiguredSurfaceModeTarget & {
     conversationKind?: ChannelInteractionIdentity["conversationKind"];

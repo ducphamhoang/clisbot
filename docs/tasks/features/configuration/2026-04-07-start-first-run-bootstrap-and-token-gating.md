@@ -2,7 +2,7 @@
 
 ## Summary
 
-Reduce first-run friction in `muxbot start` by gating startup on default channel tokens, bootstrapping only the available channels, and auto-creating the first default agent only when the CLI choice is unambiguous.
+Reduce first-run friction in `clisbot start` by gating startup on default channel tokens, bootstrapping only the available channels, and auto-creating the first default agent only when the CLI choice is unambiguous.
 
 ## Status
 

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Configuration is the local control plane for `muxbot`.
+Configuration is the local control plane for `clisbot`.
 
 It defines how channels, Agent-OS, runners, and control are wired together.
 
@@ -58,7 +58,7 @@ Current policy meaning:
 
 ## Scope
 
-- `~/.muxbot/muxbot.json`
+- `~/.clisbot/clisbot.json`
 - env substitution
 - agent definitions and default inheritance
 - channel routing and policy flags
@@ -112,14 +112,14 @@ Current session defaults should favor OpenClaw compatibility:
 
 - `session.mainKey: "main"`
 - `session.dmScope: "main"`
-- `session.storePath: "~/.muxbot/state/sessions.json"`
-- `agents.defaults.workspace: "~/.muxbot/workspaces/{agentId}"`
+- `session.storePath: "~/.clisbot/state/sessions.json"`
+- `agents.defaults.workspace: "~/.clisbot/workspaces/{agentId}"`
 - `agents.defaults.session.name: "{sessionKey}"`
 
 Current workspace config should stay agent-centric:
 
 - OpenClaw’s current public model is agent-centric: `agents.defaults.workspace` plus per-agent workspace override
-- `muxbot` now follows that shape with `agents.defaults.workspace` plus `agents.list[].workspace`
+- `clisbot` now follows that shape with `agents.defaults.workspace` plus `agents.list[].workspace`
 - use the OpenClaw workspace research note before changing this surface again
 
 Current stale tmux cleanup defaults should stay explicit:
@@ -198,9 +198,9 @@ Current DM access-policy meaning should stay explicit:
 Current rollout tradeoff should stay explicit:
 
 - OpenClaw treats DM pairing as the secure default
-- `muxbot` now matches that default for Slack and Telegram direct messages
-- `muxbot` intentionally does not copy OpenClaw's Slack sparse-config fallback to `groupPolicy: "open"`
-- `muxbot` keeps explicit `allowlist` defaults for shared Slack and Telegram surfaces
+- `clisbot` now matches that default for Slack and Telegram direct messages
+- `clisbot` intentionally does not copy OpenClaw's Slack sparse-config fallback to `groupPolicy: "open"`
+- `clisbot` keeps explicit `allowlist` defaults for shared Slack and Telegram surfaces
 
 Current first-run startup bootstrap should stay explicit:
 
@@ -220,8 +220,8 @@ Current Slack feedback defaults should stay explicit:
 - `processingStatus.status: "Working..."`
 - `processingStatus.loadingMessages: []`
 - the live processing reply remains the durable in-thread processing indicator even when Slack status is unavailable
-- reaction writes require Slack bot scope `reactions:write`; if that scope is missing, `muxbot` should keep handling messages and degrade to the live reply indicator only
-- assistant thread status currently accepts `chat:write` and still temporarily accepts `assistant:write`; if status writes are unavailable, `muxbot` should keep handling messages and degrade to reactions plus the live reply indicator only
+- reaction writes require Slack bot scope `reactions:write`; if that scope is missing, `clisbot` should keep handling messages and degrade to the live reply indicator only
+- assistant thread status currently accepts `chat:write` and still temporarily accepts `assistant:write`; if status writes are unavailable, `clisbot` should keep handling messages and degrade to reactions plus the live reply indicator only
 
 Current Slack continuation target should stay explicit:
 
@@ -276,7 +276,7 @@ Current default should stay explicit:
 
 ## Sparse Config Rule
 
-`~/.muxbot/muxbot.json` is a sparse config file.
+`~/.clisbot/clisbot.json` is a sparse config file.
 
 That means:
 
@@ -317,7 +317,7 @@ Current Codex-oriented defaults are:
 Current continuity storage path is:
 
 - `session.storePath`
-- default: `~/.muxbot/state/sessions.json`
+- default: `~/.clisbot/state/sessions.json`
 
 This file stores the current `sessionKey -> sessionId` mapping used for resume after the tmux session dies.
 
@@ -338,7 +338,7 @@ Current fields are:
 
 Current pairing state path is:
 
-- `~/.muxbot/state/pairing`
+- `~/.clisbot/state/pairing`
 
 Current policy defaults are:
 
@@ -364,21 +364,21 @@ Current stale tmux cleanup config lives under:
 Current meaning:
 
 - `staleAfterMinutes`
-  - per-agent idle threshold in minutes before muxbot kills the live tmux session
+  - per-agent idle threshold in minutes before clisbot kills the live tmux session
 - `staleAfterMinutes: 0`
   - disable stale cleanup for that agent
 - `control.sessionCleanup.enabled`
   - enable or disable the background stale-session cleanup loop
 - `control.sessionCleanup.intervalMinutes`
-  - how often muxbot scans stored sessions for stale tmux runners
+  - how often clisbot scans stored sessions for stale tmux runners
 
 Important distinction:
 
 - stale cleanup kills the live tmux session
 - stale cleanup does not delete the stored `sessionKey -> sessionId` mapping
 - the next inbound turn can still recreate tmux and resume the prior AI CLI session when the runner supports resume
-- idle is determined from muxbot session activity timestamps, not from tmux CPU usage
-- the cleanup loop skips sessions that are busy in the muxbot queue
+- idle is determined from clisbot session activity timestamps, not from tmux CPU usage
+- the cleanup loop skips sessions that are busy in the clisbot queue
 
 ## Turn Execution Timeout Guide
 
@@ -393,12 +393,12 @@ Current turn execution timeout config lives under:
 Current meaning:
 
 - `idleTimeoutMs`
-  - after a turn has already produced visible output, muxbot treats the turn as completed once the runner pane stops changing for this many milliseconds
+  - after a turn has already produced visible output, clisbot treats the turn as completed once the runner pane stops changing for this many milliseconds
 - `noOutputTimeoutMs`
-  - if the turn produces no visible output at all for this many milliseconds from start, muxbot returns a timeout result
+  - if the turn produces no visible output at all for this many milliseconds from start, clisbot returns a timeout result
 - `maxRuntimeMin`
   - default minute-based observation window for one turn
-  - when that window is exceeded, muxbot stops waiting for settlement, leaves the session running, and tells the user to inspect later with `/transcript`
+  - when that window is exceeded, clisbot stops waiting for settlement, leaves the session running, and tells the user to inspect later with `/transcript`
 - `maxRuntimeSec`
   - optional second-based observation window when you need a shorter value for tests or special routes
 

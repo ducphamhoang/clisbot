@@ -97,10 +97,10 @@ export class RuntimeSupervisor {
       }
 
       if (reason === "initial") {
-        console.log(`muxbot started with config ${loadedConfig.configPath}`);
+        console.log(`clisbot started with config ${loadedConfig.configPath}`);
         console.log(`tmux socket ${loadedConfig.raw.tmux.socketPath}`);
       } else {
-        console.log(`muxbot reloaded config ${loadedConfig.configPath}`);
+        console.log(`clisbot reloaded config ${loadedConfig.configPath}`);
       }
     } catch (error) {
       const isFatalInitialFailure =

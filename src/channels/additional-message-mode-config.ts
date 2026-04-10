@@ -11,7 +11,7 @@ export type { AdditionalMessageMode } from "./mode-config-shared.ts";
 export type ConfiguredAdditionalMessageModeTarget = ConfiguredSurfaceModeTarget;
 
 function getEditableConfigPath() {
-  return process.env.MUXBOT_CONFIG_PATH;
+  return process.env.CLISBOT_CONFIG_PATH;
 }
 
 export async function getConversationAdditionalMessageMode(params: {

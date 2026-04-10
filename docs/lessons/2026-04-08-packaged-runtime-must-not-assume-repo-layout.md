@@ -13,8 +13,8 @@ related:
 
 This lesson came from a real packaged install failure:
 
-- `muxbot start --cli codex --bootstrap personal-assistant`
-- error: `ENOENT: no such file or directory, scandir '.../node_modules/@muxbot/templates/openclaw'`
+- `clisbot start --cli codex --bootstrap personal-assistant`
+- error: `ENOENT: no such file or directory, scandir '.../node_modules/@clisbot/templates/openclaw'`
 
 The root cause was simple:
 
@@ -51,4 +51,4 @@ This lesson was applied by:
 - replacing the single hard-coded template root assumption in `src/agents/bootstrap.ts`
 - resolving both repo layout and packaged `dist` layout
 - adding `test/bootstrap.test.ts`
-- validating the built package from a fake `node_modules/@muxbot/muxbot` tree with isolated `HOME`
+- validating the built package from a fake `node_modules/clisbot` tree with isolated `HOME`

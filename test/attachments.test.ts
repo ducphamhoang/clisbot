@@ -34,7 +34,7 @@ describe("workspace attachment storage", () => {
   });
 
   test("stores attachments under the workspace .attachments tree", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-attachments-"));
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-attachments-"));
     const filePath = await saveWorkspaceAttachment({
       workspacePath: tempDir,
       sessionKey: "agent:default:slack:channel:C123:thread:1",
@@ -51,7 +51,7 @@ describe("workspace attachment storage", () => {
   });
 
   test("sanitizes missing or unsafe names and preserves uniqueness", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-attachments-"));
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-attachments-"));
     const first = await saveWorkspaceAttachment({
       workspacePath: tempDir,
       sessionKey: "main",
@@ -78,7 +78,7 @@ describe("workspace attachment storage", () => {
 
 describe("slack attachment hydration", () => {
   test("hydrates files from message history when the event payload omits them", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "muxbot-slack-attachments-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-slack-attachments-"));
     const originalFetch = globalThis.fetch;
     globalThis.fetch = ((async () =>
       new Response(Buffer.from("hello from slack"), {

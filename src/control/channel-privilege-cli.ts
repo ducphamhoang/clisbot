@@ -8,7 +8,7 @@ type PrivilegeTarget =
   | "telegram-group";
 
 function getEditableConfigPath() {
-  return process.env.MUXBOT_CONFIG_PATH;
+  return process.env.CLISBOT_CONFIG_PATH;
 }
 
 function parseTarget(raw: string | undefined): PrivilegeTarget {
@@ -49,18 +49,18 @@ function ensureAllowUsersList(value: { allowUsers?: string[]; enabled?: boolean 
 function renderPrivilegeCliHelp() {
   return [
     "Usage:",
-    "  muxbot channels privilege enable slack-dm",
-    "  muxbot channels privilege disable slack-dm",
-    "  muxbot channels privilege allow-user slack-dm <userId>",
-    "  muxbot channels privilege remove-user slack-dm <userId>",
-    "  muxbot channels privilege enable slack-channel <channelId>",
-    "  muxbot channels privilege allow-user slack-channel <channelId> <userId>",
-    "  muxbot channels privilege enable slack-group <groupId>",
-    "  muxbot channels privilege allow-user slack-group <groupId> <userId>",
-    "  muxbot channels privilege enable telegram-dm",
-    "  muxbot channels privilege allow-user telegram-dm <userId>",
-    "  muxbot channels privilege enable telegram-group <chatId> [--topic <topicId>]",
-    "  muxbot channels privilege allow-user telegram-group <chatId> <userId> [--topic <topicId>]",
+    "  clisbot channels privilege enable slack-dm",
+    "  clisbot channels privilege disable slack-dm",
+    "  clisbot channels privilege allow-user slack-dm <userId>",
+    "  clisbot channels privilege remove-user slack-dm <userId>",
+    "  clisbot channels privilege enable slack-channel <channelId>",
+    "  clisbot channels privilege allow-user slack-channel <channelId> <userId>",
+    "  clisbot channels privilege enable slack-group <groupId>",
+    "  clisbot channels privilege allow-user slack-group <groupId> <userId>",
+    "  clisbot channels privilege enable telegram-dm",
+    "  clisbot channels privilege allow-user telegram-dm <userId>",
+    "  clisbot channels privilege enable telegram-group <chatId> [--topic <topicId>]",
+    "  clisbot channels privilege allow-user telegram-group <chatId> <userId> [--topic <topicId>]",
   ].join("\n");
 }
 
@@ -123,7 +123,7 @@ export async function runChannelPrivilegeCli(args: string[]) {
       : config.channels.slack.groups;
     const route = routes[routeId];
     if (!route) {
-      throw new Error(`Route not configured yet: ${target} ${routeId}. Add the route first with \`muxbot channels add ...\`.`);
+      throw new Error(`Route not configured yet: ${target} ${routeId}. Add the route first with \`clisbot channels add ...\`.`);
     }
 
     const current = ensureAllowUsersList(route.privilegeCommands);
@@ -149,7 +149,7 @@ export async function runChannelPrivilegeCli(args: string[]) {
   const topicId = parseOptionValue(rest, "--topic");
   const group = config.channels.telegram.groups[chatId];
   if (!group) {
-    throw new Error(`Route not configured yet: telegram-group ${chatId}. Add the route first with \`muxbot channels add telegram-group ${chatId}\`.`);
+    throw new Error(`Route not configured yet: telegram-group ${chatId}. Add the route first with \`clisbot channels add telegram-group ${chatId}\`.`);
   }
 
   if (topicId) {

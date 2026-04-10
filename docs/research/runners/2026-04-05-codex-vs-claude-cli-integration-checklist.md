@@ -8,7 +8,7 @@ This note exists so future runner onboarding does not assume that Codex behavior
 
 ## Live Validation Scope
 
-Validated on April 5, 2026 against the current `muxbot` tmux runner and Slack channel routes:
+Validated on April 5, 2026 against the current `clisbot` tmux runner and Slack channel routes:
 
 - Codex route on `C07U0LDK6ER`
 - Claude route on `C0AQW4DUSDC`
@@ -72,7 +72,7 @@ That means each new CLI integration needs a short runner checklist before it is 
   - `/status` capture is not needed for the current Claude route
 - interrupt by `Esc` works, but Claude may append a follow-up question such as `What should Claude do instead?`
 
-## What muxbot Had To Normalize
+## What clisbot Had To Normalize
 
 To make Claude channel-safe, the transcript normalizer had to strip:
 

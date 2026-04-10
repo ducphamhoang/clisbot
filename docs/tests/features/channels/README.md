@@ -9,7 +9,7 @@ They should be used for ad hoc validation and later automation across Slack firs
 ## Environment
 
 - `.env` contains valid `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN`, and `SLACK_TEST_CHANNEL`
-- `~/.muxbot/muxbot.json` routes `SLACK_TEST_CHANNEL` to agent `default`
+- `~/.clisbot/clisbot.json` routes `SLACK_TEST_CHANNEL` to agent `default`
 - mention-path validation works with `app_mention`
 - implicit no-mention follow-up validation requires the Slack app to subscribe to the routed `message.*` event family, not only `app_mention`
 - for channel threads, `message.channels` is the critical Slack subscription
@@ -160,7 +160,7 @@ Live proof on April 5, 2026:
 - one Slack DM route exists
 - `channels.slack.directMessages.policy: "pairing"`
 - the test sender is not already present in config `allowFrom`
-- the test sender is not already approved in `~/.muxbot/state/pairing`
+- the test sender is not already approved in `~/.clisbot/state/pairing`
 
 ### Steps
 
@@ -197,7 +197,7 @@ Live proof on April 5, 2026:
 ### Expected Results
 
 - the group receives a minimal setup reply instead of silence
-- the reply includes the exact `muxbot channels add telegram-group ...` command to run
+- the reply includes the exact `clisbot channels add telegram-group ...` command to run
 - `/whoami` exposes `chatId` and `topicId` when applicable
 - sensitive commands such as `/transcript`, `/stop`, `/followup`, and `/bash` are not advertised for the unrouted group yet
 
@@ -240,7 +240,7 @@ Live proof on April 5, 2026:
 
 ### Expected Results
 
-- muxbot recreates the missing tmux session instead of treating the thread as lost
+- clisbot recreates the missing tmux session instead of treating the thread as lost
 - the follow-up stays on the same thread-backed session key
 - the recreated runner launches in resume mode using the stored runner `sessionId`
 - the Slack thread receives the continued reply in-thread without creating a new unrelated conversation
@@ -271,13 +271,13 @@ Live proof on April 5, 2026:
 - `SLACK_TEST_CHANNEL` is routed and reachable
 - the Slack app is subscribed to `message.channels` for this routed channel thread
 - the routed channel or inherited config uses `responseMode: "message-tool"`
-- the active agent replies through `muxbot message send ...` into the same Slack thread
+- the active agent replies through `clisbot message send ...` into the same Slack thread
 - the thread already has one successful bot reply delivered through the message tool path
 
 ### Steps
 
 1. Send a top-level mention in `SLACK_TEST_CHANNEL` to start a routed thread
-2. Let the agent send its visible reply with `muxbot message send ...` instead of pane-settlement delivery
+2. Let the agent send its visible reply with `clisbot message send ...` instead of pane-settlement delivery
 3. In the same Slack thread, send a plain follow-up without mentioning the bot
 4. Watch the Slack thread, runtime logs, and session identity
 
@@ -286,7 +286,7 @@ Live proof on April 5, 2026:
 - the message-tool reply still marks the conversation as bot-participated for follow-up purposes
 - the plain no-mention follow-up is accepted as a normal thread continuation
 - the follow-up resolves to the same thread-backed session key as the prior turn
-- the system does not require a fresh explicit mention only because the previous reply came from `muxbot message send ...`
+- the system does not require a fresh explicit mention only because the previous reply came from `clisbot message send ...`
 - no duplicate pane-settlement reply appears when `responseMode` stays on `message-tool`
 
 ## OpenClaw Compatibility Note
@@ -301,7 +301,7 @@ not:
 
 - "the bot authored the thread root"
 
-`muxbot` may implement that target by cache or by thread inspection, but the user-visible behavior should match the same rule.
+`clisbot` may implement that target by cache or by thread inspection, but the user-visible behavior should match the same rule.
 
 ## Test Case 3: Default Interaction Strips Runner Chrome
 
@@ -533,7 +533,7 @@ not:
 
 ### Expected Results
 
-- `/transcript` is handled by muxbot and returns the current full conversation session transcript
+- `/transcript` is handled by clisbot and returns the current full conversation session transcript
 - `/stop` sends `Escape` to interrupt current processing in the current conversation session
 - reserved control slash commands are not forwarded to the native runner
 - non-reserved slash commands are forwarded unchanged to the agent CLI
@@ -541,11 +541,11 @@ not:
 ### Identity Slash Command
 
 1. Send `/whoami` in Slack or Telegram on an allowed route
-2. Observe the immediate muxbot reply
+2. Observe the immediate clisbot reply
 
 Expected:
 
-- the command is handled by muxbot as a reserved control slash command
+- the command is handled by clisbot as a reserved control slash command
 - Slack replies include sender id, channel id, and thread ts when present
 - Telegram replies include sender id, chat id, and topic id when present
 - the reply includes the resolved `agentId` and `sessionKey`
@@ -585,7 +585,7 @@ Expected:
 
 ### Expected Results
 
-- muxbot denies each request with a clear route-policy message
+- clisbot denies each request with a clear route-policy message
 - transcript inspection is not executed
 - bash execution is not executed
 - enabling `privilegeCommands.enabled: true` on that route allows the same commands on the next turn

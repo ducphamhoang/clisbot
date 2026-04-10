@@ -13,14 +13,14 @@ related:
 
 ## Context
 
-This lesson comes from repeated Codex cleanup feedback in the `muxbot` project before GitHub publication.
+This lesson comes from repeated Codex cleanup feedback in the `clisbot` project before GitHub publication.
 
 It was confirmed against local Codex session history captured during project work, where the user explicitly asked to strip local references, avoid leaking earlier commits, rewrite `main` to a single public commit, and publish only the cleaned snapshot.
 
 The repeated problems were:
 
 - local absolute paths appearing in docs and examples
-- stale `tmux-talk` references surviving the product rename to `muxbot`
+- stale `tmux-talk` references surviving the product rename to `clisbot`
 - duplicated or overly local setup language that read like scratch notes rather than public docs
 - concern about leaking unwanted historical details through commit history or leftover doc content
 - concern that even fixed but previously committed content should not remain in published Git history

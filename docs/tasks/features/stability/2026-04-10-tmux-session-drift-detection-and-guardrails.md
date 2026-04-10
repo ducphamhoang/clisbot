@@ -2,7 +2,7 @@
 
 ## Summary
 
-Detect and surface session drift when a routed Slack or Telegram conversation reuses a tmux session that was also changed by direct manual pane input outside the normal muxbot channel path.
+Detect and surface session drift when a routed Slack or Telegram conversation reuses a tmux session that was also changed by direct manual pane input outside the normal clisbot channel path.
 
 ## Status
 
@@ -23,7 +23,7 @@ This is a stability problem and should be handled explicitly instead of leaving 
 ## Scope
 
 - define what counts as session drift for reused channel sessions
-- add an explicit detection or audit signal when pane activity does not match muxbot-submitted input
+- add an explicit detection or audit signal when pane activity does not match clisbot-submitted input
 - expose that state to operators in a low-noise way
 - decide whether drift should only warn, block reuse, or require an explicit reset or resume action
 - keep the solution architecture-aligned and shared across Slack and Telegram rather than embedding channel-specific heuristics
@@ -38,7 +38,7 @@ This is a stability problem and should be handled explicitly instead of leaving 
 ## Subtasks
 
 - [ ] define the exact drift invariant for reused channel sessions
-- [ ] map current tmux input paths and identify where muxbot can attribute trusted input
+- [ ] map current tmux input paths and identify where clisbot can attribute trusted input
 - [ ] choose the operator-visible behavior for detected drift
 - [ ] implement shared runtime detection without channel-specific duplication
 - [ ] add automated coverage for drift detection and session reuse behavior

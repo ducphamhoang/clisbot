@@ -1,4 +1,4 @@
-import type { MuxbotConfig } from "./schema.ts";
+import type { ClisbotConfig } from "./schema.ts";
 
 export type SlackAccountConfig = {
   appToken: string;
@@ -40,7 +40,7 @@ function getConfiguredDefaultAccountId(params: {
 }
 
 export function resolveSlackAccountId(
-  config: MuxbotConfig["channels"]["slack"],
+  config: ClisbotConfig["channels"]["slack"],
   accountId?: string | null,
 ) {
   return normalizeAccountId(accountId) ?? getConfiguredDefaultAccountId({
@@ -50,7 +50,7 @@ export function resolveSlackAccountId(
 }
 
 export function resolveTelegramAccountId(
-  config: MuxbotConfig["channels"]["telegram"],
+  config: ClisbotConfig["channels"]["telegram"],
   accountId?: string | null,
 ) {
   return normalizeAccountId(accountId) ?? getConfiguredDefaultAccountId({
@@ -60,7 +60,7 @@ export function resolveTelegramAccountId(
 }
 
 export function resolveSlackAccountConfig(
-  config: MuxbotConfig["channels"]["slack"],
+  config: ClisbotConfig["channels"]["slack"],
   accountId?: string | null,
 ): { accountId: string; config: SlackAccountConfig } {
   const resolvedAccountId = resolveSlackAccountId(config, accountId);
@@ -88,7 +88,7 @@ export function resolveSlackAccountConfig(
 }
 
 export function resolveTelegramAccountConfig(
-  config: MuxbotConfig["channels"]["telegram"],
+  config: ClisbotConfig["channels"]["telegram"],
   accountId?: string | null,
 ): { accountId: string; config: TelegramAccountConfig } {
   const resolvedAccountId = resolveTelegramAccountId(config, accountId);
@@ -115,7 +115,7 @@ export function resolveTelegramAccountConfig(
 }
 
 export function listSlackAccounts(
-  config: MuxbotConfig["channels"]["slack"],
+  config: ClisbotConfig["channels"]["slack"],
 ): Array<{ accountId: string; config: SlackAccountConfig }> {
   const accounts = Object.entries(getAccountsRecord(config.accounts)).map(([accountId, accountConfig]) => ({
     accountId,
@@ -141,7 +141,7 @@ export function listSlackAccounts(
 }
 
 export function listTelegramAccounts(
-  config: MuxbotConfig["channels"]["telegram"],
+  config: ClisbotConfig["channels"]["telegram"],
 ): Array<{ accountId: string; config: TelegramAccountConfig }> {
   const accounts = Object.entries(getAccountsRecord(config.accounts)).map(([accountId, accountConfig]) => ({
     accountId,

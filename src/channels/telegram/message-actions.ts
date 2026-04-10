@@ -237,5 +237,5 @@ export async function listTelegramPins(params: TelegramMessageActionParams) {
 }
 
 export async function unsupportedTelegramHistoryAction(action: string) {
-  throw new Error(`Telegram ${action} is not supported by the current Bot API integration in muxbot.`);
+  throw new Error(`Telegram ${action} is not supported by the current Bot API integration in clisbot.`);
 }

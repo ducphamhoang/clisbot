@@ -17,7 +17,7 @@ This audit covers:
 
 - first-turn latency for a fresh Slack thread session
 - follow-up latency in the same Slack thread with an already-running session
-- the runner-stage timing breakdown from `MUXBOT_DEBUG_LATENCY=1`
+- the runner-stage timing breakdown from `CLISBOT_DEBUG_LATENCY=1`
 - live validation of busy-session follow-up behavior for `additionalMessageMode`
 
 This audit does not yet cover:
@@ -31,7 +31,7 @@ This audit does not yet cover:
 - date: `2026-04-10`
 - surface: Slack channel route on `SLACK_TEST_CHANNEL`
 - runtime mode during measurement: foreground `serve-foreground`
-- debug flag: `MUXBOT_DEBUG_LATENCY=1`
+- debug flag: `CLISBOT_DEBUG_LATENCY=1`
 - channel response mode: `message-tool`
 - agent tool: `codex`
 
@@ -306,7 +306,7 @@ Derived timing:
 
 Result:
 
-- the existing-session handoff path inside muxbot is now effectively near-immediate
+- the existing-session handoff path inside clisbot is now effectively near-immediate
 - the prioritized `Slack inbound -> tmux submit` path is no longer the dominant bottleneck
 - the remaining delay is mainly in agent/runtime response time after prompt delivery, not in Slack event processing or tmux submission
 
@@ -333,13 +333,13 @@ Observed Slack timestamps in thread `1775815816.482109`:
 
 - first user message: `2026-04-10T10:10:16Z`
 - follow-up user message: `2026-04-10T10:10:21Z`
-- muxbot steering ack: `2026-04-10T10:10:24Z`
+- clisbot steering ack: `2026-04-10T10:10:24Z`
 - first agent progress after steering: `2026-04-10T10:10:38Z`
 - final agent summary: `2026-04-10T10:13:07Z` and `2026-04-10T10:13:08Z`
 
 Observed behavior:
 
-- muxbot posted `Sent to the active session as a steering message.`
+- clisbot posted `Sent to the active session as a steering message.`
 - later progress explicitly reflected the steering instruction
 - final answer prioritized `additionalMessageMode` and stated that steering still keeps pane monitoring active
 
@@ -367,11 +367,11 @@ Observed Slack timestamps in thread `1775815861.552619`:
 Observed behavior:
 
 - the queued request was delivered only after the original run settled
-- the final queued answer explicitly confirmed that queued follow-up still uses muxbot-managed delivery
+- the final queued answer explicitly confirmed that queued follow-up still uses clisbot-managed delivery
 - no visible queued placeholder appeared on Slack because the live route had `streaming=off`, so queue settlement only became visible at final delivery time
 
 Result:
 
 - explicit `/queue` works live on Slack in `message-tool` mode
-- queued follow-up is serialized behind the active run and still settles through muxbot itself
+- queued follow-up is serialized behind the active run and still settles through clisbot itself
 - live operator expectation should account for `streaming=off`: no interim queued marker is expected on the surface

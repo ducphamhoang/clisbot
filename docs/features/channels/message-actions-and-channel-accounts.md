@@ -4,7 +4,7 @@
 
 This feature slice adds an operator-facing `message` CLI plus first-class Slack and Telegram channel accounts.
 
-The goal is OpenClaw-shaped operator behavior without breaking the existing `muxbot` system boundaries:
+The goal is OpenClaw-shaped operator behavior without breaking the existing `clisbot` system boundaries:
 
 - channels own provider-facing transport behavior
 - configuration owns account and route selection
@@ -12,7 +12,7 @@ The goal is OpenClaw-shaped operator behavior without breaking the existing `mux
 
 ## Scope
 
-- `muxbot message ...` operator CLI
+- `clisbot message ...` operator CLI
 - Slack and Telegram account config under provider-owned account maps
 - `defaultAccount` selection
 - account-aware bindings in `channel[:accountId]` form

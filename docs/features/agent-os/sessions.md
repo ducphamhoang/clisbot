@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This document defines the current session model used by `muxbot`.
+This document defines the current session model used by `clisbot`.
 
 It stays close to OpenClaw's `agentId` plus `sessionKey` mental model, but adapts it to subscription-backed AI CLIs such as Codex and Claude Code where the tool already has its own native conversation id.
 
 ## Current Contract
 
-`muxbot` currently owns three different identities:
+`clisbot` currently owns three different identities:
 
 - `agentId`
   - durable agent owner
@@ -18,7 +18,7 @@ It stays close to OpenClaw's `agentId` plus `sessionKey` mental model, but adapt
   - isolates queueing, routing, and continuity for one DM, group, channel, or thread
 - `sessionId`
   - current active AI CLI conversation id for that `sessionKey`
-  - persisted in `~/.muxbot/state/sessions.json`
+  - persisted in `~/.clisbot/state/sessions.json`
 
 The runner owns the live execution handle:
 
@@ -43,7 +43,7 @@ Agent-OS persists one session entry per `sessionKey` in `session.storePath`.
 
 Current default path:
 
-- `~/.muxbot/state/sessions.json`
+- `~/.clisbot/state/sessions.json`
 
 Current stored fields:
 
@@ -93,7 +93,7 @@ Current cleanup contract:
 
 - Agent-OS keeps one stored session entry per `sessionKey`
 - a background cleanup loop checks stored sessions against the configured stale threshold
-- if the backing tmux session is idle past that threshold, muxbot kills only the tmux session
+- if the backing tmux session is idle past that threshold, clisbot kills only the tmux session
 - the stored `sessionId` remains in `session.storePath`
 - the next inbound turn for that same `sessionKey` can recreate tmux and resume the prior AI CLI session when supported
 
@@ -115,8 +115,8 @@ Current meaning:
 
 Current idle rule:
 
-- cleanup uses muxbot session activity timestamps such as `updatedAt`
-- cleanup skips sessions that are currently busy in the muxbot queue
+- cleanup uses clisbot session activity timestamps such as `updatedAt`
+- cleanup skips sessions that are currently busy in the clisbot queue
 - cleanup does not inspect tmux CPU usage or try to infer activity from pane output alone
 - a long-running active turn is not stale just because the human stopped sending messages
 
@@ -137,12 +137,12 @@ Current meaning:
 - `create.mode: "runner"`
   - the tool creates its own session id
 - `capture.mode: "status-command"`
-  - muxbot sends a status command such as `/status`
+  - clisbot sends a status command such as `/status`
   - runner output is parsed to capture the session id
 - `resume.mode: "command"`
   - when a stored `sessionId` exists, the runner starts with a dedicated resume command
 - `create.mode: "explicit"`
-  - muxbot generates a UUID itself and passes it to the runner
+  - clisbot generates a UUID itself and passes it to the runner
   - this fits tools that accept `--session-id`
 
 ## Current Codex Mapping
@@ -159,9 +159,9 @@ Current default Codex-style behavior is:
 That means:
 
 - first launch starts Codex normally
-- muxbot asks Codex for `/status`
+- clisbot asks Codex for `/status`
 - the returned session id is stored under that `sessionKey`
-- if the tmux session later dies, muxbot launches `codex resume <sessionId> ...`
+- if the tmux session later dies, clisbot launches `codex resume <sessionId> ...`
 
 ## Future Claude-Style Mapping
 
@@ -176,7 +176,7 @@ Example shape:
 
 That means:
 
-- muxbot generates the session id
+- clisbot generates the session id
 - every restart passes that same session id back to the tool
 - a separate resume command is not required
 
@@ -197,7 +197,7 @@ Current gaps:
   - no first-class `/new` or automatic rotation policy for `sessionId` yet
 - durable transcript ownership
   - `sessions.json` stores continuity metadata only
-  - muxbot does not yet persist a full append-only transcript model per `sessionId`
+  - clisbot does not yet persist a full append-only transcript model per `sessionId`
 - explicit resume diagnostics
   - if runner-side session-id capture fails, the session can still run, but resumability is not guaranteed
 

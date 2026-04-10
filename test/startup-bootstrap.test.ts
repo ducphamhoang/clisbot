@@ -10,25 +10,25 @@ import {
   renderDisabledConfiguredChannelWarningLines,
   renderMissingTokenWarningLines,
 } from "../src/control/startup-bootstrap.ts";
-import type { MuxbotConfig } from "../src/config/schema.ts";
+import type { ClisbotConfig } from "../src/config/schema.ts";
 
-function createConfig(): MuxbotConfig {
+function createConfig(): ClisbotConfig {
   return JSON.parse(JSON.stringify({
     meta: {
       schemaVersion: 1,
     },
     tmux: {
-      socketPath: "~/.muxbot/state/muxbot.sock",
+      socketPath: "~/.clisbot/state/clisbot.sock",
     },
     session: {
       mainKey: "main",
       dmScope: "main",
       identityLinks: {},
-      storePath: "~/.muxbot/state/sessions.json",
+      storePath: "~/.clisbot/state/sessions.json",
     },
     agents: {
       defaults: {
-        workspace: "~/.muxbot/workspaces/{agentId}",
+        workspace: "~/.clisbot/workspaces/{agentId}",
         runner: {
           command: "codex",
           args: ["-C", "{workspace}"],
@@ -161,7 +161,7 @@ function createConfig(): MuxbotConfig {
         },
       },
     },
-  })) as MuxbotConfig;
+  })) as ClisbotConfig;
 }
 
 describe("startup bootstrap helpers", () => {
@@ -269,7 +269,7 @@ describe("startup bootstrap helpers", () => {
     expect(lines).toContain(
       "warning default Slack tokens are available in SLACK_APP_TOKEN and SLACK_BOT_TOKEN, but channels.slack.enabled is false in the existing config.",
     );
-    expect(lines).toContain("Run `muxbot channels enable slack` to enable Slack quickly, or update ~/.muxbot/muxbot.json manually.");
+    expect(lines).toContain("Run `clisbot channels enable slack` to enable Slack quickly, or update ~/.clisbot/clisbot.json manually.");
     expect(config.channels.slack.enabled).toBe(false);
   });
 

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Introduce a real `ChannelPlugin` contract for `muxbot` so Slack and Telegram share one channel integration seam for runtime bootstrap, operator message commands, health summaries, and route-policy composition.
+Introduce a real `ChannelPlugin` contract for `clisbot` so Slack and Telegram share one channel integration seam for runtime bootstrap, operator message commands, health summaries, and route-policy composition.
 
 ## Status
 
@@ -12,7 +12,7 @@ In Progress
 
 OpenClaw already standardizes channels behind a plugin-style adapter layer.
 
-`muxbot` had started to accumulate the same cross-channel seams in duplicated Slack and Telegram code:
+`clisbot` had started to accumulate the same cross-channel seams in duplicated Slack and Telegram code:
 
 - runtime startup and account enumeration
 - message CLI dispatch
@@ -35,14 +35,14 @@ That duplication made new channel work riskier and made the Slack or Telegram im
 
 ## Research
 
-- [OpenClaw Channel Standardization Vs Muxbot Gaps](../../../research/channels/2026-04-10-openclaw-channel-standardization-vs-muxbot-gaps.md)
+- [OpenClaw Channel Standardization Vs Clisbot Gaps](../../../research/channels/2026-04-10-openclaw-channel-standardization-vs-clisbot-gaps.md)
 
 ## Subtasks
 
 - [x] map duplicated Slack and Telegram seams against the OpenClaw channel model
 - [x] add `ChannelPlugin` and registry primitives
 - [x] move runtime startup and health summaries behind plugins
-- [x] move `muxbot message` execution behind plugins
+- [x] move `clisbot message` execution behind plugins
 - [x] extract shared route-policy composition
 - [x] refactor Slack and Telegram route config to consume the shared builder
 - [x] keep provider transport and provider event loops provider-owned
@@ -61,7 +61,7 @@ That duplication made new channel work riskier and made the Slack or Telegram im
 
 ## Explicit Decisions
 
-- `muxbot` now has a real static `ChannelPlugin` contract rather than a compatibility wrapper
+- `clisbot` now has a real static `ChannelPlugin` contract rather than a compatibility wrapper
 - the first plugin scope is intentionally narrow and only covers the duplicated seams that already exist
 - shared route-policy composition is centralized now because it was already logically channel-agnostic
 - provider event loops, event payload parsing, and transport-specific semantics remain provider-owned

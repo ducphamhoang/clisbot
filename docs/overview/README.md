@@ -16,7 +16,7 @@ This folder should answer:
 
 ## Project Goal
 
-muxbot is a communication bridge for long-lived AI coding agents.
+clisbot is a communication bridge for long-lived AI coding agents.
 
 The main idea is:
 
@@ -34,8 +34,8 @@ The first slice is:
 - TypeScript + Bun
 - one routed agent workspace reused across many conversation sessions
 - Slack thread-backed channel conversations isolated by session key
-- default agent workspace at `~/.muxbot/workspaces/default`
-- config file at `~/.muxbot/muxbot.json`
+- default agent workspace at `~/.clisbot/workspaces/default`
+- config file at `~/.clisbot/clisbot.json`
 
 ## Core Systems
 

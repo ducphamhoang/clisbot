@@ -5,21 +5,21 @@ import { tmpdir } from "node:os";
 import { getRuntimeStatus, readRuntimeLog, readRuntimePid } from "../src/control/runtime-process.ts";
 
 const tempDirs: string[] = [];
-const originalMuxbotConfigPath = process.env.MUXBOT_CONFIG_PATH;
-const originalMuxbotPidPath = process.env.MUXBOT_PID_PATH;
-const originalMuxbotLogPath = process.env.MUXBOT_LOG_PATH;
+const originalClisbotConfigPath = process.env.CLISBOT_CONFIG_PATH;
+const originalClisbotPidPath = process.env.CLISBOT_PID_PATH;
+const originalClisbotLogPath = process.env.CLISBOT_LOG_PATH;
 
 afterEach(() => {
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop()!, { force: true, recursive: true });
   }
-  process.env.MUXBOT_CONFIG_PATH = originalMuxbotConfigPath;
-  process.env.MUXBOT_PID_PATH = originalMuxbotPidPath;
-  process.env.MUXBOT_LOG_PATH = originalMuxbotLogPath;
+  process.env.CLISBOT_CONFIG_PATH = originalClisbotConfigPath;
+  process.env.CLISBOT_PID_PATH = originalClisbotPidPath;
+  process.env.CLISBOT_LOG_PATH = originalClisbotLogPath;
 });
 
 function createTempDir() {
-  const dir = mkdtempSync(join(tmpdir(), "muxbot-runtime-process-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "clisbot-runtime-process-test-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -27,7 +27,7 @@ function createTempDir() {
 describe("readRuntimeLog", () => {
   test("limits output to text written after the provided start offset", async () => {
     const dir = createTempDir();
-    const logPath = join(dir, "muxbot.log");
+    const logPath = join(dir, "clisbot.log");
     writeFileSync(logPath, "old stack line\nold stack line 2\n");
     const startOffset = Bun.file(logPath).size;
     writeFileSync(logPath, "fresh line 1\nfresh line 2\n", { flag: "a" });
@@ -43,7 +43,7 @@ describe("readRuntimeLog", () => {
 });
 
 describe("runtime path defaults", () => {
-  test("uses MUXBOT_* env vars when explicit paths are omitted", async () => {
+  test("uses CLISBOT_* env vars when explicit paths are omitted", async () => {
     const dir = createTempDir();
     const configPath = join(dir, "custom-config.json");
     const pidPath = join(dir, "custom.pid");
@@ -53,9 +53,9 @@ describe("runtime path defaults", () => {
     writeFileSync(pidPath, "12345\n");
     writeFileSync(logPath, "runtime log\n");
 
-    process.env.MUXBOT_CONFIG_PATH = configPath;
-    process.env.MUXBOT_PID_PATH = pidPath;
-    process.env.MUXBOT_LOG_PATH = logPath;
+    process.env.CLISBOT_CONFIG_PATH = configPath;
+    process.env.CLISBOT_PID_PATH = pidPath;
+    process.env.CLISBOT_LOG_PATH = logPath;
 
     expect(await readRuntimePid()).toBe(12345);
 

@@ -1,5 +1,5 @@
 import type { ChannelInteractionIdentity } from "./interaction-processing.ts";
-import { getMuxbotWrapperPath } from "../control/muxbot-wrapper.ts";
+import { getClisbotWrapperPath } from "../control/clisbot-wrapper.ts";
 
 export type ChannelAgentPromptConfig = {
   enabled: boolean;
@@ -26,7 +26,7 @@ function renderAgentPromptInstruction(params: {
   config: ChannelAgentPromptConfig;
   responseMode?: "capture-pane" | "message-tool";
 }) {
-  const wrapperPath = getMuxbotWrapperPath();
+  const wrapperPath = getClisbotWrapperPath();
   const replyCommand = buildReplyCommand({
     wrapperPath,
     identity: params.identity,
@@ -34,8 +34,8 @@ function renderAgentPromptInstruction(params: {
   const lines = [
     `[${renderPromptTimestamp()}] ${renderSurfaceDescription(params.identity)}`,
     "",
-    "You are operating inside muxbot.",
-    "Use the exact local muxbot wrapper below when you need to send progress updates or the final response back to the user.",
+    "You are operating inside clisbot.",
+    "Use the exact local clisbot wrapper below when you need to send progress updates or the final response back to the user.",
     (params.responseMode ?? "message-tool") === "message-tool"
       ? "channel auto-delivery is disabled for this conversation; send user-facing progress updates and the final response yourself with the reply command"
       : "channel auto-delivery remains enabled for this conversation",
@@ -47,7 +47,7 @@ function renderAgentPromptInstruction(params: {
       : "final response: optional",
     "keep progress updates short and meaningful",
     "use plain ASCII spaces in the shell command",
-    "do not use muxbot message send to simulate user input",
+    "do not use clisbot message send to simulate user input",
     "do not send progress updates for trivial internal steps",
   ];
 
@@ -101,9 +101,9 @@ function buildReplyCommand(params: {
       lines.push(`  --thread-id ${params.identity.threadTs} \\`);
     }
     lines.push("  --final \\");
-    lines.push('  --message "$(cat <<\'__MUXBOT_MESSAGE__\'');
+    lines.push('  --message "$(cat <<\'__CLISBOT_MESSAGE__\'');
     lines.push("<short progress update>");
-    lines.push("__MUXBOT_MESSAGE__");
+    lines.push("__CLISBOT_MESSAGE__");
     lines.push(')"');
     return lines.join("\n");
   }
@@ -114,9 +114,9 @@ function buildReplyCommand(params: {
     lines.push(`  --thread-id ${params.identity.topicId} \\`);
   }
   lines.push("  --final \\");
-  lines.push('  --message "$(cat <<\'__MUXBOT_MESSAGE__\'');
+  lines.push('  --message "$(cat <<\'__CLISBOT_MESSAGE__\'');
   lines.push("<short progress update>");
-  lines.push("__MUXBOT_MESSAGE__");
+  lines.push("__CLISBOT_MESSAGE__");
   lines.push(')"');
   return lines.join("\n");
 }

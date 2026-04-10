@@ -2,7 +2,7 @@
 
 ## Summary
 
-The tmux runner is the current concrete runner implementation for `muxbot`.
+The tmux runner is the current concrete runner implementation for `clisbot`.
 
 It uses a dedicated tmux server and one or more sessions to host long-lived coding agents such as Codex CLI.
 
@@ -40,7 +40,7 @@ The tmux runner does not own:
 
 The current implementation model is:
 
-- one dedicated tmux server for `muxbot`
+- one dedicated tmux server for `clisbot`
 - one tmux session per live runner instance for a resolved conversation session key
 - one workspace path provided by higher layers for that session
 - one CLI agent process running inside that session
@@ -64,7 +64,7 @@ The tmux runner should use a dedicated socket path for this project instead of t
 
 Current expected path:
 
-- `~/.muxbot/state/muxbot.sock`
+- `~/.clisbot/state/clisbot.sock`
 
 This isolation matters so that:
 
@@ -199,11 +199,11 @@ For runners backed by AI CLIs with resumable session ids, the preferred recovery
 
 If that resume path fails, the system should surface that truthfully rather than silently pretending continuity still exists.
 
-Current muxbot behavior is narrower than the full ideal:
+Current clisbot behavior is narrower than the full ideal:
 
 - if a stored `sessionId` exists and `resume.mode` is configured, the runner uses that resume command
 - if `create.mode` is `explicit`, the runner relaunches with the same explicit session id
-- if a stored `sessionId` cannot be brought back for the current `sessionKey`, muxbot clears that continuity entry and starts a fresh tool session
+- if a stored `sessionId` cannot be brought back for the current `sessionKey`, clisbot clears that continuity entry and starts a fresh tool session
 - if session-id capture never completes, the session can still run, but restart falls back to a fresh tool conversation
 
 ## Runner Sunsetting
@@ -230,12 +230,12 @@ Current implementation:
 - the global scan cadence comes from:
   - `control.sessionCleanup.enabled`
   - `control.sessionCleanup.intervalMinutes`
-- when a session is stale, muxbot kills the tmux session only
+- when a session is stale, clisbot kills the tmux session only
 - the stored `sessionKey -> sessionId` continuity entry remains
 - the next inbound message can recreate tmux and resume the prior AI CLI session when the runner supports resume
-- stale detection is based on muxbot session activity timestamps for ordinary idle sessions
-- when a turn exceeds the configured `maxRuntimeMin` or `maxRuntimeSec`, muxbot detaches observation, leaves the tmux session running, and marks that session as exempt from stale cleanup until a later interactive turn or stop action clears that exemption
-- sessions that are currently busy in the muxbot queue are skipped by cleanup
+- stale detection is based on clisbot session activity timestamps for ordinary idle sessions
+- when a turn exceeds the configured `maxRuntimeMin` or `maxRuntimeSec`, clisbot detaches observation, leaves the tmux session running, and marks that session as exempt from stale cleanup until a later interactive turn or stop action clears that exemption
+- sessions that are currently busy in the clisbot queue are skipped by cleanup
 
 Current disable rule:
 

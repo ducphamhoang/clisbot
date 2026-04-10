@@ -5,7 +5,7 @@ import type { LoadedConfig } from "../src/config/load-config.ts";
 
 function createLoadedConfig(): LoadedConfig {
   return {
-    configPath: "/tmp/muxbot.json",
+    configPath: "/tmp/clisbot.json",
     processedEventsPath: "/tmp/processed.json",
     stateDir: "/tmp",
     raw: {
@@ -13,7 +13,7 @@ function createLoadedConfig(): LoadedConfig {
         schemaVersion: 1,
       },
       tmux: {
-        socketPath: "~/.muxbot/state/muxbot.sock",
+        socketPath: "~/.clisbot/state/clisbot.sock",
       },
       session: {
         mainKey: "main",
@@ -23,7 +23,7 @@ function createLoadedConfig(): LoadedConfig {
       },
       agents: {
         defaults: {
-          workspace: "~/.muxbot/workspaces/{agentId}",
+          workspace: "~/.clisbot/workspaces/{agentId}",
           runner: {
             command: "codex",
             args: ["-C", "{workspace}"],

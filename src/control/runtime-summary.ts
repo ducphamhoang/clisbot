@@ -407,9 +407,9 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
     lines.push("  First run requires both `--cli` and `--bootstrap`.");
     lines.push("  personal-assistant = one assistant for one human.");
     lines.push("  team-assistant = one shared assistant for a team or channel.");
-    lines.push("  Example: muxbot start --cli codex --bootstrap personal-assistant");
-    lines.push("  Example: muxbot start --cli codex --bootstrap team-assistant");
-    lines.push("  Manual setup is still available with `muxbot agents add ...`.");
+    lines.push("  Example: clisbot start --cli codex --bootstrap personal-assistant");
+    lines.push("  Example: clisbot start --cli codex --bootstrap team-assistant");
+    lines.push("  Manual setup is still available with `clisbot agents add ...`.");
     lines.push(...renderOperatorHelpLines("  "));
     lines.push(
       "  Bootstrap files will be seeded in the agent workspace. Review BOOTSTRAP.md, SOUL.md, USER.md, IDENTITY.md, and MEMORY.md.",
@@ -428,7 +428,7 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
         lines.push(`  Agent ${agent.id} is missing bootstrap files.`);
         lines.push(`    workspace: ${agent.workspacePath}`);
         lines.push(
-          `    run: muxbot agents bootstrap ${agent.id} --mode ${agent.bootstrapMode}`,
+          `    run: clisbot agents bootstrap ${agent.id} --mode ${agent.bootstrapMode}`,
         );
         continue;
       }
@@ -442,9 +442,9 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
     lines.push("");
     lines.push("  Next steps after bootstrap:");
     lines.push("  - chat with the bot or open the workspace, then follow BOOTSTRAP.md");
-    lines.push("  - configure Slack channels or Telegram groups/topics in ~/.muxbot/muxbot.json");
-    lines.push("  - run `muxbot status` to recheck runtime and bootstrap state");
-    lines.push("  - run `muxbot logs` if the bot does not answer as expected");
+    lines.push("  - configure Slack channels or Telegram groups/topics in ~/.clisbot/clisbot.json");
+    lines.push("  - run `clisbot status` to recheck runtime and bootstrap state");
+    lines.push("  - run `clisbot logs` if the bot does not answer as expected");
     lines.push(
       ...renderPairingSetupHelpLines("  ", {
         slackEnabled: summary.channelSummaries.some((channel) => channel.channel === "slack" && channel.enabled),
@@ -466,11 +466,11 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
 
   lines.push("");
   lines.push("Next steps:");
-  lines.push("  - configure Slack channels or Telegram groups/topics in ~/.muxbot/muxbot.json");
+  lines.push("  - configure Slack channels or Telegram groups/topics in ~/.clisbot/clisbot.json");
   lines.push("  - verify routing and defaultAgentId values match the agent you want to expose");
   lines.push("  - send a test message from Slack or Telegram");
-  lines.push("  - run `muxbot status` to inspect agents, channels, and tmux session state");
-  lines.push("  - run `muxbot logs` if anything looks wrong");
+  lines.push("  - run `clisbot status` to inspect agents, channels, and tmux session state");
+  lines.push("  - run `clisbot logs` if anything looks wrong");
   lines.push(
     ...renderPairingSetupHelpLines("", {
       slackEnabled: summary.channelSummaries.some((channel) => channel.channel === "slack" && channel.enabled),
@@ -513,7 +513,7 @@ function appendChannelSetupNotes(
         `${prefix}    dms: ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}`,
       );
       lines.push(
-        `${prefix}    route: add channels.telegram.groups.<chatId> in ~/.muxbot/muxbot.json`,
+        `${prefix}    route: add channels.telegram.groups.<chatId> in ~/.clisbot/clisbot.json`,
       );
       lines.push(
         `${prefix}    example: channels.telegram.groups."-1001234567890".agentId = "default"`,

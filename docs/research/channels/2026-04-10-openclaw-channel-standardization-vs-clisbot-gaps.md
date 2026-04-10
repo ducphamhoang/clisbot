@@ -1,4 +1,4 @@
-# OpenClaw Channel Standardization Vs muxbot Gaps
+# OpenClaw Channel Standardization Vs clisbot Gaps
 
 ## Summary
 
@@ -13,9 +13,9 @@ Short answer:
 - it standardizes the seams, contracts, and shared operator or agent surfaces
 - it still leaves inbound runtime, provider API mapping, media semantics, and many routing details inside each provider plugin
 
-For `muxbot`, the main gap is not that Slack and Telegram have some provider-specific code. That is expected.
+For `clisbot`, the main gap is not that Slack and Telegram have some provider-specific code. That is expected.
 
-The real gap is that `muxbot` currently has only a partially shared interaction core, while the rest of the channel system is still shaped as two hand-built implementations rather than one explicit channel contract.
+The real gap is that `clisbot` currently has only a partially shared interaction core, while the rest of the channel system is still shaped as two hand-built implementations rather than one explicit channel contract.
 
 That means adding the next channel will currently require copying and adapting more structure than the architecture should allow.
 
@@ -24,7 +24,7 @@ That means adding the next channel will currently require copying and adapting m
 This note compares:
 
 - OpenClaw channel architecture from source
-- current `muxbot` Slack and Telegram channel architecture
+- current `clisbot` Slack and Telegram channel architecture
 - the implications for future channel integrations
 
 This note focuses on architecture seams, not on reproducing every OpenClaw command.
@@ -49,9 +49,9 @@ OpenClaw does not standardize away provider differences:
 
 This is the correct shape for a multi-channel system.
 
-`muxbot` is not there yet.
+`clisbot` is not there yet.
 
-`muxbot` already has one important shared seam:
+`clisbot` already has one important shared seam:
 
 - `src/channels/interaction-processing.ts`
 
@@ -265,9 +265,9 @@ Meaning:
 - there is standardization of where this logic lives
 - there is not forced sameness of policy rules
 
-## Current muxbot Architecture
+## Current clisbot Architecture
 
-`muxbot` has a smaller shared channel layer today.
+`clisbot` has a smaller shared channel layer today.
 
 What is already shared:
 
@@ -293,11 +293,11 @@ Source evidence:
 - Slack: `src/channels/slack/service.ts`, `route-config.ts`, `session-routing.ts`, `transport.ts`, `message-actions.ts`
 - Telegram: `src/channels/telegram/service.ts`, `route-config.ts`, `session-routing.ts`, `transport.ts`, `message-actions.ts`
 
-## The Main muxbot Gaps
+## The Main clisbot Gaps
 
 ### Gap 1. No first-class `ChannelPlugin` or adapter contract
 
-`muxbot` has shared helpers, but no explicit top-level channel contract that says:
+`clisbot` has shared helpers, but no explicit top-level channel contract that says:
 
 - every channel must provide route resolution
 - every channel must provide transport hooks
@@ -349,7 +349,7 @@ What should become shared:
 
 OpenClaw has explicit messaging and session-conversation seams.
 
-`muxbot` currently has:
+`clisbot` currently has:
 
 - `src/channels/slack/session-routing.ts`
 - `src/channels/telegram/session-routing.ts`
@@ -376,7 +376,7 @@ OpenClaw has:
 - capability discovery
 - plugin-scoped schema contributions
 
-`muxbot` does not currently have one channel capability registry.
+`clisbot` does not currently have one channel capability registry.
 
 Instead it has:
 
@@ -393,7 +393,7 @@ Effect:
 
 OpenClaw has channel plugin registration and lookup.
 
-`muxbot` currently wires Slack and Telegram more directly.
+`clisbot` currently wires Slack and Telegram more directly.
 
 Effect:
 
@@ -418,7 +418,7 @@ Effect:
 
 OpenClaw gives each channel explicit setup, config, status, doctor, and security surfaces.
 
-`muxbot` currently has config and runtime code for Slack and Telegram, but not a generalized channel adapter boundary for:
+`clisbot` currently has config and runtime code for Slack and Telegram, but not a generalized channel adapter boundary for:
 
 - startup diagnostics
 - account inspection
@@ -432,7 +432,7 @@ Effect:
 
 ## What This Means For Slack And Telegram Today
 
-Slack and Telegram in `muxbot` are not wrong.
+Slack and Telegram in `clisbot` are not wrong.
 
 They are just not yet normalized into the architecture shape needed for multi-channel growth.
 
@@ -450,7 +450,7 @@ But:
 
 ## What This Means For The Next Channel
 
-If `muxbot` adds another channel now, the likely outcome is:
+If `clisbot` adds another channel now, the likely outcome is:
 
 - another service file
 - another route-config file
@@ -464,11 +464,11 @@ That would move away from the repo architecture rules in `docs/architecture/`.
 
 The next channel should not be implemented on top of the current ad hoc shape.
 
-## Recommended Direction For muxbot
+## Recommended Direction For clisbot
 
 ### 1. Introduce a real channel plugin contract
 
-Add a `ChannelPlugin` or `ChannelAdapter` contract for `muxbot`.
+Add a `ChannelPlugin` or `ChannelAdapter` contract for `clisbot`.
 
 Minimum surfaces:
 
@@ -508,7 +508,7 @@ This should become the input to session-key routing and action delivery.
 
 ### 4. Define a shared channel message action contract
 
-`muxbot` should standardize:
+`clisbot` should standardize:
 
 - canonical action names
 - per-channel capability discovery
@@ -534,7 +534,7 @@ The correct goal is:
 
 ### First
 
-Refactor `muxbot` to introduce:
+Refactor `clisbot` to introduce:
 
 - normalized channel route model
 - normalized conversation identity model
@@ -570,6 +570,6 @@ It does not standardize:
 - provider APIs
 - provider media semantics
 
-`muxbot` currently shares only part of that architecture.
+`clisbot` currently shares only part of that architecture.
 
 The biggest gap is not missing one helper. The biggest gap is missing an explicit channel contract that Slack, Telegram, and future channels must implement.

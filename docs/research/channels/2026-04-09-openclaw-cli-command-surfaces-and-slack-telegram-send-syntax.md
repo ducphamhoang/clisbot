@@ -149,11 +149,11 @@ Examples:
 - explicit Telegram account:
   - `openclaw message send --channel telegram --account alerts --target -1001234567890 --message "uses alerts account"`
 
-### Current `~/.muxbot/muxbot.json` gap
+### Current `~/.clisbot/clisbot.json` gap
 
-Current `muxbot` config is still mostly single-account at the provider root.
+Current `clisbot` config is still mostly single-account at the provider root.
 
-Current `muxbot` shape:
+Current `clisbot` shape:
 
 ```json
 {
@@ -186,13 +186,13 @@ Current gap versus OpenClaw:
 - runtime and CLI already carry `accountId` in several places, but config does not yet truthfully model multiple Slack or Telegram accounts
 - docs already note that account-specific bindings are accepted, while current Slack and Telegram runtime routing still mostly uses channel-level context
 
-Practical consequence for `muxbot`:
+Practical consequence for `clisbot`:
 
-- `muxbot` can talk about `accountId` in bindings and session keys
-- but `~/.muxbot/muxbot.json` does not yet expose the OpenClaw-style account map needed for first-class multi-account Slack or Telegram setup
+- `clisbot` can talk about `accountId` in bindings and session keys
+- but `~/.clisbot/clisbot.json` does not yet expose the OpenClaw-style account map needed for first-class multi-account Slack or Telegram setup
 - this is the configuration-model gap the repo still needs to close
 
-Recommended target shape for `muxbot` parity:
+Recommended target shape for `clisbot` parity:
 
 ```json
 {
@@ -232,7 +232,7 @@ Recommended target shape for `muxbot` parity:
 }
 ```
 
-Recommended `muxbot` target shape:
+Recommended `clisbot` target shape:
 
 - model Slack and Telegram accounts explicitly under `channels.<provider>.accounts`
 - require `defaultAccount` whenever more than one account exists for a provider

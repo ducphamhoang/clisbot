@@ -14,6 +14,6 @@ They are the workspace bootstrap files used for agent identity, behavior, local 
 - `TOOLS.md`
 - `USER.md`
 
-This directory keeps the source template set in-repo so muxbot can reuse the same agent-workspace bootstrap model.
+This directory keeps the source template set in-repo so clisbot can reuse the same agent-workspace bootstrap model.
 
 If you need team-oriented or role-specific variants, see [../customized/README.md](../customized/README.md).

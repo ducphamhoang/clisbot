@@ -14,7 +14,7 @@ describe("ProcessedEventsStore", () => {
   });
 
   test("persists processing and completed statuses", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "muxbot-events-"));
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-events-"));
     const filePath = join(tempDir, "processed-events.json");
     const store = new ProcessedEventsStore(filePath);
 

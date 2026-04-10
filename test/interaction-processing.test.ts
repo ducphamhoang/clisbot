@@ -94,8 +94,8 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(replyCalls).toBe(1);
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("Privilege commands are not allowed");
-    expect(posted[0]).toContain("muxbot channels privilege enable slack-channel C123");
-    expect(posted[0]).toContain("muxbot channels privilege allow-user slack-channel C123 U123");
+    expect(posted[0]).toContain("clisbot channels privilege enable slack-channel C123");
+    expect(posted[0]).toContain("clisbot channels privilege allow-user slack-channel C123 U123");
   });
 
   test("blocks bash commands when sensitive commands are disabled", async () => {
@@ -135,8 +135,8 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(bashCalls).toBe(0);
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("Privilege commands are not allowed");
-    expect(posted[0]).toContain("muxbot channels privilege enable slack-channel C123");
-    expect(posted[0]).toContain("muxbot channels privilege allow-user slack-channel C123 U123");
+    expect(posted[0]).toContain("clisbot channels privilege enable slack-channel C123");
+    expect(posted[0]).toContain("clisbot channels privilege allow-user slack-channel C123 U123");
   });
 
   test("allows transcript requests when privilege commands are enabled", async () => {
@@ -406,7 +406,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     });
 
     expect(posted).toHaveLength(1);
-    expect(posted[0]).toContain("muxbot status");
+    expect(posted[0]).toContain("clisbot status");
     expect(posted[0]).toContain("responseMode: `capture-pane`");
     expect(posted[0]).toContain("additionalMessageMode: `steer`");
     expect(posted[0]).toContain("run.state: `detached`");
@@ -414,15 +414,15 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain(`run.detachedAt: \`${new Date(detachedAt).toISOString()}\``);
     expect(posted[0]).toContain("/attach`, `/detach`, `/watch every 30s`");
     expect(posted[0]).toContain("Operator commands:");
-    expect(posted[0]).toContain("muxbot channels privilege enable slack-channel C123");
-    expect(posted[0]).toContain("muxbot channels privilege allow-user slack-channel C123 U123");
+    expect(posted[0]).toContain("clisbot channels privilege enable slack-channel C123");
+    expect(posted[0]).toContain("clisbot channels privilege allow-user slack-channel C123 U123");
   });
 
   test("shows persisted response mode for the current route", async () => {
     const posted: string[] = [];
-    const originalConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    const configDir = mkdtempSync(join(tmpdir(), "muxbot-interaction-config-"));
-    const configPath = join(configDir, "muxbot.json");
+    const originalConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    const configDir = mkdtempSync(join(tmpdir(), "clisbot-interaction-config-"));
+    const configPath = join(configDir, "clisbot.json");
 
     try {
       writeFileSync(
@@ -443,7 +443,7 @@ describe("processChannelInteraction sensitive command gating", () => {
           },
         }, null, 2),
       );
-      process.env.MUXBOT_CONFIG_PATH = configPath;
+      process.env.CLISBOT_CONFIG_PATH = configPath;
 
       await processChannelInteraction({
         agentService: {
@@ -464,20 +464,20 @@ describe("processChannelInteraction sensitive command gating", () => {
         reconcileText: async (_chunks, text) => [text],
       });
     } finally {
-      process.env.MUXBOT_CONFIG_PATH = originalConfigPath;
+      process.env.CLISBOT_CONFIG_PATH = originalConfigPath;
       rmSync(configDir, { recursive: true, force: true });
     }
 
-    expect(posted[0]).toContain("muxbot response mode");
+    expect(posted[0]).toContain("clisbot response mode");
     expect(posted[0]).toContain("activeRoute.responseMode: `message-tool`");
     expect(posted[0]).toContain("config.responseMode: `message-tool`");
   });
 
   test("updates persisted response mode for the current route", async () => {
     const posted: string[] = [];
-    const originalConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    const configDir = mkdtempSync(join(tmpdir(), "muxbot-interaction-config-"));
-    const configPath = join(configDir, "muxbot.json");
+    const originalConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    const configDir = mkdtempSync(join(tmpdir(), "clisbot-interaction-config-"));
+    const configPath = join(configDir, "clisbot.json");
 
     try {
       writeFileSync(
@@ -498,7 +498,7 @@ describe("processChannelInteraction sensitive command gating", () => {
           },
         }, null, 2),
       );
-      process.env.MUXBOT_CONFIG_PATH = configPath;
+      process.env.CLISBOT_CONFIG_PATH = configPath;
 
       await processChannelInteraction({
         agentService: {
@@ -519,7 +519,7 @@ describe("processChannelInteraction sensitive command gating", () => {
         reconcileText: async (_chunks, text) => [text],
       });
     } finally {
-      process.env.MUXBOT_CONFIG_PATH = originalConfigPath;
+      process.env.CLISBOT_CONFIG_PATH = originalConfigPath;
       rmSync(configDir, { recursive: true, force: true });
     }
 
@@ -529,9 +529,9 @@ describe("processChannelInteraction sensitive command gating", () => {
 
   test("shows persisted additional message mode for the current route", async () => {
     const posted: string[] = [];
-    const originalConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    const configDir = mkdtempSync(join(tmpdir(), "muxbot-interaction-config-"));
-    const configPath = join(configDir, "muxbot.json");
+    const originalConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    const configDir = mkdtempSync(join(tmpdir(), "clisbot-interaction-config-"));
+    const configPath = join(configDir, "clisbot.json");
     const template = JSON.parse(renderDefaultConfigTemplate());
 
     try {
@@ -553,7 +553,7 @@ describe("processChannelInteraction sensitive command gating", () => {
           },
         }, null, 2),
       );
-      process.env.MUXBOT_CONFIG_PATH = configPath;
+      process.env.CLISBOT_CONFIG_PATH = configPath;
 
       await processChannelInteraction({
         agentService: {
@@ -574,20 +574,20 @@ describe("processChannelInteraction sensitive command gating", () => {
         reconcileText: async (_chunks, text) => [text],
       });
     } finally {
-      process.env.MUXBOT_CONFIG_PATH = originalConfigPath;
+      process.env.CLISBOT_CONFIG_PATH = originalConfigPath;
       rmSync(configDir, { recursive: true, force: true });
     }
 
-    expect(posted[0]).toContain("muxbot additional message mode");
+    expect(posted[0]).toContain("clisbot additional message mode");
     expect(posted[0]).toContain("activeRoute.additionalMessageMode: `queue`");
     expect(posted[0]).toContain("config.additionalMessageMode: `queue`");
   });
 
   test("updates persisted additional message mode for the current route", async () => {
     const posted: string[] = [];
-    const originalConfigPath = process.env.MUXBOT_CONFIG_PATH;
-    const configDir = mkdtempSync(join(tmpdir(), "muxbot-interaction-config-"));
-    const configPath = join(configDir, "muxbot.json");
+    const originalConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    const configDir = mkdtempSync(join(tmpdir(), "clisbot-interaction-config-"));
+    const configPath = join(configDir, "clisbot.json");
     const template = JSON.parse(renderDefaultConfigTemplate());
 
     try {
@@ -609,7 +609,7 @@ describe("processChannelInteraction sensitive command gating", () => {
           },
         }, null, 2),
       );
-      process.env.MUXBOT_CONFIG_PATH = configPath;
+      process.env.CLISBOT_CONFIG_PATH = configPath;
 
       await processChannelInteraction({
         agentService: {
@@ -630,7 +630,7 @@ describe("processChannelInteraction sensitive command gating", () => {
         reconcileText: async (_chunks, text) => [text],
       });
     } finally {
-      process.env.MUXBOT_CONFIG_PATH = originalConfigPath;
+      process.env.CLISBOT_CONFIG_PATH = originalConfigPath;
       rmSync(configDir, { recursive: true, force: true });
     }
 
@@ -658,7 +658,7 @@ describe("processChannelInteraction detached long-running settlement", () => {
             fullSnapshot: "Still working through the repository.",
             initialSnapshot: "",
             note:
-              "This session has been running for over 15 minutes. muxbot left it running as-is. Use `/transcript` anytime to check it.",
+              "This session has been running for over 15 minutes. clisbot left it running as-is. Use `/transcript` anytime to check it.",
           }),
         }),
         recordConversationReply: async () => undefined,
@@ -831,12 +831,12 @@ describe("processChannelInteraction agent prompt text", () => {
       reconcileText: async (_chunks, text) => [text],
     });
 
-    expect(submitted[0]).toContain("[muxbot steering message]");
+    expect(submitted[0]).toContain("[clisbot steering message]");
     expect(submitted[0]).toContain("please focus on the regression first");
     expect(posted[0]).toContain("Steered.");
   });
 
-  test("queue command forces muxbot-managed delivery even in message-tool mode", async () => {
+  test("queue command forces clisbot-managed delivery even in message-tool mode", async () => {
     const posted: string[] = [];
     const reconciled: string[] = [];
     let observedPrompt = "";
@@ -886,7 +886,7 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(reconciled.at(-1)).toContain("queued reply complete");
   });
 
-  test("queue mode forces queued acknowledgment and muxbot-managed settlement while busy", async () => {
+  test("queue mode forces queued acknowledgment and clisbot-managed settlement while busy", async () => {
     const posted: string[] = [];
     const reconciled: string[] = [];
 
@@ -961,7 +961,7 @@ describe("processChannelInteraction agent prompt text", () => {
       reconcileText: async (_chunks, text) => [text],
     });
 
-    expect(submitted[0]).toContain("[muxbot steering message]");
+    expect(submitted[0]).toContain("[clisbot steering message]");
     expect(submitted[0]).toContain("focus on the failing test first");
     expect(posted[0]).toBe("Steered.");
   });

@@ -5,12 +5,12 @@
 Use this page when you need to configure Slack or Telegram accounts for:
 
 - runtime startup
-- `muxbot message ...` operator actions
+- `clisbot message ...` operator actions
 - binding-level account selection with `channel[:accountId]`
 
 Current startup rule:
 
-- `muxbot start` requires either:
+- `clisbot start` requires either:
   - `SLACK_APP_TOKEN` and `SLACK_BOT_TOKEN`
   - or `TELEGRAM_BOT_TOKEN`
 - on first run, you can also pass custom token env names with:
@@ -18,8 +18,8 @@ Current startup rule:
   - `--slack-bot-token CUSTOM_SLACK_BOT_TOKEN`
   - `--telegram-bot-token CUSTOM_TELEGRAM_BOT_TOKEN`
 - the CLI also accepts placeholder form such as `'${CUSTOM_SLACK_APP_TOKEN}'`
-- `muxbot start` prints the token env names it checks and whether each one is `set` or `missing`
-- when no default channel token is available, `muxbot` does not create runtime state or start the background service
+- `clisbot start` prints the token env names it checks and whether each one is `set` or `missing`
+- when no default channel token is available, `clisbot` does not create runtime state or start the background service
 
 ## Config Shape
 
@@ -68,7 +68,7 @@ Rules:
 - route tables such as `channels.slack.channels`, `channels.slack.groups`, and `channels.telegram.groups` remain provider-owned
 - bindings can target the provider default with `slack` or `telegram`
 - bindings can target a specific account with `slack:ops` or `telegram:alerts`
-- `muxbot message ...` can target a specific account with `--account <accountId>`
+- `clisbot message ...` can target a specific account with `--account <accountId>`
 - root token fields still exist and are used for startup defaults and compatibility with existing setup helpers
 
 ## Binding Examples
@@ -162,10 +162,10 @@ export CUSTOM_SLACK_BOT_TOKEN=...
 export CUSTOM_TELEGRAM_BOT_TOKEN=...
 ```
 
-Then point `muxbot` at them on first run:
+Then point `clisbot` at them on first run:
 
 ```bash
-muxbot start \
+clisbot start \
   --cli codex \
   --bootstrap personal-assistant \
   --slack-app-token CUSTOM_SLACK_APP_TOKEN \
@@ -174,16 +174,16 @@ muxbot start \
 
 ## What Start Does
 
-When `~/.muxbot/muxbot.json` does not exist yet:
+When `~/.clisbot/clisbot.json` does not exist yet:
 
 - if Slack tokens are present, the generated config enables Slack
 - if Telegram token is present, the generated config enables Telegram
 - if both are present, both channels are enabled
-- if neither is present, `muxbot` prints a warning and returns
+- if neither is present, `clisbot` prints a warning and returns
 - custom token-reference flags are written into config exactly as provided
 - no Slack channels, Slack groups, Telegram groups, or Telegram topics are auto-added
 
-When `~/.muxbot/muxbot.json` already exists:
+When `~/.clisbot/clisbot.json` already exists:
 
 - `start` does not change channel enablement in the existing config
 - `start` validates the env vars referenced by the enabled channel token fields for the provider default account before it launches the background runtime

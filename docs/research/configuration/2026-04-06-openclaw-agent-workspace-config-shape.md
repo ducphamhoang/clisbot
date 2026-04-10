@@ -2,7 +2,7 @@
 
 ## Summary
 
-This note captures how current OpenClaw models agent selection, workspace ownership, and session storage so `muxbot` can evaluate configuration compatibility from source rather than memory.
+This note captures how current OpenClaw models agent selection, workspace ownership, and session storage so `clisbot` can evaluate configuration compatibility from source rather than memory.
 
 ## Sources
 
@@ -120,11 +120,11 @@ The reviewed docs and schemas do not expose a public root-plus-path-template wor
 - `workspaces.defaults.root`
 - `workspaces.defaults.pathTemplate`
 
-That means `muxbot`'s current workspace model is structurally different even if the default resolved path happens to look similar.
+That means `clisbot`'s current workspace model is structurally different even if the default resolved path happens to look similar.
 
-## Implications For `muxbot`
+## Implications For `clisbot`
 
-The `muxbot` config shape under review at the time of this note split workspace meaning across:
+The `clisbot` config shape under review at the time of this note split workspace meaning across:
 
 - `workspaces.defaults.root`
 - `workspaces.defaults.pathTemplate`
@@ -147,11 +147,11 @@ In practical terms, the cleanest compatibility target appears to be:
 
 ## Recommendation
 
-If `muxbot` wants OpenClaw-compatible configuration for agent and workspace ownership, prefer this mental model:
+If `clisbot` wants OpenClaw-compatible configuration for agent and workspace ownership, prefer this mental model:
 
 - `agentId` is the durable isolation boundary
 - workspace belongs to the selected agent
 - session store belongs to the selected agent
 - routing selects the agent, not a separate workspace template
 
-That suggests simplifying `muxbot` away from duplicate workspace config fields and toward one agent-centric workspace model.
+That suggests simplifying `clisbot` away from duplicate workspace config fields and toward one agent-centric workspace model.

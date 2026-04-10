@@ -283,7 +283,7 @@ export class ActiveRunManager {
   }
 
   private buildDetachedNote(resolved: ResolvedAgentTarget) {
-    return `This session has been running for over ${resolved.stream.maxRuntimeLabel}. muxbot will keep monitoring it and will post the final result here when it completes. Use \`/attach\` to resume live updates, \`/watch every 30s\` for interval updates, or \`/stop\` to interrupt it.`;
+    return `This session has been running for over ${resolved.stream.maxRuntimeLabel}. clisbot will keep monitoring it and will post the final result here when it completes. Use \`/attach\` to resume live updates, \`/watch every 30s\` for interval updates, or \`/stop\` to interrupt it.`;
   }
 
   private createRunUpdate<TStatus extends PromptExecutionStatus>(params: {

@@ -2,11 +2,11 @@
 
 ## Summary
 
-This feature gives coding agents a stable way to send user-facing progress and final replies back through `muxbot` while they are running inside another workspace.
+This feature gives coding agents a stable way to send user-facing progress and final replies back through `clisbot` while they are running inside another workspace.
 
 The feature combines three pieces:
 
-- a stable local `muxbot` wrapper under `~/.muxbot/bin/muxbot`
+- a stable local `clisbot` wrapper under `~/.clisbot/bin/clisbot`
 - agent runner launch behavior that exposes that wrapper consistently
 - a channel-owned prompt envelope that tells the agent exactly how to send progress updates back to the current Slack or Telegram surface
 - a response-mode policy layer that can disable normal channel auto-settlement while keeping runner observation active
@@ -14,10 +14,10 @@ The feature combines three pieces:
 
 ## Scope
 
-- auto-create a stable local `muxbot` wrapper for dev and local runtime use
+- auto-create a stable local `clisbot` wrapper for dev and local runtime use
 - expose the wrapper to agent runner sessions
 - inject a short channel context and reply command into the agent-bound prompt
-- support `responseMode: "message-tool"` so progress and final replies come from `muxbot message send`, not from pane settlement
+- support `responseMode: "message-tool"` so progress and final replies come from `clisbot message send`, not from pane settlement
 - resolve reply delivery in this order: surface override, agent override, provider default
 - resolve busy-session follow-up in this order: surface override, agent override, provider default
 - support explicit `/queue <message>` to force ordered queued delivery for one extra message

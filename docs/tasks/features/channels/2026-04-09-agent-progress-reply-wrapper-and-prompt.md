@@ -2,7 +2,7 @@
 
 ## Summary
 
-Give agent sessions a stable local `muxbot` command and a channel-owned prompt envelope so Codex or Claude can send progress updates and final replies back to the current Slack or Telegram conversation while running in another workspace.
+Give agent sessions a stable local `clisbot` command and a channel-owned prompt envelope so Codex or Claude can send progress updates and final replies back to the current Slack or Telegram conversation while running in another workspace.
 
 ## Status
 
@@ -10,16 +10,16 @@ In Progress
 
 ## Why
 
-Current agent sessions run inside agent workspaces, not in the `muxbot` repo root.
+Current agent sessions run inside agent workspaces, not in the `clisbot` repo root.
 
-That makes repo-local commands such as `bun run src/main.ts message send ...` poor developer experience for live chatbot testing, especially when `muxbot` is already running in dev mode and the agent needs to post progress updates back to the same chat thread.
+That makes repo-local commands such as `bun run src/main.ts message send ...` poor developer experience for live chatbot testing, especially when `clisbot` is already running in dev mode and the agent needs to post progress updates back to the same chat thread.
 
 ## Scope
 
-- create a stable local `~/.muxbot/bin/muxbot` wrapper automatically
+- create a stable local `~/.clisbot/bin/clisbot` wrapper automatically
 - make runner-launched agent sessions able to call that wrapper reliably
 - inject a short channel prompt envelope with the exact reply command for the current surface
-- add `responseMode` so normal pane-settlement replies can be suppressed when the agent is expected to answer through `muxbot message send`
+- add `responseMode` so normal pane-settlement replies can be suppressed when the agent is expected to answer through `clisbot message send`
 - support operator control of `responseMode` and `additionalMessageMode` at agent level and surface level
 - add explicit `/queue <message>` so one extra message can still be serialized even when the surface default is steering
 - keep control commands and privilege commands unchanged
@@ -39,11 +39,11 @@ That makes repo-local commands such as `bun run src/main.ts message send ...` po
 - [x] add `responseMode` so channel auto-settlement can be disabled without disabling runner observation
 - [x] rename the shipped surface to `responseMode` across config, status, CLI, slash help, and docs
 - [x] add agent-level `responseMode` overrides with surface > agent > provider precedence
-- [x] add `muxbot channels response-mode status|set ...` with message-style `--channel` and `--target` addressing
-- [x] add `muxbot agents response-mode status|set|clear ...`
+- [x] add `clisbot channels response-mode status|set ...` with message-style `--channel` and `--target` addressing
+- [x] add `clisbot agents response-mode status|set|clear ...`
 - [x] add `additionalMessageMode` with the same provider > agent > surface precedence
-- [x] add `muxbot channels additional-message-mode status|set ...`
-- [x] add `muxbot agents additional-message-mode status|set|clear ...`
+- [x] add `clisbot channels additional-message-mode status|set ...`
+- [x] add `clisbot agents additional-message-mode status|set|clear ...`
 - [x] add `/additionalmessagemode ...` plus explicit `/queue <message>`
 - [x] add explicit steer and queue shortcuts plus queue inspection and clear commands
 - [x] document the local test flow in the user guide
@@ -63,10 +63,10 @@ That makes repo-local commands such as `bun run src/main.ts message send ...` po
   - steering active-run follow-up versus explicit queued follow-up
   - explicit `\q` and `\s` shortcuts plus queued-message inspection and clear controls
   - response-mode operator CLI updates for Slack and Telegram targets
-- live Slack validation now verifies the generated local wrapper at `~/.muxbot/bin/muxbot` can:
+- live Slack validation now verifies the generated local wrapper at `~/.clisbot/bin/clisbot` can:
   - send to `SLACK_TEST_CHANNEL`
   - delete the created test message cleanly
-- this task did not force a full human-inbound to agent-outbound progress-update loop because agent behavior depends on live model decisions, not just muxbot transport correctness
+- this task did not force a full human-inbound to agent-outbound progress-update loop because agent behavior depends on live model decisions, not just clisbot transport correctness
 
 ## Exit Criteria
 

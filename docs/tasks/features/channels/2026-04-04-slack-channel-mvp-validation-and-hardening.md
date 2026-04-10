@@ -52,7 +52,7 @@ The product goal depends on proving that a channel event can reach a persistent 
 - implicit no-mention follow-up depends on Slack delivering routed `message` events; `app_mention` alone is not enough
 - live Slack validation on April 5, 2026 showed that `parent_user_id` in a human-started thread points to the thread root author, not to the bot that replied later
 - latest OpenClaw `main` now matches the intended product behavior by remembering sent-thread participation after the bot has replied once in a Slack thread
-- `muxbot` now models that target with session-scoped follow-up state
+- `clisbot` now models that target with session-scoped follow-up state
 - live validation on April 5, 2026 proved that the missing blocker for channel-thread continuation was the Slack app subscription; after enabling `message.channels`, a plain no-mention reply in an activated thread reached the app and continued the same conversation
 
 ## Dependencies Or Blockers

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-These test cases define the expected behavior of configuration as the local control plane for `muxbot`.
+These test cases define the expected behavior of configuration as the local control plane for `clisbot`.
 
 They cover config bootstrap, env substitution, and how the system wiring is resolved across channels, Agent-OS, runners, and control.
 
@@ -10,7 +10,7 @@ They cover config bootstrap, env substitution, and how the system wiring is reso
 
 ### Preconditions
 
-- `~/.muxbot/muxbot.json` does not exist
+- `~/.clisbot/clisbot.json` does not exist
 
 ### Steps
 
@@ -19,9 +19,9 @@ They cover config bootstrap, env substitution, and how the system wiring is reso
 
 ### Expected Results
 
-- the file is created at `~/.muxbot/muxbot.json`
-- the tmux socket path is `~/.muxbot/state/muxbot.sock`
-- the default agent workspace is `~/.muxbot/workspaces/default`
+- the file is created at `~/.clisbot/clisbot.json`
+- the tmux socket path is `~/.clisbot/state/clisbot.sock`
+- the default agent workspace is `~/.clisbot/workspaces/default`
 - the generated Slack `channels` map is empty
 - the generated Telegram `groups` map is empty
 
@@ -29,7 +29,7 @@ They cover config bootstrap, env substitution, and how the system wiring is reso
 
 ### Preconditions
 
-- `~/.muxbot/muxbot.json` does not exist
+- `~/.clisbot/clisbot.json` does not exist
 - `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN`, and `TELEGRAM_BOT_TOKEN` are all unset
 
 ### Steps
@@ -38,9 +38,9 @@ They cover config bootstrap, env substitution, and how the system wiring is reso
 
 ### Expected Results
 
-- `muxbot` prints a warning instead of starting
-- `muxbot` points the operator to `docs/user-guide/channel-accounts.md`
-- `muxbot` does not create the runtime config or pid state
+- `clisbot` prints a warning instead of starting
+- `clisbot` points the operator to `docs/user-guide/channel-accounts.md`
+- `clisbot` does not create the runtime config or pid state
 
 ## Test Case 3: Env Substitution Fails Loudly On Missing Vars
 
@@ -205,7 +205,7 @@ They cover config bootstrap, env substitution, and how the system wiring is reso
 - the default resolved config exposes `control.sessionCleanup.intervalMinutes: 5`
 - explicit values override the defaults without changing session-id continuity config
 - `staleAfterMinutes: 0` is treated as an explicit per-agent disable for stale tmux cleanup
-- cleanup uses muxbot activity timestamps and skips busy sessions instead of inferring staleness from tmux CPU usage
+- cleanup uses clisbot activity timestamps and skips busy sessions instead of inferring staleness from tmux CPU usage
 
 ## Test Case 11: DM Access Policy Resolves Predictably
 

@@ -13,9 +13,9 @@ function createDependencies() {
   const calls: Array<{ provider: string; action: string; params: unknown }> = [];
   const replyTargets: Array<{ loadedConfig: LoadedConfig; target: unknown; kind?: string }> = [];
   const loadedConfig: LoadedConfig = {
-    configPath: "/tmp/muxbot.json",
+    configPath: "/tmp/clisbot.json",
     processedEventsPath: "/tmp/processed-events.json",
-    stateDir: "/tmp/muxbot-state",
+    stateDir: "/tmp/clisbot-state",
     raw: {
       meta: {
         schemaVersion: 1,
@@ -27,7 +27,7 @@ function createDependencies() {
         storePath: "/tmp/sessions.json",
       },
       tmux: {
-        socketPath: "/tmp/muxbot.sock",
+        socketPath: "/tmp/clisbot.sock",
       },
       agents: {
         defaults: {
@@ -366,7 +366,7 @@ describe("message cli", () => {
     await runMessageCli([], deps);
 
     expect(calls).toHaveLength(0);
-    expect(logs[0]).toContain("muxbot message");
+    expect(logs[0]).toContain("clisbot message");
     expect(logs[0]).toContain("message send");
   });
 
