@@ -128,7 +128,7 @@ export class AgentSessionState {
           sessionKey: entry.sessionKey,
           remainingRuns: Math.max(0, loop.maxRuns - loop.attemptedRuns),
         })),
-    );
+    ).sort((left, right) => left.nextRunAt - right.nextRunAt);
   }
 
   async setIntervalLoop(
@@ -142,6 +142,33 @@ export class AgentSessionState {
       runtime: existing?.runtime,
       intervalLoops: [...(existing?.intervalLoops ?? []).filter((item) => item.id !== loop.id), loop],
     }));
+  }
+
+  async replaceIntervalLoopIfPresent(
+    resolved: ResolvedAgentTarget,
+    loop: StoredIntervalLoop,
+  ) {
+    let replaced = false;
+    await this.sessionStore.update(resolved.sessionKey, (existing) => {
+      const currentLoops = existing?.intervalLoops ?? [];
+      if (!currentLoops.some((item) => item.id === loop.id)) {
+        return existing;
+      }
+
+      replaced = true;
+      return {
+        agentId: resolved.agentId,
+        sessionKey: resolved.sessionKey,
+        sessionId: existing?.sessionId,
+        workspacePath: resolved.workspacePath,
+        runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
+        followUp: existing?.followUp,
+        runtime: existing?.runtime,
+        intervalLoops: currentLoops.map((item) => (item.id === loop.id ? loop : item)),
+        updatedAt: Date.now(),
+      };
+    });
+    return replaced;
   }
 
   async removeIntervalLoop(
@@ -165,6 +192,57 @@ export class AgentSessionState {
       runtime: existing?.runtime,
       intervalLoops: [],
     }));
+  }
+
+  async removeIntervalLoopById(loopId: string) {
+    const entries = await this.sessionStore.list();
+    for (const entry of entries) {
+      if (!(entry.intervalLoops ?? []).some((loop) => loop.id === loopId)) {
+        continue;
+      }
+
+      await this.sessionStore.update(entry.sessionKey, (existing) => {
+        if (!existing) {
+          return existing;
+        }
+
+        return {
+          ...existing,
+          intervalLoops: (existing.intervalLoops ?? []).filter((loop) => loop.id !== loopId),
+          updatedAt: Date.now(),
+        };
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  async clearAllIntervalLoops() {
+    const entries = await this.sessionStore.list();
+    let cleared = 0;
+
+    for (const entry of entries) {
+      const loopCount = entry.intervalLoops?.length ?? 0;
+      if (loopCount === 0) {
+        continue;
+      }
+
+      cleared += loopCount;
+      await this.sessionStore.update(entry.sessionKey, (existing) => {
+        if (!existing) {
+          return existing;
+        }
+
+        return {
+          ...existing,
+          intervalLoops: [],
+          updatedAt: Date.now(),
+        };
+      });
+    }
+
+    return cleared;
   }
 
   async setConversationFollowUpMode(

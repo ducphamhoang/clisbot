@@ -22,6 +22,7 @@ export type ParsedCliCommand =
   | { name: "status" }
   | { name: "logs"; lines: number }
   | { name: "channels"; args: string[] }
+  | { name: "loops"; args: string[] }
   | { name: "message"; args: string[] }
   | { name: "agents"; args: string[] }
   | { name: "pairing"; args: string[] }
@@ -80,6 +81,13 @@ export function parseCliArgs(argv: string[]): ParsedCliCommand {
   if (command === "channels") {
     return {
       name: "channels",
+      args: args.slice(1),
+    };
+  }
+
+  if (command === "loops") {
+    return {
+      name: "loops",
       args: args.slice(1),
     };
   }
@@ -156,6 +164,7 @@ export function renderCliHelp() {
     "  clisbot version",
     "  clisbot logs [--lines N]",
     "  clisbot channels <subcommand>",
+    "  clisbot loops <subcommand>",
     "  clisbot message <subcommand>",
     "  clisbot agents <subcommand>",
     "  clisbot pairing <subcommand>",
@@ -183,6 +192,10 @@ export function renderCliHelp() {
     "                     remove slack-group <groupId>",
     "                     set-token <slack-app|slack-bot|telegram-bot> <value>",
     "                     clear-token <slack-app|slack-bot|telegram-bot>",
+    "  loops              Inspect or cancel managed recurring loops persisted by `/loop`.",
+    "                     list|status",
+    "                     cancel <id>",
+    "                     cancel --all",
     "  message            Run provider message actions such as send, react, read, edit, delete, and pins.",
     "  agents             Manage configured agents and top-level bindings.",
     "  pairing            Run the pairing control CLI.",

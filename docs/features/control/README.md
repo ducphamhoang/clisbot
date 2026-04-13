@@ -24,6 +24,7 @@ Those belong to Agent-OS runtime policy, because they are part of the conversati
 - attach flows
 - restart and stop flows
 - health and debug views
+- inspect and cancel persisted managed loops
 - operator-safe intervention points
 - config reload watch behavior
 
@@ -36,6 +37,10 @@ Those belong to Agent-OS runtime policy, because they are part of the conversati
 ## Related Task Folder
 
 - [docs/tasks/features/control](../../tasks/features/control)
+
+## Related Feature Docs
+
+- [loops-cli.md](./loops-cli.md)
 
 ## Related Test Docs
 

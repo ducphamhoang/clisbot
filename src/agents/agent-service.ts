@@ -505,9 +505,32 @@ export class AgentService {
     }
   }
 
+  private async isManagedLoopPersisted(managed: ManagedIntervalLoop) {
+    const entry = await this.sessionState.getEntry(managed.target.sessionKey);
+    return (entry?.intervalLoops ?? []).some((loop) => loop.id === managed.loop.id);
+  }
+
+  private dropManagedIntervalLoop(loopId: string) {
+    const managed = this.intervalLoops.get(loopId);
+    if (!managed) {
+      return;
+    }
+
+    if (managed.timer) {
+      clearTimeout(managed.timer);
+      this.loopTimers.delete(managed.timer);
+    }
+    this.intervalLoops.delete(loopId);
+  }
+
   private async runIntervalLoopIteration(loopId: string) {
     const managed = this.intervalLoops.get(loopId);
     if (!managed) {
+      return;
+    }
+
+    if (!(await this.isManagedLoopPersisted(managed))) {
+      this.dropManagedIntervalLoop(loopId);
       return;
     }
 
@@ -523,7 +546,10 @@ export class AgentService {
 
     if (this.isSessionBusy(managed.target)) {
       nextLoopState.skippedRuns += 1;
-      await this.updateManagedIntervalLoop(managed, nextLoopState);
+      if (!(await this.updateManagedIntervalLoop(managed, nextLoopState))) {
+        this.dropManagedIntervalLoop(loopId);
+        return;
+      }
       if (attemptedRuns >= managed.loop.maxRuns) {
         await this.cancelIntervalLoop(loopId);
         return;
@@ -533,7 +559,10 @@ export class AgentService {
     }
 
     nextLoopState.executedRuns += 1;
-    await this.updateManagedIntervalLoop(managed, nextLoopState);
+    if (!(await this.updateManagedIntervalLoop(managed, nextLoopState))) {
+      this.dropManagedIntervalLoop(loopId);
+      return;
+    }
 
     const { result } = this.enqueuePrompt(
       managed.target,
@@ -584,8 +613,15 @@ export class AgentService {
     managed: ManagedIntervalLoop,
     nextLoopState: StoredIntervalLoop,
   ) {
+    const replaced = await this.sessionState.replaceIntervalLoopIfPresent(
+      this.resolveTarget(managed.target),
+      nextLoopState,
+    );
+    if (!replaced) {
+      return false;
+    }
     managed.loop = nextLoopState;
-    await this.sessionState.setIntervalLoop(this.resolveTarget(managed.target), nextLoopState);
+    return true;
   }
 
   private computeNextManagedLoopRunAtMs(loop: StoredIntervalLoop, nowMs: number) {

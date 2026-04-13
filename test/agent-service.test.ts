@@ -3,7 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ActiveRunInProgressError, AgentService } from "../src/agents/agent-service.ts";
+import { resolveAgentTarget } from "../src/agents/resolved-target.ts";
 import { loadConfig } from "../src/config/load-config.ts";
+import { AgentSessionState } from "../src/agents/session-state.ts";
+import { SessionStore } from "../src/agents/session-store.ts";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
 
 const RUNNER_GENERATED_ID = "11111111-1111-1111-1111-111111111111";
@@ -1020,6 +1023,142 @@ describe("AgentService session identity", () => {
     expect(cancelled).toBe(1);
     expect(secondService.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(0);
     await secondService.stop();
+  });
+
+  test("drops a persisted loop after operator state cancellation before the next tick", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-loop-cancel-"));
+    const storePath = join(tempDir, "sessions.json");
+    const socketPath = join(tempDir, "clisbot.sock");
+    const workspaceTemplate = join(tempDir, "workspaces", "{agentId}");
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        buildConfig({
+          socketPath,
+          storePath,
+          workspaceTemplate,
+          runnerCommand: "codex",
+          runnerArgs: ["-C", "{workspace}"],
+          sessionId: {
+            create: { mode: "runner", args: [] },
+            capture: {
+              mode: "status-command",
+              statusCommand: "/status",
+              pattern: RUNNER_GENERATED_ID,
+              timeoutMs: 10,
+              pollIntervalMs: 1,
+            },
+            resume: { mode: "command", args: ["resume", "{sessionId}"] },
+          },
+          cleanupEnabled: false,
+        }),
+        null,
+        2,
+      ),
+    );
+    const loadedConfig = await loadConfig(configPath);
+    const tmux = new FakeTmuxClient() as unknown as TmuxClient;
+    const service = new AgentService(loadedConfig, { tmux });
+    const state = new AgentSessionState(new SessionStore(storePath));
+    const target = {
+      agentId: "default",
+      sessionKey: "agent:default:slack:channel:c4:thread:loop-drop",
+    };
+
+    const created = await service.createIntervalLoop({
+      target,
+      promptText: "check deploy",
+      promptSummary: "check deploy",
+      promptSource: "custom",
+      intervalMs: 20,
+      maxRuns: 3,
+      createdBy: "U123",
+      force: true,
+    });
+
+    expect(created?.id).toBeTruthy();
+    expect(service.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(1);
+
+    await state.removeIntervalLoopById(created!.id);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(service.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(0);
+    await service.stop();
+  });
+
+  test("does not rewrite a cancelled loop when a stale runtime update arrives later", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-loop-race-"));
+    const storePath = join(tempDir, "sessions.json");
+    const socketPath = join(tempDir, "clisbot.sock");
+    const workspaceTemplate = join(tempDir, "workspaces", "{agentId}");
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        buildConfig({
+          socketPath,
+          storePath,
+          workspaceTemplate,
+          runnerCommand: "codex",
+          runnerArgs: ["-C", "{workspace}"],
+          sessionId: {
+            create: { mode: "runner", args: [] },
+            capture: {
+              mode: "status-command",
+              statusCommand: "/status",
+              pattern: RUNNER_GENERATED_ID,
+              timeoutMs: 10,
+              pollIntervalMs: 1,
+            },
+            resume: { mode: "command", args: ["resume", "{sessionId}"] },
+          },
+          cleanupEnabled: false,
+        }),
+        null,
+        2,
+      ),
+    );
+    const loadedConfig = await loadConfig(configPath);
+    const resolved = resolveAgentTarget(loadedConfig, {
+      agentId: "default",
+      sessionKey: "agent:default:slack:channel:c4:thread:loop-race",
+    });
+    const state = new AgentSessionState(new SessionStore(storePath));
+    const originalLoop = {
+      id: "loop-race",
+      intervalMs: 60_000,
+      maxRuns: 3,
+      attemptedRuns: 0,
+      executedRuns: 0,
+      skippedRuns: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      nextRunAt: Date.now(),
+      promptText: "check deploy",
+      promptSummary: "check deploy",
+      promptSource: "custom" as const,
+      createdBy: "U123",
+      force: true,
+    };
+
+    await state.setIntervalLoop(resolved, originalLoop);
+    await state.removeIntervalLoopById(originalLoop.id);
+
+    const replaced = await state.replaceIntervalLoopIfPresent(resolved, {
+      ...originalLoop,
+      attemptedRuns: 1,
+      executedRuns: 1,
+      updatedAt: Date.now(),
+      nextRunAt: Date.now() + 60_000,
+    });
+
+    expect(replaced).toBe(false);
+    expect(
+      await state.listIntervalLoops({
+        sessionKey: resolved.sessionKey,
+      }),
+    ).toHaveLength(0);
   });
 
   test("persists conversation follow-up overrides and bot participation timestamps", async () => {

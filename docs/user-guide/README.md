@@ -302,6 +302,28 @@ Timezone config examples:
 - if the service is already running, restart it after changing channel enablement
 - `clisbot channels` and `clisbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and privilege commands
 
+## Loops CLI
+
+Use `clisbot loops ...` to inspect or cancel recurring loops that were already created through channel `/loop` commands.
+
+Current subcommands:
+
+- `clisbot loops list`
+- `clisbot loops status`
+- `clisbot loops cancel <id>`
+- `clisbot loops cancel --all`
+
+Important behavior:
+
+- `list` and `status` are aliases and print the same global inventory
+- this CLI does not create loops
+- every row includes `agentId` and `sessionKey` because the operator CLI is app-wide rather than route-scoped
+- `cancel --all` is app-wide
+- loop state is read from `session.storePath`, which defaults to `~/.clisbot/state/sessions.json`
+- if `CLISBOT_HOME` is set, the default session store becomes `<CLISBOT_HOME>/state/sessions.json`
+- the runtime scheduler re-checks persisted loop state before each scheduled tick, so cancelling through the CLI suppresses future runs without adding a separate control socket
+- cancelling through the CLI does not interrupt an iteration that is already running
+
 ## Start And Status Output
 
 `clisbot start` now prints an operator summary after startup.

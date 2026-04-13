@@ -57,3 +57,55 @@ They should stay separate from end-user channel behavior.
 - health output distinguishes channel connectivity, agent state, and runner state
 - operators can identify the failing layer without attaching blindly
 - the control surface exposes actionable state instead of forcing log forensics first
+
+## Test Case 4: Operator Can List Persisted Loops
+
+### Preconditions
+
+- at least one recurring loop already exists from a prior channel `/loop` command
+
+### Steps
+
+1. Run `clisbot loops list`
+2. Run `clisbot loops status`
+
+### Expected Results
+
+- both commands succeed without requiring channel token env vars in the current shell
+- both commands show the same loop inventory body
+- each row includes loop id, agent id, session key, schedule, remaining runs, and next run time
+
+## Test Case 5: Operator Can Cancel One Persisted Loop By Id
+
+### Preconditions
+
+- at least two recurring loops already exist
+- one known target loop id is available
+
+### Steps
+
+1. Run `clisbot loops cancel <id>`
+2. Run `clisbot loops status`
+
+### Expected Results
+
+- only the targeted loop is removed
+- the remaining loop inventory count drops by one
+- future ticks for the cancelled loop do not execute again
+
+## Test Case 6: Operator Can Cancel All Persisted Loops
+
+### Preconditions
+
+- at least one recurring loop already exists
+
+### Steps
+
+1. Run `clisbot loops cancel --all`
+2. Run `clisbot loops status`
+
+### Expected Results
+
+- all persisted loops are removed across the app
+- `clisbot loops status` reports zero active loops
+- no later recurring tick appears from those cancelled loops

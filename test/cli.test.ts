@@ -48,6 +48,13 @@ describe("parseCliArgs", () => {
     });
   });
 
+  test("parses loops subcommands", () => {
+    expect(parseCliArgs(["bun", "src/main.ts", "loops", "cancel", "--all"])).toEqual({
+      name: "loops",
+      args: ["cancel", "--all"],
+    });
+  });
+
   test("parses message subcommands", () => {
     expect(
       parseCliArgs(["bun", "src/main.ts", "message", "send", "--channel", "slack"]),
@@ -146,6 +153,7 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clisbot version");
     expect(help).toContain("clisbot logs [--lines N]");
     expect(help).toContain("clisbot channels <subcommand>");
+    expect(help).toContain("clisbot loops <subcommand>");
     expect(help).toContain("clisbot message <subcommand>");
     expect(help).toContain("clisbot agents <subcommand>");
     expect(help).toContain("clisbot init [--cli <codex|claude>] [--bootstrap <personal-assistant|team-assistant>]");
@@ -155,5 +163,6 @@ describe("renderCliHelp", () => {
     expect(help).toContain("Docs: docs/user-guide/README.md");
     expect(help).toContain("clone https://github.com/longbkit/clisbot");
     expect(help).toContain("Codex or Claude Code");
+    expect(help).toContain("cancel <id>");
   });
 });

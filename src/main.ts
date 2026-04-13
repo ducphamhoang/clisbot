@@ -3,6 +3,7 @@ import { parseCliArgs, renderCliHelp } from "./cli.ts";
 import { runPairingCli } from "./channels/pairing/cli.ts";
 import { addAgentToEditableConfig, runAgentsCli } from "./control/agents-cli.ts";
 import { runChannelsCli } from "./control/channels-cli.ts";
+import { runLoopsCli } from "./control/loops-cli.ts";
 import { runMessageCli } from "./control/message-cli.ts";
 import { RuntimeSupervisor } from "./control/runtime-supervisor.ts";
 import {
@@ -523,6 +524,11 @@ async function main(command = parseCliArgs(process.argv)) {
 
   if (command.name === "channels") {
     await runChannelsCli(command.args);
+    return;
+  }
+
+  if (command.name === "loops") {
+    await runLoopsCli(command.args);
     return;
   }
 
