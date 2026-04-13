@@ -63,6 +63,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             ],
             trustWorkspace: true,
             startupDelayMs: 3000,
+            startupReadyPattern: undefined,
             promptSubmitDelayMs: 150,
             sessionId: {
               create: {

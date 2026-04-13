@@ -75,6 +75,11 @@ const runnerSessionIdSchema = runnerSessionIdObjectSchema.default(
   defaultRunnerSessionIdConfig,
 );
 
+const runnerStartupBlockerSchema = z.object({
+  pattern: z.string().min(1),
+  message: z.string().min(1),
+});
+
 const runnerSchema = z.object({
   command: z.string().min(1),
   args: z
@@ -87,6 +92,8 @@ const runnerSchema = z.object({
     ]),
   trustWorkspace: z.boolean().default(true),
   startupDelayMs: z.number().int().positive().default(3000),
+  startupReadyPattern: z.string().min(1).optional(),
+  startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).default(150),
   sessionId: runnerSessionIdSchema.default(defaultRunnerSessionIdConfig),
 });
@@ -126,6 +133,8 @@ const runnerOverrideSchema = z.object({
   args: z.array(z.string()).optional(),
   trustWorkspace: z.boolean().optional(),
   startupDelayMs: z.number().int().positive().optional(),
+  startupReadyPattern: z.string().min(1).optional(),
+  startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
   sessionId: runnerSessionIdObjectSchema
     .partial()

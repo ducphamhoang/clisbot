@@ -42,6 +42,13 @@ describe("loadConfig", () => {
               args: ["-C", "{workspace}"],
               trustWorkspace: true,
               startupDelayMs: 1,
+              startupReadyPattern: "ready",
+              startupBlockers: [
+                {
+                  pattern: "blocked",
+                  message: "blocked message",
+                },
+              ],
               promptSubmitDelayMs: 1,
               sessionId: {
                 create: {
@@ -210,6 +217,13 @@ describe("loadConfig", () => {
     expect(loaded.raw.agents.defaults.runner.sessionId.capture.mode).toBe(
       "status-command",
     );
+    expect(loaded.raw.agents.defaults.runner.startupReadyPattern).toBe("ready");
+    expect(loaded.raw.agents.defaults.runner.startupBlockers).toEqual([
+      {
+        pattern: "blocked",
+        message: "blocked message",
+      },
+    ]);
     expect(loaded.raw.agents.defaults.runner.sessionId.resume.mode).toBe(
       "command",
     );

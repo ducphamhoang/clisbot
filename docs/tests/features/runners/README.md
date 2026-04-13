@@ -11,6 +11,7 @@ They are the ground truth for validating how concrete backends expose input, out
 - session-id persistence and resume after tmux-session loss are implemented behaviors
 - a killed tmux session can be recreated on a later prompt for the same `sessionKey`
 - Codex and Claude interactive CLI routes are both proven on the current tmux runner
+- Gemini runner wiring, session-id strategy, readiness gating, and auth-blocker failure path are implemented
 - stale tmux cleanup is implemented without losing resumable state
 - reset policy is not implemented yet
 
@@ -49,6 +50,29 @@ They are the ground truth for validating how concrete backends expose input, out
 - the trust prompt is accepted automatically when configured
 - the pane redraws so the live Codex prompt becomes visible
 - the first user prompt still executes successfully after trust handling
+
+## Test Case 2B: Runner Fails Fast On Gemini Auth Blockers
+
+### Status
+
+Implemented
+
+### Preconditions
+
+- the tmux runner is launching Gemini CLI
+- Gemini is not yet authenticated in a reusable way for that runtime
+
+### Steps
+
+1. Trigger the first Gemini session through the runner
+2. Let the pane show the Gemini OAuth code-flow prompt
+3. Observe the runner startup result
+
+### Expected Results
+
+- the runner does not treat the auth screen as ready
+- the runner returns a clear startup error with remediation guidance
+- the half-ready tmux session is not left behind as the active routed session
 
 ## Test Case 3: Runner Streaming Emits Ordered Deltas
 

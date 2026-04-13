@@ -153,7 +153,9 @@ export async function getRuntimeOperatorSummary(params: {
     const bootstrapState = getBootstrapWorkspaceState(
       resolved.workspacePath,
       entry.bootstrap?.mode,
-      tool.cliTool === "codex" || tool.cliTool === "claude" ? tool.cliTool : undefined,
+      tool.cliTool === "codex" || tool.cliTool === "claude" || tool.cliTool === "gemini"
+        ? tool.cliTool
+        : undefined,
     );
 
     return {

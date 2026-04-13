@@ -1,63 +1,41 @@
 # clisbot - Agentic Coding CLI & chat bot
-The cheapest, simplest path to frontier LLMs and agentic CLI workflows for teams and individuals.
+Want to use OpenClaw but are struggling because:
 
-`clisbot` is not just another tmux bridge, as many GitHub projects already are. It exposes native agentic AI tool CLIs like Claude Code / Codex through multi-channel chat surfaces, with each agent running inside its own durable tmux session and ready to behave like a real bot, a real assistant - with SOUL, IDENTITY & MEMORY, just as OpenClaw, not just a coding tool.
+- API cost is too high, so you end up looking for LLM proxy workarounds
+- you have to switch between OpenClaw for daily work and Claude / Codex for real coding
+- you want to code on the go and work on the go
 
-`clisbot` is meant to grow into a reusable agent runtime layer that can support many CLI tools, many channels, and many workflow shapes on top of the same durable agent session.
-Instead of splitting your workflow between something like OpenClaw for everyday tasks and then switching back to Claude or Codex for real coding work, you can just stick with whatever strong tool you already have, whether Claude or Codex, and add `clisbot` as a lightweight layer to turn it into an all-purpose AI agent: chatbot, daily-work assistant, and powerful coding companion in one.
+`clisbot` is the right solution for you.
 
-Agentic AI is powerful, but only with frontier models. OpenClaw took off because people found many ways to access strong frontier models cheaply through subscription-based OAuth. Recent Anthropic enforcement around third-party and proxy-style usage made that risk harder to ignore.
+`clisbot` turns native frontier agent CLIs like Claude Code, Codex, and Gemini CLI into durable Slack and Telegram bots. Each agent runs inside its own tmux session, keeps a real workspace, and can behave like a coding bot, a daily-work assistant, or a team assistant with SOUL, IDENTITY, and MEMORY.
 
-Meanwhile, the strongest agentic coding tools already come from serious enterprise teams with real investment in model quality, security, safety, and operator controls, especially Claude Code, Codex, and Gemini CLI. That naturally leads to a simple question: why not reuse those agents as they already are, keep them alive in tmux, and add communication channels, team workflows, and more toys around them?
+It is a cheaper, simpler path to frontier agent workflows for teams and individuals because it reuses the CLI subscriptions you already have instead of forcing a separate API-heavy stack. If you already trust Claude Code or Codex for real work, `clisbot` lets you keep those tools as the core runtime and add chat surfaces, follow-up control, team workflows, and on-the-go access around them.
 
-Every company will likely need an OpenClaw-style strategy over time: a personal agentic assistant for each employee, plus shared agents for each team. `clisbot` starts from a team-first angle, with Slack and shared agent workflows as the default center of gravity instead of treating team collaboration as a later add-on. 
-
-## Important caution
-
-Strong vendor investment in security and safety does not make frontier agentic CLI tools inherently safe. `clisbot` exposes those tools more broadly through chat and workflow surfaces, so you should treat the whole system as high-trust software and use it at your own risk.
-
-## Acknowledgements
-
-`clisbot` would not exist without the ideas, momentum, and practical inspiration created by OpenClaw. Many configuration, routing, and workspace concepts here were learned from studying OpenClaw, then adapted to `clisbot`'s own direction. Respect and thanks to the OpenClaw project and community.
+`clisbot` is also meant to grow into a reusable agent runtime layer that can support many CLI tools, many channels, and many workflow shapes on top of the same durable agent session.
 
 ## Why clisbot
 
-- Reuses the native CLI tools you already know and subscribe to, such as Claude Code, Codex, and Gemini CLI, then extends them across coding, chatbot, and non-dev workflows without forcing you to switch tools or pay for separate products when one subscription-backed CLI can already cover both agentic AI assistant work and agentic engineering or coding work.
-- Compatible with OpenClaw-style configuration, commands and some concepts, agent personality for bot usecases, and workspace bootstrap templates, help Openclaw users to quickly get started.
-- Strong chat-first communication support in Slack and Telegram, with follow-up controls that keep conversations natural when useful and quiet when teams need the bot to stay out of the way.
-- Team-first by design, with `AGENTS`, `USER`, and `MEMORY` context guidance optimized for shared team reality: team members, projects, ongoing work, and timeline continuity, instead of defaulting to the more personal context shape common in OpenClaw.
-- Useful as a bot for coding, operations, teamwork, and general work in team environment, or on the go
-- Fast operator shortcuts for shell execution: `!<command>` or `/bash <command>`, plus slash-prefix mappings such as `\bash` or `::bash` when Slack slash-command handling is incompatible. Turns Slack / Telegram into a terminal interface on the go.
-- The proof of concept already shows high potential beyond internal coding workflows, including customer chatbot use cases once messaging MCP or CLI-based skills let the agent send messages proactively in a cleaner way.
+- One frontier-agent stack for both daily work and real coding. You do not need one product for assistant work and another for actual engineering work.
+- Reuses native CLI subscriptions you already pay for, such as Claude Code, Codex, and Gemini CLI, instead of pushing you toward a separate API-cost-heavy stack.
+- Strong chat-first support in Slack and Telegram, with durable tmux-backed sessions behind the bot, so you can work from your laptop or on the go without giving up a real coding workspace.
+- Team-first by design, with `AGENTS`, `USER`, and `MEMORY` context bootstrapping shaped for shared team reality instead of only personal solo-assistant flows.
+- Compatible with OpenClaw-style ideas where useful, but centered on native coding agents, team workflows, and practical operator control.
+- Useful for coding, operations, teamwork, and general assistant work, with fast shell shortcuts such as `!<command>` and `/bash <command>` when you need terminal-like control from chat.
 
-## Showcase
+## What to expect
 
-Slack
-
-![Slack showcase](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/slack-01.jpg)
-
-Telegram
-
-![Telegram topic showcase 1](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-01.jpg)
-
-![Telegram topic showcase 2](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-02.jpg)
-
-![Telegram topic showcase 3](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-03.jpg)
+- You can get the first Telegram bot running in one command.
+- The first-run path creates one default agent and only enables the channels you explicitly name.
+- DMs start with pairing so access stays explicit.
+- `--persist` lets later restarts use plain `clisbot start`.
+- Advanced multi-agent setup is available later, but it is not required for day one.
 
 ## Quick Start
 
-Fastest first-run path for the first Telegram bot:
+Most people should start here:
 
 ```bash
-clisbot start \
-  --cli codex \
-  --bot-type personal \
-  --telegram-bot-token <your-telegram-bot-token>
-```
-
-If you want later runs to work with plain `clisbot start`, persist that token immediately:
-
-```bash
+npm install -g clisbot
 clisbot start \
   --cli codex \
   --bot-type personal \
@@ -65,7 +43,9 @@ clisbot start \
   --persist
 ```
 
-What this does:
+If you want to try first without persisting the token yet, just remove `--persist`.
+
+What happens next:
 
 - `--bot-type personal` creates one assistant for one human
 - `--bot-type team` creates one shared assistant for a team, channel, or group workflow
@@ -74,11 +54,14 @@ What this does:
 - fresh bootstrap only enables the channels you name explicitly
 - after the persisted first run, later restarts can use plain `clisbot start`
 
-Packaged CLI path:
+If you prefer Slack first:
 
 ```bash
-npm install -g clisbot
-clisbot start --cli codex --bot-type personal --telegram-bot-token <your-telegram-bot-token> --persist
+clisbot start \
+  --cli codex \
+  --bot-type team \
+  --slack-app-token SLACK_APP_TOKEN \
+  --slack-bot-token SLACK_BOT_TOKEN
 ```
 
 Short alias:
@@ -92,16 +75,6 @@ Local repo path:
 ```bash
 bun install
 bun run start --cli codex --bot-type personal --telegram-bot-token <your-telegram-bot-token> --persist
-```
-
-If you prefer Slack first:
-
-```bash
-clisbot start \
-  --cli codex \
-  --bot-type team \
-  --slack-app-token SLACK_APP_TOKEN \
-  --slack-bot-token SLACK_BOT_TOKEN
 ```
 
 First conversation path:
@@ -122,9 +95,44 @@ Fresh config also starts with no preconfigured Slack channels or Telegram groups
 `clisbot start` requires explicit channel token input before it bootstraps anything. You can pass raw values, env names such as `MY_TELEGRAM_BOT_TOKEN`, or placeholders such as `'${MY_TELEGRAM_BOT_TOKEN}'`.
 Set `CLISBOT_HOME` if you want a fully separate local config, state, tmux socket, wrapper, and workspace root, for example when running a dev instance beside your main bot.
 
+Gemini note:
+
+- `clisbot` supports Gemini CLI as a routed runner target
+- Gemini still needs its own reusable auth before routed prompts can succeed
+- for headless or detached use, prefer `GEMINI_API_KEY` or Vertex AI credentials, or log in once directly with `gemini`
+
+## Showcase
+
+Slack
+
+![Slack showcase](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/slack-01.jpg)
+
+Telegram
+
+![Telegram topic showcase 1](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-01.jpg)
+
+![Telegram topic showcase 2](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-02.jpg)
+
+![Telegram topic showcase 3](https://raw.githubusercontent.com/longbkit/clisbot/main/docs/pics/telegram-03.jpg)
+
+## Important caution
+
+Strong vendor investment in security and safety does not make frontier agentic CLI tools inherently safe. `clisbot` exposes those tools more broadly through chat and workflow surfaces, so you should treat the whole system as high-trust software and use it at your own risk.
+
+## Acknowledgements
+
+`clisbot` would not exist without the ideas, momentum, and practical inspiration created by OpenClaw. Many configuration, routing, and workspace concepts here were learned from studying OpenClaw, then adapted to `clisbot`'s own direction. Respect and thanks to the OpenClaw project and community.
+
 ## Setup Guide
 
-The easiest setup flow is:
+The easiest setup flow is still:
+
+1. Install `clisbot`.
+2. Run the quick start command above.
+3. DM the bot and approve pairing.
+4. Only move into advanced config after the first successful run.
+
+If you want the repo-guided setup path:
 
 1. Clone this repo.
 2. Open Claude Code or Codex in this repo.
@@ -132,7 +140,7 @@ The easiest setup flow is:
 
 The docs in this repo are kept current, including the [User Guide](docs/user-guide/README.md), so the agent should have enough context to walk you through setup, configuration, and troubleshooting directly inside the repo.
 
-If you prefer to configure things yourself:
+If you prefer to configure everything yourself:
 
 1. Read the full config template in [config/clisbot.json.template](config/clisbot.json.template).
 2. Copy it to `~/.clisbot/clisbot.json` and adjust channels, bindings, workspaces, and policies for your environment.
@@ -160,8 +168,8 @@ Advanced agent management:
 
 - most users should stay on `clisbot start --cli ... --bot-type ...` and let first-run create the default agent
 - if you need more than one agent, custom bindings, or manual workspace bootstrap flows, use the `clisbot agents ...` commands described in [docs/user-guide/README.md](docs/user-guide/README.md)
-- README intentionally keeps that low-level surface out of the main onboarding path because the public first-run model is `--bot-type personal|team`, not internal template-mode naming.
-- Fresh channel config still points at the `default` agent. If your first agent uses another id, update `defaultAgentId` and any route `agentId` values in config.
+- README intentionally keeps that low-level surface out of the main onboarding path because the public first-run model is `--bot-type personal|team`, not internal template-mode naming
+- fresh channel config still points at the `default` agent; if your first agent uses another id, update `defaultAgentId` and any route `agentId` values in config
 
 Env-backed setup is still supported when you want config to reference an env name instead of persisting a credential file:
 
@@ -180,8 +188,9 @@ clisbot start \
 
 ## Troubleshooting
 
+If the quick start does not work, check these in order:
+
 - If setup feels unclear, open Claude Code or Codex in this repo and ask it to help using the local docs.
-- If you are still in doubt, clone `https://github.com/longbkit/clisbot`, open the repo in Codex or Claude Code, and ask questions about setup or the bot type choice.
 - If config behavior is confusing, inspect [config/clisbot.json.template](config/clisbot.json.template) first, then compare it with [docs/user-guide/README.md](docs/user-guide/README.md).
 - If `clisbot start` says no agents are configured, prefer `clisbot start --cli codex --bot-type personal --telegram-bot-token <your-telegram-bot-token>`.
 - If you want later runs to work with plain `clisbot start`, rerun your successful first-run command with `--persist`.
@@ -196,6 +205,7 @@ trust_level = "trusted"
 ```
 
 - If that trust screen is still blocking, attach directly and continue from tmux with `tmux -S ~/.clisbot/state/clisbot.sock attach -t agent-default-main`.
+- If Gemini startup says it is waiting for manual authorization, authenticate Gemini directly first or provide a headless auth path such as `GEMINI_API_KEY` or Vertex AI credentials; `clisbot` now treats that screen as a startup blocker instead of a healthy ready session.
 - If Codex warns that `bubblewrap` is missing on Linux, install `bubblewrap` in the runtime environment.
 - If the bot does not answer, check that your shell environment really contains the expected tokens and restart `clisbot` after changing them.
 - If runtime startup still fails, run `clisbot logs` and inspect the recent log tail that `clisbot` now prints automatically on startup failure.
@@ -204,33 +214,29 @@ trust_level = "trusted"
 - If Slack thread behavior feels too eager, use `/followup pause` or `/followup mention-only`.
 - If Slack slash commands conflict with Slack-native command handling, add a leading space, for example ` /bash ls -la`.
 
-## Commands
+## Common CLI commands
+
+Most users only need a small set of commands at first:
 
 - `clisbot start`
 - `clisbot restart`
 - `clisbot stop`
-- `clisbot stop --hard`
 - `clisbot status`
 - `clisbot logs`
+- `clisbot pairing approve slack <CODE>`
+- `clisbot pairing approve telegram <CODE>`
 - `clisbot channels enable slack`
 - `clisbot channels enable telegram`
 - `clisbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]`
-- `clisbot channels remove telegram-group <chatId> [--topic <topicId>]`
 - `clisbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]`
-- `clisbot channels remove slack-channel <channelId>`
-- `clisbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]`
-- `clisbot channels remove slack-group <groupId>`
-- `clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
-- `clisbot channels clear-token <slack-app|slack-bot|telegram-bot>`
 - `clisbot channels privilege enable <target>`
-- `clisbot channels privilege disable <target>`
 - `clisbot channels privilege allow-user <target> <userId>`
-- `clisbot channels privilege remove-user <target> <userId>`
 - `clisbot agents list --bindings`
-- `clisbot start --cli codex --bot-type personal --telegram-bot-token <your-telegram-bot-token> --persist`
-- `clisbot agents bind --agent default --bind telegram`
 - `clisbot agents bindings`
 - `clisbot --help`
+
+If you are running from the repo instead of the global package:
+
 - `bun run dev`
 - `bun run start`
 - `bun run restart`
@@ -295,21 +301,19 @@ Follow-up behavior matters in team threads:
 
 ## Roadmap
 
-- Webhook and OpenAI-compatible completion API to integrate with more workflows.
-- Heartbeat and cronjob support, with the note that Claude already has a useful cronjob path today through loop-style workflows.
-- Autodrive / hardwork mode.
-- Support more native CLIs such as Gemini, OpenCode, and others.
-- Experiment with json output mode from codex / claude code, Agent Client Protocol and native Codex SDK integration.
-- Experiment with native messaging tools so the bot can send Slack or Telegram messages through MCP or CLI-based skills instead of tmux pane capture, for more stable and natural public-facing behavior over time.
-- Add more channels on demand.
+- Add more native CLIs, starting with a stronger Claude, Codex, and Gemini launch trio.
+- Add more channels, starting from Slack and Telegram, then moving toward Zalo and other expansion surfaces.
+- Add better workflow building blocks such as heartbeat, cron-style jobs, and stronger loop automation.
+- Explore structured output, ACP, and native SDK integrations where they improve truthfulness or operator control.
+- Explore more stable native messaging paths beyond tmux-pane capture over time.
 
 ## Current Focus
 
 `clisbot` is growing toward a broader agent runtime layer:
 
-- more CLI tool support beyond Claude Code and Codex, including Gemini CLI, OpenCode, Qwen, Kilo, and other agentic CLIs
-- more communication channels beyond Slack and Telegram, including Zalo, WhatsApp, Facebook, Discord, and future API-compatible surfaces
-- simple workflow building blocks such as cronjobs, heartbeat jobs, lightweight Ralph-style loops, and prompt combinations that just work
+- more CLI tool support beyond Claude Code and Codex
+- more communication channels beyond Slack and Telegram
+- simple workflow building blocks such as cron jobs, heartbeat jobs, and loops
 - durable agent sessions, workspaces, follow-up policy, commands, attachments, and operator controls that stay reusable across all those surfaces
 
 tmux is still the current stability boundary. One agent maps to one durable runner session in one workspace, and every CLI, channel, or workflow layer should route onto that durable runtime instead of recreating the agent from scratch.
@@ -347,7 +351,7 @@ Short snapshot:
 
 This repo also serves as a small example of an AI-native engineering workflow:
 
-- simple `AGENTS.md` and `CLAUDE.md`-style operating rules, short but addresses some common drawbacks of AI models as of 2026
+- simple `AGENTS.md` and `CLAUDE.md`-style operating rules
 - lessons-learned docs to capture repeated feedback and pitfalls
 - architecture docs used as a stable implementation contract
 - end-to-end validation expectations to close the feedback loop for AI agents

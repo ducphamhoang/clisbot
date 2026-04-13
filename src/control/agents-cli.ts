@@ -315,12 +315,12 @@ export async function addAgentToEditableConfig(params: AddAgentParams) {
 async function addAgent(args: string[]) {
   const agentId = args[0]?.trim();
   if (!agentId) {
-    throw new Error("Usage: agents add <id> --cli <codex|claude> [--workspace <path>] [--startup-option <arg>]... [--bootstrap <personal-assistant|team-assistant>] [--bind <channel[:accountId]>]...");
+    throw new Error("Usage: agents add <id> --cli <codex|claude|gemini> [--workspace <path>] [--startup-option <arg>]... [--bootstrap <personal-assistant|team-assistant>] [--bind <channel[:accountId]>]...");
   }
 
   const cliTool = parseSingleOption(args, "--cli") as AgentCliToolId | undefined;
   if (!cliTool || !(cliTool in DEFAULT_AGENT_TOOL_TEMPLATES)) {
-    throw new Error("agents add requires --cli codex or --cli claude");
+    throw new Error("agents add requires --cli codex, --cli claude, or --cli gemini");
   }
 
   const workspace = parseSingleOption(args, "--workspace");

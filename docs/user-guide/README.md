@@ -105,6 +105,7 @@ Important distinction:
 - existing enabled channel token refs are validated before the detached runtime is spawned
 - fresh bootstrap enables only the channels and accounts you named explicitly with flags
 - `--persist` writes canonical credential files for any literal channel tokens from that invocation, so later plain `clisbot start` can reuse them
+- Gemini-first setups also need Gemini itself to already be authenticated for routed use, either by a prior direct `gemini` login or by headless auth such as `GEMINI_API_KEY` or Vertex AI credentials
 - the generated default config does not preseed Slack channel routes, Slack groups, Telegram groups, or Telegram topics
 - you must add channel routes manually in `~/.clisbot/clisbot.json`
 - `clisbot start` prints a brief agents and channels summary after launch
@@ -125,7 +126,7 @@ Current subcommands:
 - `clisbot agents list`
 - `clisbot agents list --bindings`
 - `clisbot agents list --json`
-- `clisbot agents add <id> --cli <codex|claude>`
+- `clisbot agents add <id> --cli <codex|claude|gemini>`
 - `clisbot agents bootstrap <id> --mode <personal-assistant|team-assistant>`
 - `clisbot agents bindings`
 - `clisbot agents bindings --agent <id>`
@@ -142,7 +143,7 @@ Current subcommands:
 Important rules:
 
 - `agents add` requires `--cli`
-- supported tools are `codex` and `claude`
+- supported tools are `codex`, `claude`, and `gemini`
 - `--startup-option` may be repeated
 - when `--startup-option` is omitted, clisbot uses the built-in startup options for the selected CLI
 - public first-run `start` or `init` uses `--bot-type personal|team`; the `agents` CLI below is the lower-level workspace-template surface
@@ -160,6 +161,10 @@ Examples:
 
 ```bash
 clisbot agents add work --cli claude --bind telegram
+```
+
+```bash
+clisbot agents add gem --cli gemini --bootstrap personal-assistant
 ```
 
 ```bash
@@ -186,10 +191,12 @@ Bootstrap behavior:
 - those internal template modes map to the public first-run choices `--bot-type personal` and `--bot-type team`
 - codex bootstrap requires `AGENTS.md` and `IDENTITY.md`
 - claude bootstrap requires `CLAUDE.md` and `IDENTITY.md`
+- gemini bootstrap requires `GEMINI.md` and `IDENTITY.md`
 - bootstrap state is `missing` when the tool-specific file or `IDENTITY.md` is absent
 - bootstrap state is `not-bootstrapped` when the required files exist but `BOOTSTRAP.md` is still present
 - bootstrap state becomes `bootstrapped` after the required files exist and `BOOTSTRAP.md` is gone
 - seeded files include `BOOTSTRAP.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `LOOP.md`, and tool guidance files
+- Gemini operational note: `clisbot` can create and route Gemini agents, but the underlying `gemini` CLI still needs direct prior auth or a headless auth path before routed prompts can succeed
 
 Operational note:
 

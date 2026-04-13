@@ -4,7 +4,7 @@
 
 This document defines the current session model used by `clisbot`.
 
-It stays close to OpenClaw's `agentId` plus `sessionKey` mental model, but adapts it to subscription-backed AI CLIs such as Codex and Claude Code where the tool already has its own native conversation id.
+It stays close to OpenClaw's `agentId` plus `sessionKey` mental model, but adapts it to subscription-backed AI CLIs such as Codex, Claude Code, and Gemini CLI where the tool already has its own native conversation id.
 
 ## Current Contract
 

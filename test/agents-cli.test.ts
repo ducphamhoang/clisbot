@@ -128,6 +128,67 @@ describe("agents cli", () => {
     expect(rawConfig.agents.list[0]?.runner?.args).toEqual(["--dangerously-skip-permissions"]);
   });
 
+  test("adds a gemini agent with tool-specific runner defaults and bootstrap files", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+
+    await runAgentsCli([
+      "add",
+      "gem",
+      "--cli",
+      "gemini",
+      "--workspace",
+      join(tempDir, "workspaces", "gem"),
+      "--bootstrap",
+      "team-assistant",
+    ]);
+
+    const rawConfig = JSON.parse(
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
+    ) as {
+      agents: {
+        list: Array<{
+          cliTool?: string;
+          runner?: {
+            command: string;
+            args: string[];
+            startupReadyPattern?: string;
+            startupBlockers?: Array<{
+              pattern: string;
+              message: string;
+            }>;
+          };
+        }>;
+      };
+    };
+
+    expect(rawConfig.agents.list[0]?.cliTool).toBe("gemini");
+    expect(rawConfig.agents.list[0]?.runner?.command).toBe("gemini");
+    expect(rawConfig.agents.list[0]?.runner?.args).toEqual([
+      "--approval-mode=yolo",
+      "--sandbox=false",
+    ]);
+    expect(rawConfig.agents.list[0]?.runner?.startupReadyPattern).toBe(
+      "Type your message or @path/to/file",
+    );
+    expect(rawConfig.agents.list[0]?.runner?.startupBlockers).toEqual([
+      {
+        pattern:
+          "Please visit the following URL to authorize the application|Enter the authorization code:",
+        message:
+          "Gemini CLI is waiting for manual OAuth authorization. Authenticate Gemini once in a direct interactive terminal, or configure headless auth such as GEMINI_API_KEY or Vertex AI before routing Gemini through clisbot.",
+      },
+      {
+        pattern:
+          "How would you like to authenticate for this project\\?|Failed to sign in\\.|Manual authorization is required but the current session is non-interactive",
+        message:
+          "Gemini CLI is blocked in its authentication setup flow or sign-in recovery. Complete Gemini authentication directly first, or switch clisbot to a headless auth path such as GEMINI_API_KEY or Vertex AI before routing prompts.",
+      },
+    ]);
+    expect(existsSync(join(tempDir, "workspaces", "gem", "GEMINI.md"))).toBe(true);
+  });
+
   test("keeps startup option and runner overrides when startup options differ from tool defaults", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;

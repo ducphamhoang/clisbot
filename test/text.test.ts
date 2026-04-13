@@ -279,6 +279,39 @@ This project maps channel messages into tmux-backed agents.
     expect(cleaned).not.toContain("8s • esc to interrupt");
   });
 
+  test("strips gemini chrome while keeping meaningful content", () => {
+    const cleaned = cleanInteractionSnapshot(`
+ ▝▜▄     Gemini CLI v0.37.1
+   ▝▜▄
+  ▗▟▀    Signed in with Google /auth
+ ▝▀      Plan: Gemini Code Assist for individuals /upgrade
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ We're making changes to Gemini CLI that may impact your workflow.            │
+│ What's Changing: We are adding more robust detection of policy-violating use │
+│ cases and restricting models for free tier users.                            │
+│ How it affects you: If you need use of Gemini pro models you will need to    │
+│ upgrade to a supported paid plan.                                            │
+│ Read more: https://goo.gle/geminicli-updates                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+> say hi in one word
+
+⠼ Thinking... (esc to cancel, 56s)                             ? for shortcuts
+────────────────────────────────────────────────────────────────────────────────
+ YOLO Ctrl+Y                                                           6 skills
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+ *   Type your message or @path/to/file
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ workspace (/directory)      branch      sandbox                         /model
+ ~/projects/clisbot          main        no sandbox      gemini-3-flash-preview
+
+Hi
+    `);
+
+    expect(cleaned).toBe("Hi");
+  });
+
   test("strips claude chrome and prompt echo while keeping the answer", () => {
     const cleaned = cleanInteractionSnapshot(`
 ╭─── Claude Code v2.1.92 ───────────────────────────────────────────────────────────────────╮

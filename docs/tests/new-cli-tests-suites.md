@@ -28,6 +28,8 @@ Checklist:
 - [ ] The CLI binary is discoverable and launchable from the configured runner command.
 - [ ] A fresh session reaches a clearly ready prompt without manual tmux typing.
 - [ ] Trust, login, or safety prompts are explicitly handled or explicitly rejected with a clear error.
+- [ ] Authentication is compatible with the intended runtime shape: either the CLI is already logged in, or a headless-compatible auth path exists for routed use.
+- [ ] Known startup blockers such as auth waits or setup dialogs are detected at runner startup instead of leaking into later prompt submission.
 - [ ] The runner can distinguish static startup chrome from meaningful output.
 - [ ] Session bootstrap does not depend on channel-specific retries or delays.
 
@@ -35,6 +37,7 @@ Minimum evidence:
 
 - one saved raw pane trace for fresh startup
 - one targeted regression test for any CLI-specific readiness quirk
+- one documented note about the chosen auth prerequisite for local, detached, and channel-routed runs
 
 ## Gate 1: Submit Truthfulness
 

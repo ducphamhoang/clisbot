@@ -103,6 +103,8 @@ function printMissingBootstrapOptions(commandName: "init" | "start") {
   console.log(`  clisbot ${commandName} --cli codex --bot-type team`);
   console.log(`  clisbot ${commandName} --cli claude --bot-type personal`);
   console.log(`  clisbot ${commandName} --cli claude --bot-type team`);
+  console.log(`  clisbot ${commandName} --cli gemini --bot-type personal`);
+  console.log(`  clisbot ${commandName} --cli gemini --bot-type team`);
   console.log("Manual setup is still available with `clisbot agents add ...`.");
   for (const line of renderOperatorHelpLines()) {
     console.log(line);

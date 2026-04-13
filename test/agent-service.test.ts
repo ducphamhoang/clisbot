@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ActiveRunInProgressError, AgentService } from "../src/agents/agent-service.ts";
 import { resolveAgentTarget } from "../src/agents/resolved-target.ts";
-import { loadConfig } from "../src/config/load-config.ts";
+import { loadConfig, resolveSessionStorePath } from "../src/config/load-config.ts";
 import { AgentSessionState } from "../src/agents/session-state.ts";
 import { SessionStore } from "../src/agents/session-store.ts";
+import { RunnerSessionService } from "../src/agents/runner-session.ts";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
 
 const RUNNER_GENERATED_ID = "11111111-1111-1111-1111-111111111111";
@@ -244,6 +245,13 @@ class FakeTmuxClient {
     );
     if (resumeMatch?.[1]) {
       return resumeMatch[1];
+    }
+
+    const flagResumeMatch = command.match(
+      /--resume\s+([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/,
+    );
+    if (flagResumeMatch?.[1]) {
+      return flagResumeMatch[1];
     }
 
     return RUNNER_GENERATED_ID;
@@ -890,6 +898,152 @@ describe("AgentService session identity", () => {
       expect(result.snapshot).not.toContain("Quick safety check:");
       expect(result.snapshot).toContain(`PONG ${RUNNER_GENERATED_ID}`);
       expect(readSessionId(storePath, target.sessionKey)).toBe(RUNNER_GENERATED_ID);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("fails fast when a configured startup blocker appears before Gemini ready state", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: [],
+            sessionId: {
+              create: { mode: "runner", args: [] },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern: "\\b[0-9a-fA-F-]{36}\\b",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: { mode: "off", args: [] },
+            },
+          }),
+        ),
+      );
+      const loaded = await loadConfig(configPath);
+      loaded.raw.agents.defaults.runner.startupReadyPattern =
+        "Type your message or @path/to/file";
+      loaded.raw.agents.defaults.runner.startupBlockers = [
+        {
+          pattern: "Please visit the following URL to authorize the application",
+          message: "Gemini auth required before clisbot can drive the session.",
+        },
+      ];
+      const tmux = new FakeTmuxClient();
+      await tmux.newSession({
+        sessionName: "placeholder",
+        cwd: tempDir,
+        command: "fake-cli",
+      });
+      await tmux.killSession("placeholder");
+      const originalNewSession = tmux.newSession.bind(tmux);
+      tmux.newSession = async (params) => {
+        await originalNewSession(params);
+        const session = (tmux as unknown as { sessions: Map<string, FakeSession> }).sessions.get(
+          params.sessionName,
+        );
+        if (session) {
+          session.snapshot = "Please visit the following URL to authorize the application:";
+          session.cursorX = session.snapshot.length;
+        }
+      };
+
+      const runnerSessions = new RunnerSessionService(
+        loaded,
+        tmux as unknown as TmuxClient,
+        new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded))),
+        (target) => resolveAgentTarget(loaded, target),
+      );
+
+      await expect(
+        runnerSessions.ensureSessionReady({
+          agentId: "default",
+          sessionKey: "main",
+        }),
+      ).rejects.toThrow(
+        "Gemini auth required before clisbot can drive the session.",
+      );
+      expect(await tmux.hasSession("default-main")).toBe(false);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("fails truthfully when ready pattern never appears before startup deadline", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: [],
+            sessionId: {
+              create: { mode: "runner", args: [] },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern: "\\b[0-9a-fA-F-]{36}\\b",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: { mode: "off", args: [] },
+            },
+          }),
+        ),
+      );
+      const loaded = await loadConfig(configPath);
+      loaded.raw.agents.defaults.runner.startupDelayMs = 50;
+      loaded.raw.agents.defaults.runner.startupReadyPattern = "Type your message or @path/to/file";
+      const tmux = new FakeTmuxClient();
+      const originalNewSession = tmux.newSession.bind(tmux);
+      tmux.newSession = async (params) => {
+        await originalNewSession(params);
+        const session = (tmux as unknown as { sessions: Map<string, FakeSession> }).sessions.get(
+          params.sessionName,
+        );
+        if (session) {
+          session.snapshot = "Still booting...";
+          session.cursorX = session.snapshot.length;
+        }
+      };
+
+      const runnerSessions = new RunnerSessionService(
+        loaded,
+        tmux as unknown as TmuxClient,
+        new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded))),
+        (target) => resolveAgentTarget(loaded, target),
+      );
+
+      await expect(
+        runnerSessions.ensureSessionReady({
+          agentId: "default",
+          sessionKey: "main",
+        }),
+      ).rejects.toThrow(
+        "did not reach the configured ready state",
+      );
+      expect(await tmux.hasSession("default-main")).toBe(false);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

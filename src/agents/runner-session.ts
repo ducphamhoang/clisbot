@@ -64,6 +64,16 @@ function buildRunnerLaunchCommand(command: string, args: string[]) {
   return `${exports.join("; ")}; exec ${buildCommandString(command, args)}`;
 }
 
+function summarizeSnapshot(snapshot: string) {
+  const compact = snapshot
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 220);
+  return compact ? ` Last visible pane: ${compact}` : "";
+}
+
 function isTmuxDuplicateSessionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return TMUX_DUPLICATE_SESSION_PATTERN.test(message);
@@ -178,6 +188,15 @@ export class RunnerSessionService {
     });
   }
 
+  private async abortUnreadySession(
+    resolved: ResolvedAgentTarget,
+    reason: string,
+    snapshot: string,
+  ) {
+    await this.tmux.killSession(resolved.sessionName);
+    throw new Error(`${reason}${summarizeSnapshot(snapshot)}`);
+  }
+
   async runSessionCleanup() {
     if (this.cleanupInFlight) {
       return;
@@ -285,11 +304,13 @@ export class RunnerSessionService {
       resumingExistingSession,
       hasStoredSessionId: Boolean(existing?.sessionId),
     });
-    await waitForTmuxSessionBootstrap({
+    const bootstrapResult = await waitForTmuxSessionBootstrap({
       tmux: this.tmux,
       sessionName: resolved.sessionName,
       captureLines: resolved.stream.captureLines,
       startupDelayMs: resolved.runner.startupDelayMs,
+      readyPattern: resolved.runner.startupReadyPattern,
+      blockers: resolved.runner.startupBlockers,
     });
     const sessionStillExists = await this.tmux.hasSession(resolved.sessionName);
     if (!sessionStillExists) {
@@ -303,6 +324,22 @@ export class RunnerSessionService {
         }
       }
       throw new Error(`Runner session "${resolved.sessionName}" disappeared during startup.`);
+    }
+
+    if (bootstrapResult.status === "blocked") {
+      await this.abortUnreadySession(
+        resolved,
+        bootstrapResult.message,
+        bootstrapResult.snapshot,
+      );
+    }
+
+    if (bootstrapResult.status === "timeout" && resolved.runner.startupReadyPattern) {
+      await this.abortUnreadySession(
+        resolved,
+        `Runner session "${resolved.sessionName}" did not reach the configured ready state within ${resolved.runner.startupDelayMs}ms.`,
+        bootstrapResult.snapshot,
+      );
     }
 
     try {

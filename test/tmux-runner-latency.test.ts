@@ -17,7 +17,7 @@ describe("tmux runner latency behavior", () => {
     } as unknown as TmuxClient;
 
     const startedAt = Date.now();
-    const snapshot = await waitForTmuxSessionBootstrap({
+    const result = await waitForTmuxSessionBootstrap({
       tmux: fakeTmux,
       sessionName: "test-session",
       captureLines: 80,
@@ -25,9 +25,92 @@ describe("tmux runner latency behavior", () => {
     });
     const elapsedMs = Date.now() - startedAt;
 
-    expect(snapshot).toBe("READY");
+    expect(result).toEqual({
+      status: "ready",
+      snapshot: "READY",
+    });
     expect(captureCount).toBe(2);
     expect(elapsedMs).toBeLessThan(400);
+  });
+
+  test("waitForTmuxSessionBootstrap honors a ready pattern instead of the first non-empty pane", async () => {
+    let captureCount = 0;
+    const fakeTmux = {
+      async capturePane() {
+        captureCount += 1;
+        if (captureCount === 1) {
+          return "Waiting for authentication...";
+        }
+        if (captureCount === 2) {
+          return "Still booting...";
+        }
+        return "Type your message or @path/to/file";
+      },
+    } as unknown as TmuxClient;
+
+    const result = await waitForTmuxSessionBootstrap({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      captureLines: 80,
+      startupDelayMs: 500,
+      readyPattern: "Type your message or @path/to/file",
+    });
+
+    expect(result.status).toBe("ready");
+    expect(result.snapshot).toContain("Type your message or @path/to/file");
+    expect(captureCount).toBe(3);
+  });
+
+  test("waitForTmuxSessionBootstrap stops early on a configured startup blocker", async () => {
+    let captureCount = 0;
+    const fakeTmux = {
+      async capturePane() {
+        captureCount += 1;
+        return "Please visit the following URL to authorize the application:";
+      },
+    } as unknown as TmuxClient;
+
+    const result = await waitForTmuxSessionBootstrap({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      captureLines: 80,
+      startupDelayMs: 500,
+      readyPattern: "Type your message or @path/to/file",
+      blockers: [
+        {
+          pattern: "Please visit the following URL to authorize the application",
+          message: "auth required",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      status: "blocked",
+      snapshot: "Please visit the following URL to authorize the application:",
+      message: "auth required",
+    });
+    expect(captureCount).toBe(1);
+  });
+
+  test("waitForTmuxSessionBootstrap returns timeout when ready pattern never appears", async () => {
+    const fakeTmux = {
+      async capturePane() {
+        return "Still booting...";
+      },
+    } as unknown as TmuxClient;
+
+    const result = await waitForTmuxSessionBootstrap({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      captureLines: 80,
+      startupDelayMs: 150,
+      readyPattern: "Type your message or @path/to/file",
+    });
+
+    expect(result).toEqual({
+      status: "timeout",
+      snapshot: "Still booting...",
+    });
   });
 
   test("monitorTmuxRun polls quickly for the first visible output", async () => {

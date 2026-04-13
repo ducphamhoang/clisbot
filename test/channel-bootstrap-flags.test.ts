@@ -5,14 +5,14 @@ describe("parseBootstrapFlags", () => {
   test("maps --bot-type personal to the internal bootstrap mode", () => {
     const parsed = parseBootstrapFlags([
       "--cli",
-      "codex",
+      "gemini",
       "--bot-type",
       "personal",
       "--telegram-bot-token",
       "TELEGRAM_BOT_TOKEN",
     ]);
 
-    expect(parsed.cliTool).toBe("codex");
+    expect(parsed.cliTool).toBe("gemini");
     expect(parsed.bootstrap).toBe("personal-assistant");
     expect(parsed.telegramAccounts[0]?.accountId).toBe("default");
     expect(parsed.telegramAccounts[0]?.botToken?.kind).toBe("env");

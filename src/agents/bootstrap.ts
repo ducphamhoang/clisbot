@@ -30,6 +30,7 @@ const CUSTOMIZED_DEFAULT_TEMPLATE_DIR = join(CUSTOMIZED_TEMPLATE_DIR, "default")
 const TOOL_BOOTSTRAP_FILE: Record<AgentCliToolId, string> = {
   codex: "AGENTS.md",
   claude: "CLAUDE.md",
+  gemini: "GEMINI.md",
 };
 
 export type BootstrapWorkspaceState =
@@ -52,6 +53,10 @@ function shouldIncludeTemplateFile(toolId: AgentCliToolId, relativePath: string)
 
   if (normalized.endsWith("CLAUDE.md")) {
     return toolId === "claude";
+  }
+
+  if (normalized.endsWith("GEMINI.md")) {
+    return toolId === "gemini";
   }
 
   return true;

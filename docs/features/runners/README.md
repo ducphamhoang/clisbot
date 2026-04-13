@@ -58,7 +58,7 @@ That only stays coherent if backend-specific behavior is isolated behind a stand
 
 ## Current Focus
 
-Stabilize the tmux runner, keep Codex and Claude channel-safe through one truthful normalization contract, and define the onboarding checklist that future ACP, SDK, or CLI runners must satisfy.
+Stabilize the tmux runner, keep Codex, Claude, and Gemini channel-safe through one truthful normalization contract, and define the onboarding checklist that future ACP, SDK, or CLI runners must satisfy.
 
 Current rule for normal chat experience:
 
@@ -74,3 +74,8 @@ Current lifecycle rule:
 - if a turn exceeds the configured `maxRuntimeMin` or `maxRuntimeSec`, the runner detaches observation instead of treating the turn as failed
 - that detached settlement must leave the tmux session running while monitoring continues until real completion
 - channels must be able to attach new observers to that still-running session and receive truthful final settlement later
+- new CLI onboarding must include explicit ready-state detection and startup-blocker truthfulness, especially for auth-gated CLIs such as Gemini
+
+## Related CLI Doc
+
+- [Gemini CLI Runner Support](gemini-cli.md)

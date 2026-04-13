@@ -38,6 +38,13 @@ The product needs one clear answer to:
 - document CLI-specific caveats that operators must know
 - update status, setup, and troubleshooting docs where behavior differs by CLI
 
+Current Gemini-specific truth:
+
+- session-id strategy is now explicit and runner-owned
+- startup readiness now requires the Gemini prompt, not just any non-empty pane
+- known Gemini auth waits now surface as startup blockers instead of silently leaking into normal routed flow
+- authenticated Slack or Telegram success-path validation is still environment-dependent and must be recorded separately
+
 ## Non-Goals
 
 - broad secondary CLI coverage
@@ -50,6 +57,7 @@ The product needs one clear answer to:
 - each CLI has a grounded validation checklist and test evidence
 - Gemini is no longer implied as future-only support
 - CLI-specific caveats are visible in docs instead of living only in team memory
+- Gemini auth prerequisites are explicit enough that operators can predict whether a given environment is launch-ready
 
 ## Related Docs
 

@@ -169,6 +169,19 @@ export function looksLikeClaudeSnapshot(lines: string[]) {
   });
 }
 
+export function looksLikeGeminiSnapshot(lines: string[]) {
+  return lines.some((line) => {
+    const trimmed = line.trim();
+    return (
+      trimmed.includes("Gemini CLI v") ||
+      trimmed.includes("Signed in with Google") ||
+      trimmed.includes("YOLO Ctrl+Y") ||
+      trimmed.includes("Type your message or @path/to/file") ||
+      trimmed.includes("workspace (/directory)")
+    );
+  });
+}
+
 export function isProgressLine(line: string) {
   const trimmed = line.trim();
   const normalized = trimmed.replace(/^(?::eight_spoked_asterisk:|[✽✶])\s+/, "");
@@ -314,6 +327,10 @@ function dropClaudePromptBlocks(lines: string[]) {
   return filtered;
 }
 
+function dropGeminiPromptBlocks(lines: string[]) {
+  return dropPromptBlocks(lines, /^\s*>\s/);
+}
+
 function isInterruptStatusLine(line: string) {
   const trimmed = line.trim();
   if (!trimmed) {
@@ -382,6 +399,38 @@ function shouldDropClaudeChromeLine(line: string) {
   );
 }
 
+function shouldDropGeminiChromeLine(line: string) {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return (
+    trimmed.includes("Gemini CLI v") ||
+    trimmed.includes("Signed in with Google") ||
+    trimmed.includes("Plan:") ||
+    /^[▝▜▄▗▟▀ ]+$/.test(trimmed) ||
+    trimmed.includes("We're making changes to Gemini CLI") ||
+    trimmed.includes("What's Changing:") ||
+    trimmed.includes("How it affects you:") ||
+    trimmed.includes("Read more: https://goo.gle/geminicli-updates") ||
+    trimmed.includes("Tips for getting started") ||
+    /^Create GEMINI\.md files to customize your interactions$/i.test(trimmed) ||
+    /^\/help for more information$/i.test(trimmed) ||
+    /^Ask coding questions, edit code or run commands$/i.test(trimmed) ||
+    /^Be specific for the best results$/i.test(trimmed) ||
+    trimmed.includes("? for shortcuts") ||
+    trimmed.includes("YOLO Ctrl+Y") ||
+    trimmed.includes("Type your message or @path/to/file") ||
+    trimmed.includes("workspace (/directory)") ||
+    /^~\/.+\s+\S+\s+no sandbox\s+\S+/i.test(trimmed) ||
+    /^Thinking\.\.\. \(esc to cancel,\s*\d+s\)$/i.test(trimmed) ||
+    /^[╭╰│]/.test(trimmed) ||
+    /^[-▀▄]{10,}$/.test(trimmed) ||
+    /^─+$/.test(trimmed)
+  );
+}
+
 function normalizeBoundaryLine(line: string) {
   return line.trim().replace(/^(?::eight_spoked_asterisk:|[-*•◦·✽✶])\s+/, "");
 }
@@ -430,10 +479,13 @@ export function cleanInteractionSnapshot(raw: string) {
   const lines = splitNormalizedLines(raw);
   const isCodex = looksLikeCodexSnapshot(lines);
   const isClaude = looksLikeClaudeSnapshot(lines);
+  const isGemini = looksLikeGeminiSnapshot(lines);
   const promptStripped = isCodex
     ? dropCodexPromptBlocks(lines)
     : isClaude
       ? dropClaudePromptBlocks(lines)
+      : isGemini
+        ? dropGeminiPromptBlocks(lines)
       : lines;
   const filtered = promptStripped.filter((line) => {
     if (shouldDropDeliveryReportLine(line)) {
@@ -448,12 +500,18 @@ export function cleanInteractionSnapshot(raw: string) {
       return false;
     }
 
+    if (isGemini && shouldDropGeminiChromeLine(line)) {
+      return false;
+    }
+
     return true;
   });
   const normalized = isCodex
     ? unwrapCodexMessageBlocks(filtered)
     : isClaude
       ? unwrapClaudeMessageBlocks(filtered)
+      : isGemini
+        ? filtered.map((line) => line.replace(/^\s*>\s*/, ""))
       : filtered;
   const unwrapped = unwrapSoftWrappedLines(normalized);
   return collapseAdjacentDuplicateLines(collapseBlankLines(trimBlankLines(unwrapped)).join("\n"));

@@ -14,6 +14,21 @@ const PASTE_SETTLE_SINGLE_LINE_MAX_WAIT_MS = 80;
 const SUBMIT_CONFIRM_POLL_INTERVAL_MS = 40;
 const SUBMIT_CONFIRM_MAX_WAIT_MS = 160;
 
+export type TmuxSessionBootstrapResult =
+  | {
+      status: "ready";
+      snapshot: string;
+    }
+  | {
+      status: "blocked";
+      snapshot: string;
+      message: string;
+    }
+  | {
+      status: "timeout";
+      snapshot: string;
+    };
+
 export async function submitTmuxSessionInput(params: {
   tmux: TmuxClient;
   sessionName: string;
@@ -148,8 +163,19 @@ export async function waitForTmuxSessionBootstrap(params: {
   sessionName: string;
   captureLines: number;
   startupDelayMs: number;
-}) {
+  readyPattern?: string;
+  blockers?: Array<{
+    pattern: string;
+    message: string;
+  }>;
+}): Promise<TmuxSessionBootstrapResult> {
   const deadline = Date.now() + Math.max(params.startupDelayMs, SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
+  const readyRegex = params.readyPattern ? new RegExp(params.readyPattern, "i") : null;
+  const blockerPatterns = (params.blockers ?? []).map((entry) => ({
+    regex: new RegExp(entry.pattern, "i"),
+    message: entry.message,
+  }));
+  let lastSnapshot = "";
 
   while (Date.now() <= deadline) {
     let snapshot = "";
@@ -160,18 +186,41 @@ export async function waitForTmuxSessionBootstrap(params: {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("can't find session:") || message.includes("no server running on ")) {
-        return "";
+        return {
+          status: "timeout",
+          snapshot: lastSnapshot,
+        };
       }
       throw error;
     }
     if (snapshot) {
-      return snapshot;
+      lastSnapshot = snapshot;
+      for (const blocker of blockerPatterns) {
+        if (blocker.regex.test(snapshot)) {
+          return {
+            status: "blocked",
+            snapshot,
+            message: blocker.message,
+          };
+        }
+      }
+      if (readyRegex && !readyRegex.test(snapshot)) {
+        await sleep(SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
+        continue;
+      }
+      return {
+        status: "ready",
+        snapshot,
+      };
     }
 
     await sleep(SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
   }
 
-  return "";
+  return {
+    status: "timeout",
+    snapshot: lastSnapshot,
+  };
 }
 
 async function dismissTrustPrompt(params: {

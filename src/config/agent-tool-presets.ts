@@ -1,4 +1,4 @@
-export const SUPPORTED_AGENT_CLI_TOOLS = ["codex", "claude"] as const;
+export const SUPPORTED_AGENT_CLI_TOOLS = ["codex", "claude", "gemini"] as const;
 export type AgentCliToolId = (typeof SUPPORTED_AGENT_CLI_TOOLS)[number];
 
 export const SUPPORTED_BOOTSTRAP_MODES = ["personal-assistant", "team-assistant"] as const;
@@ -9,6 +9,11 @@ export type AgentToolTemplate = {
   startupOptions: string[];
   trustWorkspace: boolean;
   startupDelayMs: number;
+  startupReadyPattern?: string;
+  startupBlockers?: Array<{
+    pattern: string;
+    message: string;
+  }>;
   promptSubmitDelayMs: number;
   sessionId: {
     create: {
@@ -96,6 +101,45 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
       },
     },
   },
+  gemini: {
+    command: "gemini",
+    startupOptions: ["--approval-mode=yolo", "--sandbox=false"],
+    trustWorkspace: false,
+    startupDelayMs: 15_000,
+    startupReadyPattern: "Type your message or @path/to/file",
+    startupBlockers: [
+      {
+        pattern:
+          "Please visit the following URL to authorize the application|Enter the authorization code:",
+        message:
+          "Gemini CLI is waiting for manual OAuth authorization. Authenticate Gemini once in a direct interactive terminal, or configure headless auth such as GEMINI_API_KEY or Vertex AI before routing Gemini through clisbot.",
+      },
+      {
+        pattern:
+          "How would you like to authenticate for this project\\?|Failed to sign in\\.|Manual authorization is required but the current session is non-interactive",
+        message:
+          "Gemini CLI is blocked in its authentication setup flow or sign-in recovery. Complete Gemini authentication directly first, or switch clisbot to a headless auth path such as GEMINI_API_KEY or Vertex AI before routing prompts.",
+      },
+    ],
+    promptSubmitDelayMs: 200,
+    sessionId: {
+      create: {
+        mode: "runner",
+        args: [],
+      },
+      capture: {
+        mode: "status-command",
+        statusCommand: "/stats session",
+        pattern: SESSION_ID_PATTERN,
+        timeoutMs: 8_000,
+        pollIntervalMs: 250,
+      },
+      resume: {
+        mode: "command",
+        args: ["--resume", "{sessionId}", "--approval-mode=yolo", "--sandbox=false"],
+      },
+    },
+  },
 };
 
 export type ResolvedRunnerTemplate = {
@@ -103,6 +147,8 @@ export type ResolvedRunnerTemplate = {
   args: string[];
   trustWorkspace: boolean;
   startupDelayMs: number;
+  startupReadyPattern?: string;
+  startupBlockers?: AgentToolTemplate["startupBlockers"];
   promptSubmitDelayMs: number;
   sessionId: AgentToolTemplate["sessionId"];
 };
@@ -120,6 +166,8 @@ export function buildRunnerFromToolTemplate(
       args: [...options, "-C", "{workspace}"],
       trustWorkspace: template.trustWorkspace,
       startupDelayMs: template.startupDelayMs,
+      startupReadyPattern: template.startupReadyPattern,
+      startupBlockers: template.startupBlockers?.map((entry) => ({ ...entry })),
       promptSubmitDelayMs: template.promptSubmitDelayMs,
       sessionId: {
         ...template.sessionId,
@@ -143,6 +191,8 @@ export function buildRunnerFromToolTemplate(
     args: [...options],
     trustWorkspace: template.trustWorkspace,
     startupDelayMs: template.startupDelayMs,
+    startupReadyPattern: template.startupReadyPattern,
+    startupBlockers: template.startupBlockers?.map((entry) => ({ ...entry })),
     promptSubmitDelayMs: template.promptSubmitDelayMs,
     sessionId: {
       ...template.sessionId,
@@ -173,6 +223,10 @@ export function inferAgentCliToolId(command: string | undefined): AgentCliToolId
 
   if (trimmed === "claude") {
     return "claude";
+  }
+
+  if (trimmed === "gemini") {
+    return "gemini";
   }
 
   return null;

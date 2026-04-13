@@ -235,6 +235,12 @@ describe("runtime summaries", () => {
         workspace: join(baseWorkspace, "codex-ready"),
         bootstrap: { mode: "personal-assistant" },
       },
+      {
+        id: "gemini-ready",
+        cliTool: "gemini",
+        workspace: join(baseWorkspace, "gemini-ready"),
+        bootstrap: { mode: "team-assistant" },
+      },
     ];
     await writeEditableConfig(configPath, config);
 
@@ -249,6 +255,10 @@ describe("runtime summaries", () => {
     writeFileSync(join(baseWorkspace, "codex-ready", "BOOTSTRAP.md"), "bootstrap\n");
     unlinkSync(join(baseWorkspace, "codex-ready", "BOOTSTRAP.md"));
 
+    mkdirSync(join(baseWorkspace, "gemini-ready"), { recursive: true });
+    writeFileSync(join(baseWorkspace, "gemini-ready", "GEMINI.md"), "gemini\n");
+    writeFileSync(join(baseWorkspace, "gemini-ready", "IDENTITY.md"), "identity\n");
+
     const summary = await getRuntimeOperatorSummary({
       configPath,
       runtimeRunning: false,
@@ -259,8 +269,9 @@ describe("runtime summaries", () => {
     expect(text).toContain("codex-missing tool=codex bootstrap=personal-assistant:missing");
     expect(text).toContain("claude-pending tool=claude bootstrap=team-assistant:not-bootstrapped");
     expect(text).toContain("codex-ready tool=codex bootstrap=personal-assistant:bootstrapped");
+    expect(text).toContain("gemini-ready tool=gemini bootstrap=team-assistant:bootstrapped");
     expect(text).toContain("pendingBootstrap=2");
-    expect(text).toContain("bootstrapped=1");
+    expect(text).toContain("bootstrapped=2");
     expect(startText).toContain("Agent claude-pending still needs bootstrap completion.");
     expect(startText).toContain("next: chat with the bot or open the workspace");
     expect(startText).toContain("follow: BOOTSTRAP.md and the team-assistant personality files");
