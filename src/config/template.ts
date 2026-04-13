@@ -33,6 +33,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
   const tmuxSocketPath = collapseHomePath(getDefaultTmuxSocketPath());
   const sessionStorePath = collapseHomePath(getDefaultSessionStorePath());
   const workspaceTemplate = collapseHomePath(getDefaultWorkspaceTemplate());
+  const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
   return JSON.stringify(
     {
@@ -110,6 +111,15 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
         configReload: {
           watch: true,
           watchDebounceMs: 250,
+        },
+        sessionCleanup: {
+          enabled: true,
+          intervalMinutes: 5,
+        },
+        loop: {
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+          defaultTimezone,
         },
       },
       channels: {

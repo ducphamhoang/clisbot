@@ -57,6 +57,7 @@ function createConfig(): ClisbotConfig {
     control: {
       configReload: { watch: false, watchDebounceMs: 250 },
       sessionCleanup: { enabled: true, intervalMinutes: 5 },
+      loop: { maxRunsPerLoop: 20, maxActiveLoops: 10 },
     },
     channels: {
       slack: {

@@ -25,6 +25,7 @@ export function resolveTemplateRoot(moduleDir: string) {
 const TEMPLATE_ROOT = resolveTemplateRoot(dirname(fileURLToPath(import.meta.url)));
 const OPENCLAW_TEMPLATE_DIR = join(TEMPLATE_ROOT, "openclaw");
 const CUSTOMIZED_TEMPLATE_DIR = join(TEMPLATE_ROOT, "customized");
+const CUSTOMIZED_DEFAULT_TEMPLATE_DIR = join(CUSTOMIZED_TEMPLATE_DIR, "default");
 
 const TOOL_BOOTSTRAP_FILE: Record<AgentCliToolId, string> = {
   codex: "AGENTS.md",
@@ -86,6 +87,10 @@ function collectTemplateFiles(rootDir: string, toolId: AgentCliToolId, prefix = 
 function getTemplateFiles(toolId: AgentCliToolId, mode: AgentBootstrapMode) {
   return [
     ...collectTemplateFiles(OPENCLAW_TEMPLATE_DIR, toolId),
+    ...collectTemplateFiles(CUSTOMIZED_DEFAULT_TEMPLATE_DIR, toolId).map((file) => ({
+      ...file,
+      customized: true,
+    })),
     ...collectTemplateFiles(join(CUSTOMIZED_TEMPLATE_DIR, mode), toolId).map((file) => ({
       ...file,
       customized: true,

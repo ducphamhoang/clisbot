@@ -463,6 +463,20 @@ export class SlackSocketService {
           typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
         text,
         agentPromptText,
+        agentPromptBuilder: (nextText) =>
+          buildAgentPromptText({
+            text: nextText,
+            identity: {
+              platform: "slack",
+              conversationKind: params.conversationKind,
+              senderId:
+                typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
+              channelId,
+              threadTs,
+            },
+            config: this.loadedConfig.raw.channels.slack.agentPrompt,
+            responseMode: params.route.responseMode,
+          }),
         route: params.route,
         maxChars: this.getSlackMaxChars(params.route.agentId),
         timingContext,

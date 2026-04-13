@@ -529,6 +529,13 @@ export class TelegramPollingService {
               message.from?.id != null ? String(message.from.id).trim() : undefined,
             text,
             agentPromptText,
+            agentPromptBuilder: (nextText) =>
+              buildAgentPromptText({
+                text: nextText,
+                identity,
+                config: this.loadedConfig.raw.channels.telegram.agentPrompt,
+                responseMode: routeInfo.route.responseMode,
+              }),
             route: routeInfo.route,
             maxChars: this.getTelegramMaxChars(routeInfo.route.agentId),
             timingContext,

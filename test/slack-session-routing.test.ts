@@ -75,6 +75,10 @@ function createLoadedConfig(): LoadedConfig {
           enabled: true,
           intervalMinutes: 5,
         },
+        loop: {
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+        },
       },
       channels: {
         slack: {
@@ -122,6 +126,7 @@ function createLoadedConfig(): LoadedConfig {
             mode: "auto",
             participationTtlMin: 5,
           },
+          timezone: "UTC",
           channels: {},
           groups: {},
           directMessages: {
@@ -129,6 +134,7 @@ function createLoadedConfig(): LoadedConfig {
             policy: "open",
             allowFrom: [],
             requireMention: false,
+            timezone: "America/Los_Angeles",
           },
         },
         telegram: {
@@ -198,6 +204,22 @@ describe("Slack conversation target routing", () => {
 
     expect(target.sessionKey).toBe("agent:default:main");
     expect(target.mainSessionKey).toBe("agent:default:main");
+  });
+
+  test("resolves timezone overrides from route config", () => {
+    const config = createLoadedConfig();
+    config.raw.channels.slack.channels.C123 = {
+      requireMention: true,
+      allowBots: false,
+      timezone: "Asia/Ho_Chi_Minh",
+    };
+
+    const resolved = resolveSlackConversationRoute(
+      config,
+      { channel_type: "channel", channel: "C123" },
+    );
+
+    expect(resolved.route?.timezone).toBe("Asia/Ho_Chi_Minh");
   });
 
   test("isolates Slack channel conversations by root thread id", () => {

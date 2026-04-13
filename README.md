@@ -213,7 +213,7 @@ clisbot agents list --bindings
 Agent setup rules:
 
 - `agents add` requires `--cli` and currently supports `codex` and `claude`.
-- `--bootstrap` accepts `personal-assistant` or `team-assistant` and seeds the workspace from `templates/openclaw` plus the selected customized template.
+- `--bootstrap` accepts `personal-assistant` or `team-assistant` and seeds the workspace from `templates/openclaw`, `templates/customized/default`, and the selected customized template.
 - `personal-assistant` fits one assistant for one human.
 - `team-assistant` fits one shared assistant for a team, channel, or group workflow.
 - `agents bootstrap <agentId> --mode <personal-assistant|team-assistant>` bootstraps an existing agent workspace using the agent's configured CLI tool.

@@ -13,6 +13,15 @@ import {
   formatFollowUpTtlMinutes,
   type FollowUpConfig,
 } from "../agents/follow-up-policy.ts";
+import { formatLoopIntervalShort } from "../agents/loop-command.ts";
+import {
+  formatCalendarLoopSchedule,
+  FORCE_LOOP_INTERVAL_MS,
+  LOOP_APP_FLAG,
+  LOOP_FORCE_FLAG,
+  MIN_LOOP_INTERVAL_MS,
+  resolveLoopTimezone,
+} from "../agents/loop-command.ts";
 import {
   renderChannelSnapshot,
   escapeCodeFence,
@@ -38,6 +47,8 @@ import {
   setConversationAdditionalMessageMode,
 } from "./additional-message-mode-config.ts";
 import { logLatencyDebug, type LatencyDebugContext } from "../control/latency-debug.ts";
+import { fileExists, readTextFile } from "../shared/fs.ts";
+import { join } from "node:path";
 
 export type ChannelInteractionRoute = {
   agentId: string;
@@ -48,6 +59,7 @@ export type ChannelInteractionRoute = {
   responseMode: "capture-pane" | "message-tool";
   additionalMessageMode: "queue" | "steer";
   followUp: FollowUpConfig;
+  timezone?: string;
 };
 
 export type ChannelInteractionIdentity = {
@@ -133,6 +145,10 @@ function renderRouteStatusMessage(params: {
     startedAt?: number;
     detachedAt?: number;
   };
+  loopState: {
+    sessionLoops: ReturnType<AgentService["listIntervalLoops"]>;
+    globalLoopCount: number;
+  };
 }) {
   const lines = [
     "clisbot status",
@@ -164,6 +180,7 @@ function renderRouteStatusMessage(params: {
     `response: \`${params.route.response}\``,
     `responseMode: \`${params.route.responseMode}\``,
     `additionalMessageMode: \`${params.route.additionalMessageMode}\``,
+    `timezone: \`${params.route.timezone ?? "(inherit host/app)"}\``,
     `followUp.mode: \`${params.followUpState.overrideMode ?? params.route.followUp.mode}\``,
     `followUp.windowMinutes: \`${formatFollowUpTtlMinutes(params.route.followUp.participationTtlMs)}\``,
     `run.state: \`${params.runtimeState.state}\``,
@@ -182,6 +199,20 @@ function renderRouteStatusMessage(params: {
   }
 
   lines.push(
+    `activeLoops.session: \`${params.loopState.sessionLoops.length}\``,
+    `activeLoops.global: \`${params.loopState.globalLoopCount}\``,
+  );
+
+  if (params.loopState.sessionLoops.length > 0) {
+    lines.push("", "Session loops:");
+    for (const loop of params.loopState.sessionLoops) {
+      lines.push(
+        `- \`${loop.id}\` ${renderLoopStatusSchedule(loop)} remaining \`${loop.remainingRuns}\` nextRunAt \`${new Date(loop.nextRunAt).toISOString()}\``,
+      );
+    }
+  }
+
+  lines.push(
     "",
     "Useful commands:",
     "- `/help`",
@@ -191,6 +222,7 @@ function renderRouteStatusMessage(params: {
     "- `/followup status`",
     "- `/responsemode status`",
     "- `/additionalmessagemode status`",
+    "- `/loop status`, `/loop cancel`, `/loop cancel <id>`",
     "- `/queue <message>`, `/steer <message>`",
     "- `/queue-list`, `/queue-clear`",
     "- `/transcript` and `/bash` require privilege commands",
@@ -308,6 +340,396 @@ function renderQueuedMessagesList(
   return lines.join("\n").trimEnd();
 }
 
+function renderLoopUsage() {
+  return [
+    "Usage:",
+    "- `/loop 5m check CI`",
+    "- `/loop 1m --force check CI`",
+    "- `/loop 5m`",
+    "- `/loop check deploy every 2h`",
+    "- `/loop check deploy every 1m --force`",
+    "- `/loop every day at 07:00 check CI`",
+    "- `/loop every weekday at 07:00 check CI`",
+    "- `/loop every mon at 09:00 check CI`",
+    "- `/loop 3 check CI`",
+    "- `/loop 3`",
+    "- `/loop 3 /codereview`",
+    "- `/loop /codereview 3 times`",
+    "- `/loop status`",
+    `- \`/loop cancel\`, \`/loop cancel <id>\`, \`/loop cancel --all\`, \`/loop cancel --all ${LOOP_APP_FLAG}\``,
+    "- wall-clock loop timezone resolves from route override, then `control.loop.defaultTimezone`, then host timezone",
+  ].join("\n");
+}
+
+function renderLoopStartedMessage(params: {
+  mode: "times" | "interval" | "calendar";
+  count?: number;
+  intervalMs?: number;
+  scheduleText?: string;
+  timezone?: string;
+  nextRunAt?: number;
+  maintenancePrompt: boolean;
+  loopId?: string;
+  maxRuns?: number;
+  sessionLoopCount?: number;
+  globalLoopCount?: number;
+  warning?: string;
+}) {
+  if (params.mode === "times") {
+    const count = params.count ?? 1;
+    return [
+      `Started loop for ${count} iteration${count === 1 ? "" : "s"}.`,
+      params.maintenancePrompt ? "prompt: `LOOP.md`" : "prompt: custom",
+      "Runs are queued immediately in order.",
+    ].join("\n");
+  }
+
+  const scheduleText =
+    params.mode === "calendar"
+      ? params.scheduleText ?? "scheduled"
+      : `every ${formatLoopIntervalShort(params.intervalMs ?? 0)}`;
+
+  return [
+    `Started loop \`${params.loopId ?? ""}\` ${scheduleText}.`,
+    params.maintenancePrompt ? "prompt: `LOOP.md`" : "prompt: custom",
+    ...(params.timezone ? [`timezone: \`${params.timezone}\``] : []),
+    `maxRuns: \`${params.maxRuns ?? 0}\``,
+    "policy: `skip-if-busy`",
+    `activeLoops.session: \`${params.sessionLoopCount ?? 0}\``,
+    `activeLoops.global: \`${params.globalLoopCount ?? 0}\``,
+    `cancel: \`/loop cancel ${params.loopId ?? ""}\``,
+    ...(params.warning ? [`warning: ${params.warning}`] : []),
+    params.mode === "calendar"
+      ? `The first run is scheduled for \`${new Date(params.nextRunAt ?? 0).toISOString()}\`.`
+      : "The first run starts now.",
+  ].join("\n");
+}
+
+function renderLoopStatusMessage(params: {
+  sessionLoops: ReturnType<AgentService["listIntervalLoops"]>;
+  globalLoopCount: number;
+}) {
+  if (params.sessionLoops.length === 0) {
+    return [
+      "Active loops",
+      "",
+      "No active loops for this session.",
+      `activeLoops.global: \`${params.globalLoopCount}\``,
+    ].join("\n");
+  }
+
+  const lines = [
+    "Active loops",
+    "",
+    `activeLoops.session: \`${params.sessionLoops.length}\``,
+    `activeLoops.global: \`${params.globalLoopCount}\``,
+    "",
+  ];
+
+  for (const loop of params.sessionLoops) {
+    lines.push(
+      `- id: \`${loop.id}\` ${renderLoopStatusSchedule(loop)} remaining: \`${loop.remainingRuns}\` nextRunAt: \`${new Date(loop.nextRunAt).toISOString()}\` prompt: \`${loop.promptSummary}\`${loop.kind !== "calendar" && loop.force ? " force" : ""}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function summarizeLoopPrompt(text: string, maintenancePrompt: boolean) {
+  if (maintenancePrompt) {
+    return "LOOP.md";
+  }
+
+  const singleLine = text.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= 60) {
+    return singleLine || "(empty)";
+  }
+  return `${singleLine.slice(0, 57)}...`;
+}
+
+function renderLoopStatusSchedule(
+  loop: NonNullable<ReturnType<AgentService["listIntervalLoops"]>[number]>,
+) {
+  if (loop.kind === "calendar") {
+    return `schedule: \`${formatCalendarLoopSchedule({
+      cadence: loop.cadence,
+      dayOfWeek: loop.dayOfWeek,
+      localTime: loop.localTime,
+    })}\` timezone: \`${loop.timezone}\``;
+  }
+  return `interval: \`${formatLoopIntervalShort(loop.intervalMs)}\``;
+}
+
+function resolveEffectiveLoopTimezone(params: {
+  routeTimezone?: string;
+  defaultTimezone?: string;
+}) {
+  return resolveLoopTimezone(params.routeTimezone, params.defaultTimezone);
+}
+
+function validateLoopInterval(params: {
+  intervalMs: number;
+  force: boolean;
+}) {
+  if (params.intervalMs < MIN_LOOP_INTERVAL_MS) {
+    return {
+      error: "Loop interval must be at least `1m`.",
+    };
+  }
+
+  if (params.intervalMs < FORCE_LOOP_INTERVAL_MS && !params.force) {
+    return {
+      error: `Loop intervals below \`5m\` require \`${LOOP_FORCE_FLAG}\`.`,
+    };
+  }
+
+  return {
+    warning:
+      params.force && params.intervalMs < FORCE_LOOP_INTERVAL_MS
+        ? `interval below \`5m\` was accepted because \`${LOOP_FORCE_FLAG}\` was set`
+        : undefined,
+  };
+}
+
+async function resolveLoopPromptText(params: {
+  agentService: AgentService;
+  sessionTarget: AgentSessionTarget;
+  promptText?: string;
+}) {
+  const providedPrompt = params.promptText?.trim();
+  if (providedPrompt) {
+    return {
+      text: providedPrompt,
+      maintenancePrompt: false,
+    };
+  }
+
+  const workspacePath = params.agentService.getWorkspacePath(params.sessionTarget);
+  const loopPromptPath = join(workspacePath, "LOOP.md");
+  if (!(await fileExists(loopPromptPath))) {
+    throw new Error(
+      `No loop prompt was provided and LOOP.md was not found in \`${workspacePath}\`. Create LOOP.md there if you want maintenance loops.`,
+    );
+  }
+
+  const loopPromptText = (await readTextFile(loopPromptPath)).trim();
+  if (!loopPromptText) {
+    throw new Error(`LOOP.md is empty in \`${workspacePath}\`.`);
+  }
+
+  return {
+    text: loopPromptText,
+    maintenancePrompt: true,
+  };
+}
+
+async function executePromptDelivery<TChunk>(params: {
+  agentService: AgentService;
+  sessionTarget: AgentSessionTarget;
+  identity: ChannelInteractionIdentity;
+  route: ChannelInteractionRoute;
+  maxChars: number;
+  promptText: string;
+  postText: PostText<TChunk>;
+  reconcileText: ReconcileText<TChunk>;
+  observerId: string;
+  timingContext?: LatencyDebugContext;
+  forceQueuedDelivery?: boolean;
+}) {
+  let responseChunks: TChunk[] = [];
+  let renderedState: ChannelRenderedMessageState | undefined;
+  let renderChain = Promise.resolve();
+  let replyRecorded = false;
+  let loggedFirstRunningUpdate = false;
+  const channelManagedDelivery =
+    params.route.responseMode === "capture-pane" || params.forceQueuedDelivery === true;
+
+  async function recordReplyIfNeeded() {
+    if (replyRecorded) {
+      return;
+    }
+
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    replyRecorded = true;
+  }
+
+  async function renderResponseText(nextText: string) {
+    if (!responseChunks.length) {
+      responseChunks = await params.postText(nextText);
+      if (responseChunks.length > 0) {
+        await recordReplyIfNeeded();
+      }
+      return;
+    }
+
+    responseChunks = await params.reconcileText(responseChunks, nextText);
+  }
+
+  logLatencyDebug("channel-enqueue-start", params.timingContext, {
+    agentId: params.route.agentId,
+    sessionKey: params.sessionTarget.sessionKey,
+  });
+
+  try {
+    const { positionAhead, result } = params.agentService.enqueuePrompt(
+      params.sessionTarget,
+      params.promptText,
+      {
+        observerId: params.observerId,
+        timingContext: params.timingContext,
+        onUpdate: async (update) => {
+          if (!channelManagedDelivery) {
+            return;
+          }
+          if (params.route.streaming === "off" && update.status === "running") {
+            return;
+          }
+          if (update.status === "running" && !loggedFirstRunningUpdate) {
+            loggedFirstRunningUpdate = true;
+            logLatencyDebug("channel-first-running-update", params.timingContext, {
+              sessionName: update.sessionName,
+              sessionKey: update.sessionKey,
+            });
+          }
+
+          await (renderChain = renderChain.then(async () => {
+            const nextState = buildRenderedMessageState({
+              platform: params.identity.platform,
+              status: update.status,
+              snapshot: update.snapshot,
+              queuePosition: positionAhead,
+              maxChars: Number.POSITIVE_INFINITY,
+              note: update.note,
+              previousState: renderedState,
+              responsePolicy: params.route.response,
+            });
+            if (renderedState?.text === nextState.text) {
+              return;
+            }
+
+            if (!responseChunks.length) {
+              return;
+            }
+
+            await renderResponseText(nextState.text);
+            renderedState = nextState;
+          }));
+        },
+      },
+    );
+
+    if (channelManagedDelivery && params.route.streaming !== "off") {
+      const placeholderText = renderPlatformInteraction({
+        platform: params.identity.platform,
+        status: positionAhead > 0 ? "queued" : "running",
+        content: "",
+        queuePosition: positionAhead,
+        maxChars: Number.POSITIVE_INFINITY,
+        note:
+          positionAhead > 0
+            ? "Waiting for the agent queue to clear."
+            : "Working...",
+      });
+      responseChunks = await params.postText(placeholderText);
+      await recordReplyIfNeeded();
+      renderedState = {
+        text: placeholderText,
+        body: "",
+      };
+    } else if (channelManagedDelivery && positionAhead > 0) {
+      const queuedText = renderPlatformInteraction({
+        platform: params.identity.platform,
+        status: "queued",
+        content: "",
+        queuePosition: positionAhead,
+        maxChars: Number.POSITIVE_INFINITY,
+        note: "Waiting for the agent queue to clear.",
+      });
+      responseChunks = await params.postText(queuedText);
+      await recordReplyIfNeeded();
+      renderedState = {
+        text: queuedText,
+        body: "",
+      };
+    }
+
+    const finalResult = await result;
+    await renderChain;
+
+    if (!channelManagedDelivery) {
+      if (finalResult.status !== "error") {
+        return;
+      }
+
+      await params.postText(
+        renderPlatformInteraction({
+          platform: params.identity.platform,
+          status: finalResult.status,
+          content: finalResult.note ?? finalResult.snapshot,
+          maxChars: Number.POSITIVE_INFINITY,
+          note: finalResult.note,
+          responsePolicy: "final",
+        }),
+      );
+      await recordReplyIfNeeded();
+      return;
+    }
+
+    const nextState = buildRenderedMessageState({
+      platform: params.identity.platform,
+      status: finalResult.status,
+      snapshot: finalResult.snapshot,
+      maxChars: Number.POSITIVE_INFINITY,
+      note: finalResult.note,
+      previousState: renderedState,
+      responsePolicy: params.route.response,
+    });
+
+    if (params.route.streaming === "off") {
+      await params.postText(
+        renderPlatformInteraction({
+          platform: params.identity.platform,
+          status: finalResult.status,
+          content: nextState.body,
+          maxChars: Number.POSITIVE_INFINITY,
+          note: finalResult.note,
+          responsePolicy: "final",
+        }),
+      );
+      await recordReplyIfNeeded();
+      return;
+    }
+
+    await renderResponseText(nextState.text);
+  } catch (error) {
+    if (error instanceof ClearedQueuedTaskError) {
+      return;
+    }
+    if (error instanceof ActiveRunInProgressError) {
+      const activeText = error.update.note ?? String(error);
+      if (params.route.streaming !== "off" && responseChunks.length > 0) {
+        await params.reconcileText(responseChunks, activeText);
+      } else {
+        await params.postText(activeText);
+      }
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    const errorText = renderPlatformInteraction({
+      platform: params.identity.platform,
+      status: "error",
+      content: String(error),
+      maxChars: Number.POSITIVE_INFINITY,
+    });
+    if (params.route.streaming !== "off" && responseChunks.length > 0) {
+      await params.reconcileText(responseChunks, errorText);
+    } else {
+      await params.postText(errorText);
+    }
+  }
+}
+
 export async function processChannelInteraction<TChunk>(params: {
   agentService: AgentService;
   sessionTarget: AgentSessionTarget;
@@ -315,6 +737,7 @@ export async function processChannelInteraction<TChunk>(params: {
   senderId?: string;
   text: string;
   agentPromptText?: string;
+  agentPromptBuilder?: (text: string) => string;
   route: ChannelInteractionRoute;
   maxChars: number;
   postText: PostText<TChunk>;
@@ -326,7 +749,6 @@ export async function processChannelInteraction<TChunk>(params: {
   const observerId = buildChannelObserverId(params.identity);
   let replyRecorded = false;
   let renderChain = Promise.resolve();
-  let loggedFirstRunningUpdate = false;
 
   async function recordReplyIfNeeded() {
     if (replyRecorded) {
@@ -401,8 +823,6 @@ export async function processChannelInteraction<TChunk>(params: {
   );
   const queueByMode = !explicitQueueMessage && params.route.additionalMessageMode === "queue" && sessionBusy;
   const forceQueuedDelivery = typeof explicitQueueMessage === "string" || queueByMode;
-  const channelManagedDelivery =
-    params.route.responseMode === "capture-pane" || forceQueuedDelivery;
   const isSensitiveCommand =
     slashCommand?.type === "bash" ||
     (slashCommand?.type === "control" && slashCommand.name === "transcript");
@@ -424,6 +844,9 @@ export async function processChannelInteraction<TChunk>(params: {
       const followUpState =
         await params.agentService.getConversationFollowUpState(params.sessionTarget);
       const runtimeState = await params.agentService.getSessionRuntime(params.sessionTarget);
+      const sessionLoops = params.agentService.listIntervalLoops?.({
+        sessionKey: params.sessionTarget.sessionKey,
+      }) ?? [];
       await params.postText(
         renderRouteStatusMessage({
           identity: params.identity,
@@ -431,6 +854,10 @@ export async function processChannelInteraction<TChunk>(params: {
           sessionTarget: params.sessionTarget,
           followUpState,
           runtimeState,
+          loopState: {
+            sessionLoops,
+            globalLoopCount: params.agentService.getActiveIntervalLoopCount?.() ?? 0,
+          },
         }),
       );
       await params.agentService.recordConversationReply(params.sessionTarget);
@@ -629,6 +1056,223 @@ export async function processChannelInteraction<TChunk>(params: {
     }
   }
 
+  if (slashCommand?.type === "loop-control") {
+    if (slashCommand.action === "status") {
+      await params.postText(
+        renderLoopStatusMessage({
+          sessionLoops: params.agentService.listIntervalLoops?.({
+            sessionKey: params.sessionTarget.sessionKey,
+          }) ?? [],
+          globalLoopCount: params.agentService.getActiveIntervalLoopCount?.() ?? 0,
+        }),
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    const sessionLoops = params.agentService.listIntervalLoops?.({
+      sessionKey: params.sessionTarget.sessionKey,
+    }) ?? [];
+
+    if (slashCommand.all && slashCommand.app) {
+      const cancelled = await params.agentService.cancelAllIntervalLoops();
+      await params.postText(
+        cancelled > 0
+          ? `Cancelled ${cancelled} active loop${cancelled === 1 ? "" : "s"} across the whole app.`
+          : "No active loops to cancel across the whole app.",
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    if (slashCommand.all) {
+      const cancelled = await params.agentService.cancelIntervalLoopsForSession(params.sessionTarget);
+      await params.postText(
+        cancelled > 0
+          ? `Cancelled ${cancelled} active loop${cancelled === 1 ? "" : "s"} for this session.`
+          : "No active loops to cancel for this session.",
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    const targetLoopId =
+      slashCommand.loopId ||
+      (sessionLoops.length === 1 ? sessionLoops[0]?.id : undefined);
+    if (!targetLoopId) {
+      await params.postText(
+        sessionLoops.length === 0
+          ? "No active loops to cancel for this session."
+          : "Multiple active loops exist for this session. Use `/loop cancel <id>` or `/loop cancel --all`.",
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    const cancelled = await params.agentService.cancelIntervalLoop(targetLoopId);
+    await params.postText(
+      cancelled
+        ? `Cancelled loop \`${targetLoopId}\`.`
+        : `No active loop found with id \`${targetLoopId}\`.`,
+    );
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return;
+  }
+
+  if (slashCommand?.type === "loop-error") {
+    await params.postText(`${slashCommand.message}\n\n${renderLoopUsage()}`);
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return;
+  }
+
+  if (slashCommand?.type === "loop") {
+    const loopConfig = params.agentService.getLoopConfig();
+    const maxRunsPerLoop = loopConfig.maxRunsPerLoop;
+    const effectiveIntervalMs =
+      slashCommand.params.mode === "interval" ? slashCommand.params.intervalMs : undefined;
+
+    if (
+      slashCommand.params.mode === "times" &&
+      slashCommand.params.count > maxRunsPerLoop
+    ) {
+      await params.postText(
+        `Loop count exceeds the configured max of \`${maxRunsPerLoop}\`.\n\n${renderLoopUsage()}`,
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    if (slashCommand.params.mode === "interval") {
+      const intervalValidation = validateLoopInterval({
+        intervalMs: effectiveIntervalMs!,
+        force: slashCommand.params.force,
+      });
+      if (intervalValidation.error) {
+        await params.postText(`${intervalValidation.error}\n\n${renderLoopUsage()}`);
+        await params.agentService.recordConversationReply(params.sessionTarget);
+        return;
+      }
+    }
+
+    let resolvedLoopPrompt: Awaited<ReturnType<typeof resolveLoopPromptText>>;
+    try {
+      resolvedLoopPrompt = await resolveLoopPromptText({
+        agentService: params.agentService,
+        sessionTarget: params.sessionTarget,
+        promptText: slashCommand.params.promptText,
+      });
+    } catch (error) {
+      await params.postText(String(error));
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+    const buildLoopPromptText = (text: string) =>
+      params.agentPromptBuilder ? params.agentPromptBuilder(text) : text;
+
+    if (slashCommand.params.mode === "times") {
+      await params.postText(
+        renderLoopStartedMessage({
+          mode: slashCommand.params.mode,
+          count: slashCommand.params.count,
+          maintenancePrompt: resolvedLoopPrompt.maintenancePrompt,
+        }),
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      for (let index = 0; index < slashCommand.params.count; index += 1) {
+        void executePromptDelivery({
+          agentService: params.agentService,
+          sessionTarget: params.sessionTarget,
+          identity: params.identity,
+          route: params.route,
+          maxChars: params.maxChars,
+          promptText: buildLoopPromptText(resolvedLoopPrompt.text),
+          postText: params.postText,
+          reconcileText: params.reconcileText,
+          observerId: `${observerId}:loop:${index + 1}`,
+        });
+      }
+      return;
+    }
+
+    if (slashCommand.params.mode === "calendar") {
+      const effectiveTimezone = resolveEffectiveLoopTimezone({
+        routeTimezone: params.route.timezone,
+        defaultTimezone: loopConfig.defaultTimezone,
+      });
+      const createdLoop = await params.agentService.createCalendarLoop({
+        target: params.sessionTarget,
+        promptText: buildLoopPromptText(resolvedLoopPrompt.text),
+        promptSummary: summarizeLoopPrompt(
+          resolvedLoopPrompt.text,
+          resolvedLoopPrompt.maintenancePrompt,
+        ),
+        promptSource: resolvedLoopPrompt.maintenancePrompt ? "LOOP.md" : "custom",
+        cadence: slashCommand.params.cadence,
+        dayOfWeek: slashCommand.params.dayOfWeek,
+        localTime: slashCommand.params.localTime,
+        hour: slashCommand.params.hour,
+        minute: slashCommand.params.minute,
+        timezone: effectiveTimezone,
+        maxRuns: maxRunsPerLoop,
+        createdBy: params.senderId,
+      });
+      await params.postText(
+        renderLoopStartedMessage({
+          mode: "calendar",
+          scheduleText: formatCalendarLoopSchedule({
+            cadence: slashCommand.params.cadence,
+            dayOfWeek: slashCommand.params.dayOfWeek,
+            localTime: slashCommand.params.localTime,
+          }),
+          timezone: effectiveTimezone,
+          nextRunAt: createdLoop?.nextRunAt,
+          maintenancePrompt: resolvedLoopPrompt.maintenancePrompt,
+          loopId: createdLoop?.id,
+          maxRuns: createdLoop?.maxRuns,
+          sessionLoopCount: params.agentService.listIntervalLoops({
+            sessionKey: params.sessionTarget.sessionKey,
+          }).length,
+          globalLoopCount: params.agentService.getActiveIntervalLoopCount(),
+        }),
+      );
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return;
+    }
+
+    const createdLoop = await params.agentService.createIntervalLoop({
+      target: params.sessionTarget,
+      promptText: buildLoopPromptText(resolvedLoopPrompt.text),
+      promptSummary: summarizeLoopPrompt(
+        resolvedLoopPrompt.text,
+        resolvedLoopPrompt.maintenancePrompt,
+      ),
+      promptSource: resolvedLoopPrompt.maintenancePrompt ? "LOOP.md" : "custom",
+      intervalMs: effectiveIntervalMs!,
+      maxRuns: maxRunsPerLoop,
+      createdBy: params.senderId,
+      force: slashCommand.params.force,
+    });
+    await params.postText(
+      renderLoopStartedMessage({
+        mode: "interval",
+        intervalMs: effectiveIntervalMs,
+        maintenancePrompt: resolvedLoopPrompt.maintenancePrompt,
+        loopId: createdLoop?.id,
+        maxRuns: createdLoop?.maxRuns,
+        sessionLoopCount: params.agentService.listIntervalLoops({
+          sessionKey: params.sessionTarget.sessionKey,
+        }).length,
+        globalLoopCount: params.agentService.getActiveIntervalLoopCount(),
+        warning: validateLoopInterval({
+          intervalMs: effectiveIntervalMs!,
+          force: slashCommand.params.force,
+        }).warning,
+      }),
+    );
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return;
+  }
+
   if (slashCommand?.type === "bash") {
     if (!slashCommand.command.trim()) {
       await params.postText("Usage: `/bash <command>` or a configured bash shortcut such as `!<command>`");
@@ -691,169 +1335,17 @@ export async function processChannelInteraction<TChunk>(params: {
     }
   }
 
-  try {
-    logLatencyDebug("channel-enqueue-start", params.timingContext, {
-      agentId: params.route.agentId,
-      sessionKey: params.sessionTarget.sessionKey,
-    });
-    const { positionAhead, result } = params.agentService.enqueuePrompt(
-      params.sessionTarget,
-      forceQueuedDelivery ? explicitQueueMessage! : params.agentPromptText ?? params.text,
-      {
-        observerId,
-        timingContext: params.timingContext,
-        onUpdate: async (update) => {
-          if (!channelManagedDelivery) {
-            return;
-          }
-          if (params.route.streaming === "off" && update.status === "running") {
-            return;
-          }
-          if (update.status === "running" && !loggedFirstRunningUpdate) {
-            loggedFirstRunningUpdate = true;
-            logLatencyDebug("channel-first-running-update", params.timingContext, {
-              sessionName: update.sessionName,
-              sessionKey: update.sessionKey,
-            });
-          }
-
-          await (renderChain = renderChain.then(async () => {
-            const nextState = buildRenderedMessageState({
-              platform: params.identity.platform,
-              status: update.status,
-              snapshot: update.snapshot,
-              queuePosition: positionAhead,
-              maxChars: Number.POSITIVE_INFINITY,
-              note: update.note,
-              previousState: renderedState,
-              responsePolicy: params.route.response,
-            });
-            if (renderedState?.text === nextState.text) {
-              return;
-            }
-
-            if (!responseChunks.length) {
-              return;
-            }
-
-            await renderResponseText(nextState.text);
-            renderedState = nextState;
-          }));
-        },
-      },
-    );
-
-    if (channelManagedDelivery && params.route.streaming !== "off") {
-      const placeholderText = renderPlatformInteraction({
-        platform: params.identity.platform,
-        status: positionAhead > 0 ? "queued" : "running",
-        content: "",
-        queuePosition: positionAhead,
-        maxChars: Number.POSITIVE_INFINITY,
-        note:
-          positionAhead > 0
-            ? "Waiting for the agent queue to clear."
-            : "Working...",
-      });
-      responseChunks = await params.postText(placeholderText);
-      await recordReplyIfNeeded();
-      renderedState = {
-        text: placeholderText,
-        body: "",
-      };
-    } else if (channelManagedDelivery && positionAhead > 0) {
-      const queuedText = renderPlatformInteraction({
-        platform: params.identity.platform,
-        status: "queued",
-        content: "",
-        queuePosition: positionAhead,
-        maxChars: Number.POSITIVE_INFINITY,
-        note: "Waiting for the agent queue to clear.",
-      });
-      responseChunks = await params.postText(queuedText);
-      await recordReplyIfNeeded();
-      renderedState = {
-        text: queuedText,
-        body: "",
-      };
-    }
-
-    const finalResult = await result;
-    await renderChain;
-
-    if (!channelManagedDelivery) {
-      if (finalResult.status !== "error") {
-        return;
-      }
-
-      await params.postText(
-        renderPlatformInteraction({
-          platform: params.identity.platform,
-          status: finalResult.status,
-          content: finalResult.note ?? finalResult.snapshot,
-          maxChars: Number.POSITIVE_INFINITY,
-          note: finalResult.note,
-          responsePolicy: "final",
-        }),
-      );
-      await recordReplyIfNeeded();
-      return;
-    }
-
-    const nextState = buildRenderedMessageState({
-      platform: params.identity.platform,
-      status: finalResult.status,
-      snapshot: finalResult.snapshot,
-      maxChars: Number.POSITIVE_INFINITY,
-      note: finalResult.note,
-      previousState: renderedState,
-      responsePolicy: params.route.response,
-    });
-
-    if (params.route.streaming === "off") {
-      await params.postText(
-        renderPlatformInteraction({
-          platform: params.identity.platform,
-          status: finalResult.status,
-          content: nextState.body,
-          maxChars: Number.POSITIVE_INFINITY,
-          note: finalResult.note,
-          responsePolicy: "final",
-        }),
-      );
-      await recordReplyIfNeeded();
-      renderedState = nextState;
-      return;
-    }
-
-    await renderResponseText(nextState.text);
-    renderedState = nextState;
-  } catch (error) {
-    if (error instanceof ClearedQueuedTaskError) {
-      return;
-    }
-    if (error instanceof ActiveRunInProgressError) {
-      const activeText = error.update.note ?? String(error);
-      if (params.route.streaming !== "off" && responseChunks.length > 0) {
-        await params.reconcileText(responseChunks, activeText);
-      } else {
-        await params.postText(activeText);
-      }
-      await params.agentService.recordConversationReply(params.sessionTarget);
-      return;
-    }
-
-    const errorText = renderPlatformInteraction({
-      platform: params.identity.platform,
-      status: "error",
-      content: String(error),
-      maxChars: Number.POSITIVE_INFINITY,
-    });
-    if (params.route.streaming !== "off" && responseChunks.length > 0) {
-      await params.reconcileText(responseChunks, errorText);
-    } else {
-      await params.postText(errorText);
-    }
-    return;
-  }
+  await executePromptDelivery({
+    agentService: params.agentService,
+    sessionTarget: params.sessionTarget,
+    identity: params.identity,
+    route: params.route,
+    maxChars: params.maxChars,
+    promptText: forceQueuedDelivery ? explicitQueueMessage! : params.agentPromptText ?? params.text,
+    postText: params.postText,
+    reconcileText: params.reconcileText,
+    observerId,
+    timingContext: params.timingContext,
+    forceQueuedDelivery,
+  });
 }

@@ -1,5 +1,14 @@
 import type { FollowUpMode } from "./follow-up-policy.ts";
 import { parseCommandDurationMs } from "./run-observation.ts";
+import {
+  LOOP_ALL_FLAG,
+  LOOP_APP_FLAG,
+  LOOP_FORCE_FLAG,
+  hasLoopFlag,
+  parseLoopSlashCommand,
+  renderLoopHelpLines,
+  type ParsedLoopSlashCommand,
+} from "./loop-command.ts";
 
 export type CommandPrefixes = {
   slash: string[];
@@ -20,7 +29,8 @@ export type AgentControlSlashCommandName =
   | "responsemode"
   | "additionalmessagemode"
   | "queue-list"
-  | "queue-clear";
+  | "queue-clear"
+  | "loop";
 export type AgentFollowUpSlashAction = "status" | "auto" | "mention-only" | "pause" | "resume";
 export type AgentResponseModeSlashAction = "status" | "capture-pane" | "message-tool";
 export type AgentAdditionalMessageModeSlashAction = "status" | "queue" | "steer";
@@ -93,6 +103,25 @@ export type AgentControlSlashCommand =
 
 export type AgentSlashCommand =
   | AgentControlSlashCommand
+  | {
+      type: "loop-control";
+      action: "status";
+    }
+  | {
+      type: "loop-control";
+      action: "cancel";
+      loopId?: string;
+      all: boolean;
+      app: boolean;
+    }
+  | {
+      type: "loop";
+      params: ParsedLoopSlashCommand;
+    }
+  | {
+      type: "loop-error";
+      message: string;
+    }
   | {
       type: "queue";
       text: string;
@@ -348,6 +377,58 @@ export function parseAgentCommand(
     };
   }
 
+  if (lowered === "loop") {
+    const loopText = withoutSlash.slice(command.length).trim();
+    const loweredLoopText = loopText.toLowerCase();
+    if (loweredLoopText === "status") {
+      return {
+        type: "loop-control",
+        action: "status",
+      };
+    }
+
+    if (loweredLoopText === "cancel" || loweredLoopText.startsWith("cancel ")) {
+      const cancelArgs = loopText.slice("cancel".length).trim();
+      if (hasLoopFlag(cancelArgs, LOOP_FORCE_FLAG)) {
+        return {
+          type: "loop-error",
+          message: `Use \`/loop cancel --all ${LOOP_APP_FLAG}\` for app-wide cancellation.`,
+        };
+      }
+      const all = hasLoopFlag(cancelArgs, LOOP_ALL_FLAG);
+      const app = hasLoopFlag(cancelArgs, LOOP_APP_FLAG);
+      if (app && !all) {
+        return {
+          type: "loop-error",
+          message: `\`${LOOP_APP_FLAG}\` only works with \`/loop cancel ${LOOP_ALL_FLAG}\`.`,
+        };
+      }
+      const loopId = cancelArgs
+        .split(/\s+/)
+        .map((token) => token.trim())
+        .find((token) => token && token !== LOOP_ALL_FLAG && token !== LOOP_APP_FLAG);
+      return {
+        type: "loop-control",
+        action: "cancel",
+        loopId: loopId || undefined,
+        all,
+        app,
+      };
+    }
+
+    const parsed = parseLoopSlashCommand(loopText);
+    if ("error" in parsed) {
+      return {
+        type: "loop-error",
+        message: parsed.error,
+      };
+    }
+    return {
+      type: "loop",
+      params: parsed,
+    };
+  }
+
   if (lowered === "queue" || lowered === "q") {
     return {
       type: "queue",
@@ -417,6 +498,7 @@ export function renderAgentControlSlashHelp() {
     "- `/steer <message>` or `\\s <message>`: inject a steering message into the active run immediately",
     "- `/queue-list`: show queued messages that have not started yet",
     "- `/queue-clear`: clear queued messages that have not started yet",
+    ...renderLoopHelpLines(),
     "- `/bash` followed by a shell command: requires `privilegeCommands.enabled: true` on the current route",
     "- shortcut prefixes such as `!` run bash when the route allows privilege commands",
     "",

@@ -1,4 +1,5 @@
 import type { FollowUpMode, StoredFollowUpState } from "./follow-up-policy.ts";
+import type { IntervalLoopStatus, StoredIntervalLoop } from "./loop-state.ts";
 import type { ResolvedAgentTarget } from "./resolved-target.ts";
 import type { StoredSessionRuntime } from "./run-observation.ts";
 import type { SessionRuntimeInfo } from "./session-runtime.ts";
@@ -15,11 +16,13 @@ type SessionEntryUpdate = (existing: {
   followUp?: StoredFollowUpState;
   runnerCommand?: string;
   runtime?: StoredSessionRuntime;
+  intervalLoops?: StoredIntervalLoop[];
 } | null) => {
   sessionId?: string;
   followUp?: StoredFollowUpState;
   runnerCommand?: string;
   runtime?: StoredSessionRuntime;
+  intervalLoops?: StoredIntervalLoop[];
 };
 
 export class AgentSessionState {
@@ -46,6 +49,7 @@ export class AgentSessionState {
       followUp: existing?.followUp,
       runnerCommand: params.runnerCommand ?? existing?.runnerCommand ?? resolved.runner.command,
       runtime: params.runtime ?? existing?.runtime,
+      intervalLoops: existing?.intervalLoops,
     }));
   }
 
@@ -60,6 +64,7 @@ export class AgentSessionState {
       runtime: {
         state: "idle",
       },
+      intervalLoops: existing?.intervalLoops,
     }));
   }
 
@@ -72,6 +77,7 @@ export class AgentSessionState {
       followUp: existing?.followUp,
       runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
       runtime,
+      intervalLoops: existing?.intervalLoops,
     }));
   }
 
@@ -109,6 +115,58 @@ export class AgentSessionState {
       }));
   }
 
+  async listIntervalLoops(params?: {
+    sessionKey?: string;
+  }): Promise<IntervalLoopStatus[]> {
+    const entries = await this.sessionStore.list();
+    return entries.flatMap((entry) =>
+      (entry.intervalLoops ?? [])
+        .filter((loop) => !params?.sessionKey || entry.sessionKey === params.sessionKey)
+        .map((loop) => ({
+          ...loop,
+          agentId: entry.agentId,
+          sessionKey: entry.sessionKey,
+          remainingRuns: Math.max(0, loop.maxRuns - loop.attemptedRuns),
+        })),
+    );
+  }
+
+  async setIntervalLoop(
+    resolved: ResolvedAgentTarget,
+    loop: StoredIntervalLoop,
+  ) {
+    return this.upsertSessionEntry(resolved, (existing) => ({
+      sessionId: existing?.sessionId,
+      followUp: existing?.followUp,
+      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
+      runtime: existing?.runtime,
+      intervalLoops: [...(existing?.intervalLoops ?? []).filter((item) => item.id !== loop.id), loop],
+    }));
+  }
+
+  async removeIntervalLoop(
+    resolved: ResolvedAgentTarget,
+    loopId: string,
+  ) {
+    return this.upsertSessionEntry(resolved, (existing) => ({
+      sessionId: existing?.sessionId,
+      followUp: existing?.followUp,
+      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
+      runtime: existing?.runtime,
+      intervalLoops: (existing?.intervalLoops ?? []).filter((item) => item.id !== loopId),
+    }));
+  }
+
+  async clearIntervalLoops(resolved: ResolvedAgentTarget) {
+    return this.upsertSessionEntry(resolved, (existing) => ({
+      sessionId: existing?.sessionId,
+      followUp: existing?.followUp,
+      runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
+      runtime: existing?.runtime,
+      intervalLoops: [],
+    }));
+  }
+
   async setConversationFollowUpMode(
     resolved: ResolvedAgentTarget,
     mode: FollowUpMode,
@@ -120,6 +178,7 @@ export class AgentSessionState {
         overrideMode: mode,
       },
       runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
+      intervalLoops: existing?.intervalLoops,
     }));
   }
 
@@ -133,6 +192,7 @@ export class AgentSessionState {
           }
         : undefined,
       runnerCommand: existing?.runnerCommand ?? resolved.runner.command,
+      intervalLoops: existing?.intervalLoops,
     }));
   }
 
@@ -163,6 +223,7 @@ export class AgentSessionState {
               finalReplyAt: repliedAt,
             }
           : existing?.runtime,
+      intervalLoops: existing?.intervalLoops,
     }));
   }
 
@@ -180,6 +241,7 @@ export class AgentSessionState {
         runnerCommand: next.runnerCommand ?? existing?.runnerCommand ?? resolved.runner.command,
         followUp: next.followUp,
         runtime: next.runtime ?? existing?.runtime,
+        intervalLoops: next.intervalLoops ?? existing?.intervalLoops,
         updatedAt: Date.now(),
       };
     });

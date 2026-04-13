@@ -335,6 +335,93 @@ Live proof on April 5, 2026:
 - the visible Slack or Telegram reply preserves the original content exactly, including line breaks and quotes
 - the route does not emit a second pane-settlement reply when `responseMode` is `message-tool`
 
+## Test Case 2K: `/loop` Times Mode Reserves Ordered Repeats
+
+### Preconditions
+
+- the routed Slack or Telegram surface uses a live agent route
+- the route accepts slash commands
+- the loop count stays within configured `control.loop.maxRunsPerLoop`
+
+### Steps
+
+1. Send `/loop 3 Reply with exactly LOOP_TIMES_OK and nothing else.`
+2. Before the first run settles, send one extra `/queue after the loop say LOOP_QUEUE_OK`
+3. Observe the thread order
+
+### Expected Results
+
+- clisbot accepts the `/loop` command and posts a start summary
+- the repeated prompt runs exactly 3 times
+- the extra queued message stays behind those 3 reserved loop iterations
+- no fourth loop run appears
+
+## Test Case 2L: `/loop` Interval Mode Is Managed, Bounded, And Restored
+
+### Preconditions
+
+- the routed Slack or Telegram surface uses a live agent route
+- the route accepts slash commands
+- the route supports `message-tool` response mode for the cleanest live validation
+
+### Steps
+
+1. Send `/loop 1m --force Reply with exactly LOOP_INTERVAL_OK and nothing else.`
+2. Observe the immediate first run
+3. Run `/loop status`
+4. Restart the runtime
+5. Run `/loop status` again
+6. Cancel the loop with `/loop cancel <id>`
+
+### Expected Results
+
+- clisbot accepts the `/loop` command and posts a start summary
+- the first run starts immediately
+- the start summary includes loop id, max runs, active loop counts, and cancel guidance
+- `/loop status` shows the active loop with remaining runs and next run time
+- after restart, the loop still appears in `/loop status`
+- `/loop cancel <id>` removes the loop from active state
+
+## Test Case 2M: `/loop` Maintenance Mode Uses `LOOP.md`
+
+### Preconditions
+
+- the routed agent workspace contains a non-empty `LOOP.md`
+
+### Steps
+
+1. Send `/loop 3`
+2. Observe the routed conversation
+
+### Expected Results
+
+- clisbot loads prompt text from workspace `LOOP.md`
+- the maintenance loop runs exactly 3 times
+- if `LOOP.md` is removed and the same command is retried, clisbot fails with a direct remediation message instead of guessing a prompt
+
+## Test Case 2N: `/loop` Wall-Clock Schedule Uses Resolved Timezone
+
+### Preconditions
+
+- the routed Slack or Telegram surface uses a live agent route
+- `control.loop.defaultTimezone` is configured, or the route has an explicit timezone override
+
+### Steps
+
+1. Send `/loop every day at 07:00 Reply with exactly LOOP_DAILY_OK and nothing else.`
+2. Observe the acceptance message
+3. Run `/loop status`
+4. Restart the runtime
+5. Run `/loop status` again
+
+### Expected Results
+
+- clisbot accepts the command and posts a start summary
+- the summary includes the resolved timezone and the first `nextRunAt`
+- the first run is not started immediately; it is scheduled for the next matching wall-clock time
+- `/loop status` shows the schedule form and timezone
+- after restart, the same loop remains visible with its persisted effective timezone
+
 ## OpenClaw Compatibility Note
 
 Latest OpenClaw `main` models Slack no-mention thread continuation by remembering that it already replied in a thread.

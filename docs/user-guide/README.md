@@ -175,13 +175,13 @@ Binding behavior:
 
 Bootstrap behavior:
 
-- `personal-assistant` and `team-assistant` copy `templates/openclaw` plus the matching folder under `templates/customized/`
+- `personal-assistant` and `team-assistant` copy `templates/openclaw`, `templates/customized/default`, and the matching folder under `templates/customized/`
 - codex bootstrap requires `AGENTS.md` and `IDENTITY.md`
 - claude bootstrap requires `CLAUDE.md` and `IDENTITY.md`
 - bootstrap state is `missing` when the tool-specific file or `IDENTITY.md` is absent
 - bootstrap state is `not-bootstrapped` when the required files exist but `BOOTSTRAP.md` is still present
 - bootstrap state becomes `bootstrapped` after the required files exist and `BOOTSTRAP.md` is gone
-- seeded files include `BOOTSTRAP.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, and tool guidance files
+- seeded files include `BOOTSTRAP.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `LOOP.md`, and tool guidance files
 
 Operational note:
 
@@ -237,6 +237,66 @@ Important behavior:
   - `/steer <message>` or `\s <message>`
   - `/queue-list`
   - `/queue-clear`
+  - `/loop 5m check CI`
+  - `/loop 5m`
+  - `/loop 1m --force check deploy`
+  - `/loop check deploy every 1m --force`
+  - `/loop every day at 07:00 check deploy`
+  - `/loop every weekday at 07:00 standup`
+  - `/loop every mon at 09:00 weekly review`
+  - `/loop 3 /codereview`
+  - `/loop 3`
+  - `/loop status`
+  - `/loop cancel <id>`
+- every `/loop` command must include an interval, count, or wall-clock schedule
+- if no prompt is supplied after that interval, count, or schedule, clisbot uses the workspace `LOOP.md` file
+- bare positive integers in `/loop` mean times mode, compact durations such as `5m` mean interval mode, and `every ... at HH:MM` means wall-clock schedule mode
+- interval loops must be at least `1m`
+- interval loops below `5m` require `--force`
+- with leading interval syntax, place `--force` immediately after the interval token
+- with `every ...` syntax, place `--force` immediately after the interval clause
+- wall-clock schedules must use `HH:MM` in 24-hour format and wait until the next matching local time instead of firing immediately
+- wall-clock schedules resolve timezone from route override first, then `control.loop.defaultTimezone`, then host timezone
+- managed loops are created with ids, bounded by `control.loop.maxRunsPerLoop`, and capped globally by `control.loop.maxActiveLoops`
+- managed loops use `skip-if-busy`, so a tick is dropped instead of stacking more queued work when the session is already busy
+- managed loops persist in session state and are restored after restart
+- `/stop` interrupts the current run only; use `/loop cancel` to cancel loops
+
+Timezone config examples:
+
+```json
+{
+  "control": {
+    "loop": {
+      "maxRunsPerLoop": 20,
+      "maxActiveLoops": 10,
+      "defaultTimezone": "Asia/Ho_Chi_Minh"
+    }
+  }
+}
+```
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "groups": {
+        "-1001234567890": {
+          "timezone": "Asia/Ho_Chi_Minh",
+          "topics": {
+            "4": {
+              "timezone": "America/Los_Angeles"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+- route `timezone` overrides `control.loop.defaultTimezone`
+- once a wall-clock loop is created, its effective timezone is persisted on that loop record
 - if the service is already running, restart it after changing channel enablement
 - `clisbot channels` and `clisbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and privilege commands
 

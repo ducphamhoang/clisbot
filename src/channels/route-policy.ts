@@ -20,6 +20,7 @@ export type SharedChannelRoute = {
   responseMode: "capture-pane" | "message-tool";
   additionalMessageMode: "queue" | "steer";
   followUp: FollowUpConfig;
+  timezone?: string;
 };
 
 export type SharedChannelRouteOverride = {
@@ -37,6 +38,7 @@ export type SharedChannelRouteOverride = {
     participationTtlSec?: number;
     participationTtlMin?: number;
   };
+  timezone?: string;
 };
 
 type SharedChannelConfig = {
@@ -53,6 +55,7 @@ type SharedChannelConfig = {
     participationTtlSec?: number;
     participationTtlMin?: number;
   };
+  timezone?: string;
 };
 
 type BuildSharedChannelRouteParams = {
@@ -113,5 +116,6 @@ export function buildSharedChannelRoute(params: BuildSharedChannelRouteParams): 
         defaultMinutes: 5,
       }),
     },
+    timezone: params.route?.timezone ?? params.channelConfig.timezone,
   };
 }

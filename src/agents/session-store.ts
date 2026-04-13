@@ -1,4 +1,5 @@
 import type { StoredFollowUpState } from "./follow-up-policy.ts";
+import type { StoredIntervalLoop } from "./loop-state.ts";
 import type { StoredSessionRuntime } from "./run-observation.ts";
 import { dirname } from "node:path";
 import { fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
@@ -12,6 +13,7 @@ export type StoredSessionEntry = {
   runnerCommand: string;
   followUp?: StoredFollowUpState;
   runtime?: StoredSessionRuntime;
+  intervalLoops?: StoredIntervalLoop[];
   updatedAt: number;
 };
 
@@ -73,6 +75,7 @@ export class SessionStore {
       runnerCommand: params.runnerCommand,
       followUp: existing?.followUp,
       runtime: existing?.runtime,
+      intervalLoops: existing?.intervalLoops,
       updatedAt: Date.now(),
     });
   }

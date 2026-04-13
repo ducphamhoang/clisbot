@@ -70,6 +70,7 @@ describe("agents cli", () => {
     ]);
     expect(existsSync(join(tempDir, "workspaces", "default", "BOOTSTRAP.md"))).toBe(true);
     expect(existsSync(join(tempDir, "workspaces", "default", "AGENTS.md"))).toBe(true);
+    expect(existsSync(join(tempDir, "workspaces", "default", "LOOP.md"))).toBe(true);
     expect(existsSync(join(tempDir, "workspaces", "default", "MEMORY.md"))).toBe(true);
     expect(existsSync(join(tempDir, "workspaces", "default", "CLAUDE.md"))).toBe(false);
     expect(output.join("\n")).toContain("Added agent default with tool codex.");
@@ -307,6 +308,7 @@ describe("agents cli", () => {
 
     expect(existsSync(join(workspacePath, "CLAUDE.md"))).toBe(true);
     expect(existsSync(join(workspacePath, "AGENTS.md"))).toBe(false);
+    expect(existsSync(join(workspacePath, "LOOP.md"))).toBe(true);
     expect(readFileSync(join(workspacePath, "IDENTITY.md"), "utf8")).not.toBe("custom identity\n");
     expect(output.join("\n")).toContain("Rebootstrapped agent work with claude/team-assistant");
   });

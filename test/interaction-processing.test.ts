@@ -1084,6 +1084,550 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(clearedTarget).toBe(createTarget().sessionKey);
     expect(posted[0]).toBe("Cleared 2 queued messages.");
   });
+
+  test("loop times mode queues all iterations immediately and wraps prompts", async () => {
+    const posted: string[] = [];
+    const enqueued: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        getLoopConfig: () => ({
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+        }),
+        getWorkspacePath: () => "/tmp/workspace",
+        enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
+          enqueued.push(prompt);
+          return {
+            positionAhead: enqueued.length - 1,
+            result: Promise.resolve({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "done",
+              fullSnapshot: "done",
+              initialSnapshot: "",
+            }),
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop 3 /codereview",
+      agentPromptBuilder: (text) => `wrapped:${text}`,
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("Started loop for 3 iterations.");
+    expect(enqueued).toEqual([
+      "wrapped:/codereview",
+      "wrapped:/codereview",
+      "wrapped:/codereview",
+    ]);
+  });
+
+  test("loop interval mode starts immediately and passes the configured interval to the scheduler", async () => {
+    const posted: string[] = [];
+    const enqueued: string[] = [];
+    let scheduledIntervalMs = 0;
+    let createdMaxRuns = 0;
+
+    await processChannelInteraction({
+      agentService: {
+        getLoopConfig: () => ({
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+        }),
+        getWorkspacePath: () => "/tmp/workspace",
+        createIntervalLoop: async ({
+          promptText,
+          intervalMs,
+          maxRuns,
+        }: {
+          promptText: string;
+          intervalMs: number;
+          maxRuns: number;
+        }) => {
+          enqueued.push(promptText);
+          scheduledIntervalMs = intervalMs;
+          createdMaxRuns = maxRuns;
+          return {
+            id: "loop123",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            intervalMs,
+            maxRuns,
+            attemptedRuns: 1,
+            executedRuns: 1,
+            skippedRuns: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            nextRunAt: Date.now() + intervalMs,
+            promptText,
+            promptSummary: "check deploy",
+            promptSource: "custom" as const,
+            createdBy: "U123",
+            force: false,
+            remainingRuns: maxRuns - 1,
+          };
+        },
+        listIntervalLoops: () => [
+          {
+            id: "loop123",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            intervalMs: 7_200_000,
+            maxRuns: 20,
+            attemptedRuns: 1,
+            executedRuns: 1,
+            skippedRuns: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            nextRunAt: Date.now() + 7_200_000,
+            promptText: "wrapped:check deploy",
+            promptSummary: "check deploy",
+            promptSource: "custom" as const,
+            createdBy: "U123",
+            force: false,
+            remainingRuns: 19,
+          },
+        ],
+        getActiveIntervalLoopCount: () => 1,
+        enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
+          enqueued.push(prompt);
+          return {
+            positionAhead: 0,
+            result: Promise.resolve({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "done",
+              fullSnapshot: "done",
+              initialSnapshot: "",
+            }),
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop check deploy every 2 hours",
+      agentPromptBuilder: (text) => `wrapped:${text}`,
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("Started loop `loop123` every 2h.");
+    expect(scheduledIntervalMs).toBe(7_200_000);
+    expect(createdMaxRuns).toBe(20);
+    expect(enqueued).toEqual(["wrapped:check deploy"]);
+  });
+
+  test("loop calendar mode schedules the first run using route timezone", async () => {
+    const posted: string[] = [];
+    let observedTimezone = "";
+    let observedCadence = "";
+
+    await processChannelInteraction({
+      agentService: {
+        getLoopConfig: () => ({
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+          defaultTimezone: "UTC",
+        }),
+        getWorkspacePath: () => "/tmp/workspace",
+        createCalendarLoop: async ({
+          cadence,
+          timezone,
+        }: {
+          cadence: string;
+          timezone: string;
+        }) => {
+          observedCadence = cadence;
+          observedTimezone = timezone;
+          return {
+            id: "loopcal1",
+            kind: "calendar" as const,
+            cadence: "daily" as const,
+            localTime: "07:00",
+            hour: 7,
+            minute: 0,
+            timezone,
+            maxRuns: 20,
+            attemptedRuns: 0,
+            executedRuns: 0,
+            skippedRuns: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            nextRunAt: Date.parse("2026-04-13T00:00:00.000Z"),
+            promptText: "wrapped:check deploy",
+            promptSummary: "check deploy",
+            promptSource: "custom" as const,
+            createdBy: "U123",
+            force: false as const,
+          };
+        },
+        listIntervalLoops: () => [
+          {
+            id: "loopcal1",
+            kind: "calendar" as const,
+            cadence: "daily" as const,
+            localTime: "07:00",
+            hour: 7,
+            minute: 0,
+            timezone: "Asia/Ho_Chi_Minh",
+            maxRuns: 20,
+            attemptedRuns: 0,
+            executedRuns: 0,
+            skippedRuns: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            nextRunAt: Date.parse("2026-04-13T00:00:00.000Z"),
+            promptText: "wrapped:check deploy",
+            promptSummary: "check deploy",
+            promptSource: "custom" as const,
+            createdBy: "U123",
+            force: false as const,
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            remainingRuns: 20,
+          },
+        ],
+        getActiveIntervalLoopCount: () => 1,
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop every day at 07:00 check deploy",
+      agentPromptBuilder: (text) => `wrapped:${text}`,
+      route: createRoute({
+        responseMode: "message-tool",
+        timezone: "Asia/Ho_Chi_Minh",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(observedCadence).toBe("daily");
+    expect(observedTimezone).toBe("Asia/Ho_Chi_Minh");
+    expect(posted[0]).toContain("Started loop `loopcal1` every day at 07:00.");
+    expect(posted[0]).toContain("timezone: `Asia/Ho_Chi_Minh`");
+    expect(posted[0]).toContain("The first run is scheduled for `2026-04-13T00:00:00.000Z`.");
+  });
+
+  test("loop maintenance mode reads LOOP.md when no prompt is provided", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "clisbot-loop-"));
+    const posted: string[] = [];
+    const enqueued: string[] = [];
+    writeFileSync(join(workspacePath, "LOOP.md"), "maintenance prompt from file\n");
+
+    try {
+      await processChannelInteraction({
+        agentService: {
+          getLoopConfig: () => ({
+            maxRunsPerLoop: 20,
+            maxActiveLoops: 10,
+          }),
+          getWorkspacePath: () => workspacePath,
+          enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
+            enqueued.push(prompt);
+            return {
+              positionAhead: enqueued.length - 1,
+              result: Promise.resolve({
+                status: "completed",
+                agentId: "default",
+                sessionKey: createTarget().sessionKey,
+                sessionName: "session",
+                workspacePath,
+                snapshot: "done",
+                fullSnapshot: "done",
+                initialSnapshot: "",
+              }),
+            };
+          },
+          recordConversationReply: async () => undefined,
+        } as any,
+        sessionTarget: createTarget(),
+        identity: createIdentity(),
+        senderId: "U123",
+        text: "/loop 3",
+        agentPromptBuilder: (text) => `wrapped:${text}`,
+        route: createRoute({
+          responseMode: "message-tool",
+        }),
+        maxChars: 4000,
+        postText: async (text) => {
+          posted.push(text);
+          return [text];
+        },
+        reconcileText: async (_chunks, text) => [text],
+      });
+    } finally {
+      rmSync(workspacePath, { recursive: true, force: true });
+    }
+
+    expect(posted[0]).toContain("prompt: `LOOP.md`");
+    expect(enqueued).toEqual([
+      "wrapped:maintenance prompt from file",
+      "wrapped:maintenance prompt from file",
+      "wrapped:maintenance prompt from file",
+    ]);
+  });
+
+  test("loop errors when maintenance mode has no LOOP.md", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "clisbot-loop-missing-"));
+    const posted: string[] = [];
+
+    try {
+      await processChannelInteraction({
+        agentService: {
+          getLoopConfig: () => ({
+            maxRunsPerLoop: 20,
+            maxActiveLoops: 10,
+          }),
+          getWorkspacePath: () => workspacePath,
+          recordConversationReply: async () => undefined,
+        } as any,
+        sessionTarget: createTarget(),
+        identity: createIdentity(),
+        senderId: "U123",
+        text: "/loop 3",
+        route: createRoute({
+          responseMode: "message-tool",
+        }),
+        maxChars: 4000,
+        postText: async (text) => {
+          posted.push(text);
+          return [text];
+        },
+        reconcileText: async (_chunks, text) => [text],
+      });
+    } finally {
+      rmSync(workspacePath, { recursive: true, force: true });
+    }
+
+    expect(posted[0]).toContain("LOOP.md");
+    expect(posted[0]).toContain("Create LOOP.md");
+  });
+
+  test("loop rejects counts above the configured max", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        getLoopConfig: () => ({
+          maxRunsPerLoop: 2,
+          maxActiveLoops: 10,
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop 3 check CI",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("max of `2`");
+  });
+
+  test("loop rejects intervals below 5 minutes without force", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        getLoopConfig: () => ({
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop 1m check CI",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("below `5m` require `--force`");
+  });
+
+  test("loop status and cancel operate on managed interval loops", async () => {
+    const posted: string[] = [];
+    let cancelledLoopId = "";
+
+    await processChannelInteraction({
+      agentService: {
+        listIntervalLoops: () => [
+          {
+            id: "loop123",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            intervalMs: 300_000,
+            maxRuns: 20,
+            attemptedRuns: 1,
+            executedRuns: 1,
+            skippedRuns: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            nextRunAt: Date.now() + 300_000,
+            promptText: "wrapped:check ci",
+            promptSummary: "check ci",
+            promptSource: "custom" as const,
+            createdBy: "U123",
+            force: false,
+            remainingRuns: 19,
+          },
+        ],
+        getActiveIntervalLoopCount: () => 1,
+        cancelIntervalLoop: async (loopId: string) => {
+          cancelledLoopId = loopId;
+          return true;
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop status",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("Active loops");
+    expect(posted[0]).toContain("loop123");
+    posted.length = 0;
+
+    await processChannelInteraction({
+      agentService: {
+        listIntervalLoops: () => [
+          {
+            id: "loop123",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            intervalMs: 300_000,
+            maxRuns: 20,
+            attemptedRuns: 1,
+            executedRuns: 1,
+            skippedRuns: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            nextRunAt: Date.now() + 300_000,
+            promptText: "wrapped:check ci",
+            promptSummary: "check ci",
+            promptSource: "custom" as const,
+            createdBy: "U123",
+            force: false,
+            remainingRuns: 19,
+          },
+        ],
+        getActiveIntervalLoopCount: () => 1,
+        cancelIntervalLoop: async (loopId: string) => {
+          cancelledLoopId = loopId;
+          return true;
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop cancel",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(cancelledLoopId).toBe("loop123");
+    expect(posted[0]).toContain("Cancelled loop `loop123`.");
+  });
+
+  test("loop cancel --all --app cancels loops across the whole app", async () => {
+    const posted: string[] = [];
+    let cancelledCount = 0;
+
+    await processChannelInteraction({
+      agentService: {
+        listIntervalLoops: () => [],
+        cancelAllIntervalLoops: async () => {
+          cancelledCount += 2;
+          return 2;
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop cancel --all --app",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(cancelledCount).toBe(2);
+    expect(posted[0]).toContain("Cancelled 2 active loops across the whole app.");
+  });
 });
 
 describe("processChannelInteraction run observer commands", () => {

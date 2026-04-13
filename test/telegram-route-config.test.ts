@@ -75,6 +75,10 @@ function createLoadedConfig(): LoadedConfig {
           enabled: true,
           intervalMinutes: 5,
         },
+        loop: {
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+        },
       },
       channels: {
         slack: {
@@ -165,6 +169,7 @@ function createLoadedConfig(): LoadedConfig {
             mode: "auto",
             participationTtlMin: 5,
           },
+          timezone: "UTC",
           polling: {
             timeoutSeconds: 20,
             retryDelayMs: 1000,
@@ -178,6 +183,7 @@ function createLoadedConfig(): LoadedConfig {
                 "4": {
                   requireMention: false,
                   agentId: "claude",
+                  timezone: "Asia/Ho_Chi_Minh",
                   privilegeCommands: {
                     enabled: true,
                     allowUsers: ["123"],
@@ -213,6 +219,7 @@ describe("Telegram route resolution", () => {
     expect(resolved.conversationKind).toBe("topic");
     expect(resolved.route?.agentId).toBe("claude");
     expect(resolved.route?.requireMention).toBe(false);
+    expect(resolved.route?.timezone).toBe("Asia/Ho_Chi_Minh");
     expect(resolved.route?.privilegeCommands).toEqual({
       enabled: true,
       allowUsers: ["123"],

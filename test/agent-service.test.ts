@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ActiveRunInProgressError, AgentService } from "../src/agents/agent-service.ts";
@@ -833,6 +833,157 @@ describe("AgentService session identity", () => {
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+
+  test("persists and restores managed interval loops across service restart", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-loops-"));
+    const storePath = join(tempDir, "sessions.json");
+    const socketPath = join(tempDir, "clisbot.sock");
+    const workspaceTemplate = join(tempDir, "workspaces", "{agentId}");
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        buildConfig({
+          socketPath,
+          storePath,
+          workspaceTemplate,
+          runnerCommand: "codex",
+        runnerArgs: ["-C", "{workspace}"],
+        sessionId: {
+          create: { mode: "runner", args: [] },
+          capture: {
+            mode: "status-command",
+            statusCommand: "/status",
+            pattern: RUNNER_GENERATED_ID,
+            timeoutMs: 10,
+            pollIntervalMs: 1,
+          },
+          resume: { mode: "command", args: ["resume", "{sessionId}"] },
+        },
+        cleanupEnabled: false,
+        }),
+        null,
+        2,
+      ),
+    );
+    const loadedConfig = await loadConfig(configPath);
+    const tmux = new FakeTmuxClient() as unknown as TmuxClient;
+    const firstService = new AgentService(loadedConfig, { tmux });
+    const target = {
+      agentId: "default",
+      sessionKey: "agent:default:slack:channel:c4:thread:loop-persist",
+    };
+
+    await firstService.createIntervalLoop({
+      target,
+      promptText: "check deploy",
+      promptSummary: "check deploy",
+      promptSource: "custom",
+      intervalMs: 60_000,
+      maxRuns: 3,
+      createdBy: "U123",
+      force: true,
+    });
+
+    expect(firstService.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(1);
+    const persistedBeforeStop = readFileSync(storePath, "utf8");
+    expect(persistedBeforeStop).toContain("\"intervalLoops\"");
+    await firstService.stop();
+
+    const secondService = new AgentService(loadedConfig, { tmux });
+    await secondService.start();
+
+    const restoredLoops = secondService.listIntervalLoops({ sessionKey: target.sessionKey });
+    expect(restoredLoops).toHaveLength(1);
+    expect(restoredLoops[0]?.promptSummary).toBe("check deploy");
+    expect(restoredLoops[0]?.kind).not.toBe("calendar");
+    if (restoredLoops[0]?.kind === "calendar") {
+      throw new Error("expected interval loop");
+    }
+    expect(restoredLoops[0]?.intervalMs).toBe(60_000);
+
+    const cancelled = await secondService.cancelIntervalLoopsForSession(target);
+    expect(cancelled).toBe(1);
+    expect(secondService.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(0);
+    await secondService.stop();
+  });
+
+  test("persists and restores managed calendar loops across service restart", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-calendar-loops-"));
+    const storePath = join(tempDir, "sessions.json");
+    const socketPath = join(tempDir, "clisbot.sock");
+    const workspaceTemplate = join(tempDir, "workspaces", "{agentId}");
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        buildConfig({
+          socketPath,
+          storePath,
+          workspaceTemplate,
+          runnerCommand: "codex",
+          runnerArgs: ["-C", "{workspace}"],
+          sessionId: {
+            create: { mode: "runner", args: [] },
+            capture: {
+              mode: "status-command",
+              statusCommand: "/status",
+              pattern: RUNNER_GENERATED_ID,
+              timeoutMs: 10,
+              pollIntervalMs: 1,
+            },
+            resume: { mode: "command", args: ["resume", "{sessionId}"] },
+          },
+          cleanupEnabled: false,
+        }),
+        null,
+        2,
+      ),
+    );
+    const loadedConfig = await loadConfig(configPath);
+    const tmux = new FakeTmuxClient() as unknown as TmuxClient;
+    const firstService = new AgentService(loadedConfig, { tmux });
+    const target = {
+      agentId: "default",
+      sessionKey: "agent:default:telegram:topic:-1001:4",
+    };
+
+    await firstService.createCalendarLoop({
+      target,
+      promptText: "daily summary",
+      promptSummary: "daily summary",
+      promptSource: "custom",
+      cadence: "weekday",
+      localTime: "07:00",
+      hour: 7,
+      minute: 0,
+      timezone: "Asia/Ho_Chi_Minh",
+      maxRuns: 3,
+      createdBy: "U123",
+    });
+
+    expect(firstService.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(1);
+    const persistedBeforeStop = readFileSync(storePath, "utf8");
+    expect(persistedBeforeStop).toContain("\"kind\": \"calendar\"");
+    await firstService.stop();
+
+    const secondService = new AgentService(loadedConfig, { tmux });
+    await secondService.start();
+
+    const restoredLoops = secondService.listIntervalLoops({ sessionKey: target.sessionKey });
+    expect(restoredLoops).toHaveLength(1);
+    expect(restoredLoops[0]?.kind).toBe("calendar");
+    if (restoredLoops[0]?.kind !== "calendar") {
+      throw new Error("expected calendar loop");
+    }
+    expect(restoredLoops[0].timezone).toBe("Asia/Ho_Chi_Minh");
+    expect(restoredLoops[0].localTime).toBe("07:00");
+
+    const cancelled = await secondService.cancelIntervalLoopsForSession(target);
+    expect(cancelled).toBe(1);
+    expect(secondService.listIntervalLoops({ sessionKey: target.sessionKey })).toHaveLength(0);
+    await secondService.stop();
   });
 
   test("persists conversation follow-up overrides and bot participation timestamps", async () => {

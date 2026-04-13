@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getDefaultSessionIdPattern } from "../agents/session-identity.ts";
+import { isValidLoopTimezone } from "../agents/loop-command.ts";
 import {
   SUPPORTED_AGENT_CLI_TOOLS,
   SUPPORTED_BOOTSTRAP_MODES,
@@ -232,6 +233,9 @@ const channelAgentPromptSchema = z.object({
 
 const channelResponseModeSchema = z.enum(["capture-pane", "message-tool"]);
 const channelAdditionalMessageModeSchema = z.enum(["queue", "steer"]);
+const timezoneSchema = z.string().refine(isValidLoopTimezone, {
+  message: "Expected a valid IANA timezone such as Asia/Ho_Chi_Minh",
+});
 
 const slackRouteSchema = z.object({
   requireMention: z.boolean().default(true),
@@ -244,6 +248,7 @@ const slackRouteSchema = z.object({
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
+  timezone: timezoneSchema.optional(),
 });
 
 const telegramTopicRouteSchema = z.object({
@@ -257,6 +262,7 @@ const telegramTopicRouteSchema = z.object({
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
+  timezone: timezoneSchema.optional(),
 });
 
 const telegramGroupRouteSchema = z.object({
@@ -270,6 +276,7 @@ const telegramGroupRouteSchema = z.object({
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
+  timezone: timezoneSchema.optional(),
   topics: z.record(z.string(), telegramTopicRouteSchema).default({}),
 });
 
@@ -287,6 +294,7 @@ const telegramDirectMessagesSchema = z.object({
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
+  timezone: timezoneSchema.optional(),
 });
 
 const telegramPollingSchema = z.object({
@@ -328,6 +336,7 @@ const telegramSchema = z.object({
     mode: "auto",
     participationTtlMin: 5,
   }),
+  timezone: timezoneSchema.optional(),
   polling: telegramPollingSchema.default({
     timeoutSeconds: 20,
     retryDelayMs: 1000,
@@ -355,6 +364,7 @@ const directMessagesSchema = z.object({
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
+  timezone: timezoneSchema.optional(),
 });
 
 const slackSchema = z.object({
@@ -400,6 +410,7 @@ const slackSchema = z.object({
     mode: "auto",
     participationTtlMin: 5,
   }),
+  timezone: timezoneSchema.optional(),
   channels: z.record(z.string(), slackRouteSchema).default({}),
   groups: z.record(z.string(), slackRouteSchema).default({}),
   directMessages: directMessagesSchema.default({
@@ -420,6 +431,14 @@ const controlSessionCleanupSchema = z.object({
   intervalMinutes: z.number().int().positive().default(5),
 });
 
+const controlLoopSchema = z.object({
+  maxRunsPerLoop: z.number().int().positive().default(20),
+  maxActiveLoops: z.number().int().positive().default(10),
+  defaultTimezone: timezoneSchema.optional(),
+  defaultIntervalMinutes: z.number().int().positive().optional(),
+  maxTimes: z.number().int().positive().optional(),
+});
+
 const controlSchema = z.object({
   configReload: controlConfigReloadSchema.default({
     watch: false,
@@ -428,6 +447,10 @@ const controlSchema = z.object({
   sessionCleanup: controlSessionCleanupSchema.default({
     enabled: true,
     intervalMinutes: 5,
+  }),
+  loop: controlLoopSchema.default({
+    maxRunsPerLoop: 20,
+    maxActiveLoops: 10,
   }),
 });
 
@@ -476,6 +499,10 @@ export const clisbotConfigSchema = z.object({
     sessionCleanup: {
       enabled: true,
       intervalMinutes: 5,
+    },
+    loop: {
+      maxRunsPerLoop: 20,
+      maxActiveLoops: 10,
     },
   }),
   channels: z.object({

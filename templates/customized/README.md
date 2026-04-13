@@ -6,6 +6,7 @@ Use them when the default single-human template is not the right fit.
 
 ## Available Variants
 
+- `default`: files that should be seeded for every bootstrap mode
 - `personal-assistant`: for bots acting on behalf of one human
 - `team-assistant`: for bots acting as an independent assistant inside a team space such as a Slack work channel
 
@@ -18,6 +19,7 @@ The content is mirrored so you can copy the filename that matches the CLI you ar
 
 ## Main Difference
 
+- `default` carries shared additions that should land in every bootstrapped workspace
 - `personal-assistant` keeps the original "help one human" model
 - `team-assistant` treats the bot as its own assistant role in a shared environment
 
