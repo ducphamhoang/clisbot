@@ -16,10 +16,10 @@ It is a cheaper, simpler path to frontier agent workflows for teams and individu
 ## Why clisbot
 
 - One frontier-agent stack for both daily work and real coding. You do not need one product for assistant work and another for actual engineering work.
+- Learns from and integrates the two biggest strengths that made OpenClaw popular: memory and native channel integration with deep, channel-specific conversation and presentation capabilities.
 - Reuses native CLI subscriptions you already pay for, such as Claude Code, Codex, and Gemini CLI, instead of pushing you toward a separate API-cost-heavy stack.
 - Strong chat-first support in Slack and Telegram, with durable tmux-backed sessions behind the bot, so you can work from your laptop or on the go without giving up a real coding workspace.
 - Team-first by design, with `AGENTS`, `USER`, and `MEMORY` context bootstrapping shaped for shared team reality instead of only personal solo-assistant flows.
-- Compatible with OpenClaw-style ideas where useful, but centered on native coding agents, team workflows, and practical operator control.
 - Useful for coding, operations, teamwork, and general assistant work, with fast shell shortcuts such as `!<command>` and `/bash <command>` when you need terminal-like control from chat.
 
 ## What to expect
@@ -94,12 +94,6 @@ Fresh config starts with no configured agents, so first-run `clisbot start` requ
 Fresh config also starts with no preconfigured Slack channels or Telegram groups or topics. Add those routes manually in `~/.clisbot/clisbot.json`.
 `clisbot start` requires explicit channel token input before it bootstraps anything. You can pass raw values, env names such as `MY_TELEGRAM_BOT_TOKEN`, or placeholders such as `'${MY_TELEGRAM_BOT_TOKEN}'`.
 If you want a separate dev instance beside your main bot, see the [Development Guide](docs/development/README.md).
-
-Gemini note:
-
-- `clisbot` supports Gemini CLI as a routed runner target
-- Gemini still needs its own reusable auth before routed prompts can succeed
-- for headless or detached use, prefer `GEMINI_API_KEY` or Vertex AI credentials, or log in once directly with `gemini`
 
 ## Showcase
 
