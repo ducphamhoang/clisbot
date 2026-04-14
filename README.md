@@ -93,7 +93,7 @@ clisbot pairing approve telegram <CODE>
 Fresh config starts with no configured agents, so first-run `clisbot start` requires both `--cli` and `--bot-type` before it creates the first `default` agent.
 Fresh config also starts with no preconfigured Slack channels or Telegram groups or topics. Add those routes manually in `~/.clisbot/clisbot.json`.
 `clisbot start` requires explicit channel token input before it bootstraps anything. You can pass raw values, env names such as `MY_TELEGRAM_BOT_TOKEN`, or placeholders such as `'${MY_TELEGRAM_BOT_TOKEN}'`.
-Set `CLISBOT_HOME` if you want a fully separate local config, state, tmux socket, wrapper, and workspace root, for example when running a dev instance beside your main bot.
+If you want a separate dev instance beside your main bot, see the [Development Guide](docs/development/README.md).
 
 Gemini note:
 
@@ -146,16 +146,6 @@ If you prefer to configure everything yourself:
 2. Copy it to `~/.clisbot/clisbot.json` and adjust channels, bindings, workspaces, and policies for your environment.
 3. Add agents through the CLI so tool defaults, startup options, and bootstrap templates stay consistent.
 4. Optionally move stable channel secrets into env vars or canonical credential files after your first successful run.
-
-Separate dev home example:
-
-```bash
-export CLISBOT_HOME=~/.clisbot-dev
-clisbot start --cli codex --bot-type team --telegram-bot-token DEV_TELEGRAM_BOT_TOKEN
-```
-
-- `CLISBOT_HOME` changes the default config path, runtime state dir, tmux socket, local wrapper path, and default workspaces together
-- `CLISBOT_CONFIG_PATH` still works when you want to point at one exact config file manually
 
 Channel route setup is manual by design:
 
@@ -295,6 +285,7 @@ Follow-up behavior matters in team threads:
 
 - [Overview](docs/overview/README.md)
 - [Architecture](docs/architecture/README.md)
+- [Development Guide](docs/development/README.md)
 - [Feature Tables](docs/features/feature-tables.md)
 - [Backlog](docs/tasks/backlog.md)
 - [User Guide](docs/user-guide/README.md)
