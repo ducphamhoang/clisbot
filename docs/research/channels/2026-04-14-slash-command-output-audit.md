@@ -73,7 +73,7 @@ Current user-visible strings still teach:
 - `privilegeCommands.allowUsers`
 - `clisbot channels privilege ...`
 
-If the repo is moving toward app-level and agent-level `auth`, these strings should be treated as transitional and likely replaced, not polished in place.
+If the repo is moving toward app-level and agent-level `auth`, these strings should be removed rather than migrated into another route-local permission shape.
 
 ### 4. Success messages are usually precise but not always outcome-led
 
@@ -234,7 +234,7 @@ Suggested direction:
   whether the route is active
   whether a run is active
   whether transcript and admin actions are allowed
-- Remove or replace `privilegeCommands.*` wording as part of the `auth` rollout.
+- Remove `privilegeCommands.*` wording entirely as part of the `auth` rollout.
 
 ### `/whoami`
 
@@ -793,18 +793,18 @@ What works:
 
 Friction:
 
-- This is the clearest place where old privilege copy will conflict with future `auth`.
+- This is the clearest place where old privilege copy should be replaced outright by auth role and permission language.
 - The denial path assumes the viewer is allowed to see operator remediation commands.
 - The success header is fine, but it still reads like a raw tool dump.
 
 Suggested direction:
 
 - Treat `/bash` as an explicitly privileged action in docs and output.
-- Replace legacy `privilegeCommands` wording once auth exists.
+- Replace legacy `privilegeCommands` wording with auth role and permission language.
 - Consider different denial copy for:
   regular user
   operator lacking the right role
-  route not enabled
+  route reachable but action not permitted
 
 ## Cross-Cutting Runtime Notices
 
@@ -889,7 +889,7 @@ This should be opt-in rather than the default tone of `/status`, `/whoami`, and 
 
 ### P0
 
-- Replace old `privilegeCommands` wording in user-facing slash output as part of the `auth` rollout.
+- Remove old `privilegeCommands` wording from user-facing slash output as part of the `auth` rollout.
 - Rework unrouted onboarding and privileged denial flows first.
 
 ### P1

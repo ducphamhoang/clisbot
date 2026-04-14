@@ -100,6 +100,17 @@ Assistant status notes:
 
 ## Transcript Visibility And Privilege Commands
 
+This section describes the current shipped runtime behavior.
+
+It is not the target auth design.
+
+The planned auth slice replaces route-local `privilegeCommands` with:
+
+- `app.auth`
+- `agents.<id>.auth`
+
+See [Authorization And Roles](auth-and-roles.md) for the target model.
+
 Transcript inspection and bash execution no longer use the same gate.
 
 Current rule:
@@ -179,12 +190,10 @@ Important rule:
 
 - leaving top-level `verbose` at `minimal` is the low-friction default for internal use
 - set `verbose: "off"` only on routes where transcript monitoring should stay hidden
-- leaving `privilegeCommands.enabled` disabled at the root is recommended
-- use `privilegeCommands.allowUsers` when a route should trust only specific user ids
-- enable privilege commands only on the specific DM, channel, group, or topic routes that should have bash access
+- if you are operating the current shipped runtime, enable privilege commands only on the specific DM, channel, group, or topic routes that should have bash access
 - shortcut prefixes are configured through `channels.<platform>.commandPrefixes`
 - defaults are `slash: ["::", "\\"]` and `bash: ["!"]`
-- the `privilege` CLI is the fastest way to enable or restrict `/bash` without editing JSON by hand
+- in the current shipped runtime, the `privilege` CLI is the fastest way to enable or restrict `/bash` without editing JSON by hand
 - DM targets are literal: use `clisbot channels privilege enable slack-dm` or `clisbot channels privilege enable telegram-dm`
 
 ## Slack Event Subscriptions

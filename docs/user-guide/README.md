@@ -20,6 +20,8 @@ Related pages:
 - [Channel Accounts](channel-accounts.md)
 - [Telegram Bot Setup](telegram-setup.md)
 - [Slack App Setup](slack-setup.md)
+- [Slash Commands](slash-commands.md)
+- [CLI Commands](cli-commands.md)
 - [Agent Progress Replies](agent-progress-replies.md)
 - [Authorization And Roles](auth-and-roles.md)
 
@@ -249,7 +251,8 @@ Important behavior:
   - Telegram groups: negative chat id
   - Telegram topics: negative chat id plus `--topic <topicId>`
 - channel and topic response-mode overrides require the route to exist first
-- `privilege` commands update route-level `privilegeCommands.enabled` and `privilegeCommands.allowUsers`
+- current shipped `channels privilege ...` commands still update route-level bash access in the runtime today
+- the planned auth model replaces that design with `app.auth` and `agents.<id>.auth`; see [Authorization And Roles](auth-and-roles.md) for the target direction
 - transcript visibility is controlled separately by route-level `verbose`
 - direct-message privilege targets are literal command targets: `slack-dm` and `telegram-dm`
 - conversation-level busy-session tools are available on routed Slack and Telegram conversations:

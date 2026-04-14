@@ -243,6 +243,37 @@ Origin-specific variables:
 
 The contract should stay small and documented. The runtime should not expose a large free-form object by default.
 
+## Protected Auth Prompt Segment
+
+Prompt templates should not be the only place where safety-critical auth guidance lives.
+
+When auth is enabled, prompt rendering should inject one protected auth segment after normal template resolution for:
+
+- `user-message`
+- `steering-message`
+- `loop-message`
+
+That protected segment should be:
+
+- system-owned or developer-owned
+- not editable through normal template files
+- appended after template rendering so operator wording cannot accidentally shadow or weaken it
+
+Phase-1 recommended auth facts:
+
+- `current_user_app_role`
+- `current_user_agent_role`
+- `allowed_agent_permissions`
+- `may_manage_clisbot_config`
+- `may_manage_auth_roles`
+- `may_run_config_mutating_clisbot_commands`
+
+Phase-1 behavioral rule:
+
+- if the current user lacks permission, the agent must refuse requests to edit `clisbot.json`, mutate auth roles, or run config-mutating `clisbot` commands
+
+This is important because prompt templates should stay flexible for wording and UX, but they must not be able to erase the protected auth contract.
+
 ## Status And Debugging
 
 `clisbot status` should show, per origin kind:
