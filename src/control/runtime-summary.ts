@@ -402,7 +402,6 @@ function appendChannelNextStepLines(
     channel.channel === "telegram" && channel.enabled
   );
   const hasEnabledChannel = slackEnabled || telegramEnabled;
-  const hasDisabledChannel = summary.channelSummaries.some((channel) => !channel.enabled);
 
   if (!hasEnabledChannel) {
     lines.push(
@@ -422,12 +421,6 @@ function appendChannelNextStepLines(
   } else {
     lines.push(
       `${prefix}- DM the Slack bot first to confirm it responds normally`,
-    );
-  }
-
-  if (hasDisabledChannel) {
-    lines.push(
-      `${prefix}- run \`clisbot channels enable <slack|telegram>\` for any other disabled channel you want to expose`,
     );
   }
 

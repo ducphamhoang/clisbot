@@ -82,7 +82,7 @@ describe("runtime summaries", () => {
     });
     const text = renderStartSummary(summary);
 
-    expect(text).toContain("clisbot channels enable <slack|telegram>");
+    expect(text).toContain("DM the Telegram bot first to confirm it responds normally");
     expect(text).toContain("clisbot channels add telegram-group <chatId> --agent <id>");
     expect(text).toContain("tmux -S ~/.clisbot-dev/state/clisbot.sock list-sessions");
     expect(text).toContain("tmux -S ~/.clisbot-dev/state/clisbot.sock attach -t <session-name>");
