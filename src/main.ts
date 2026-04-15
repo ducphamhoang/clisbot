@@ -83,6 +83,20 @@ function printCommandOutcomeFooter(outcome: "success" | "failure") {
   printCommandOutcomeBanner(outcome);
 }
 
+function assertSupportedPlatform(command: ReturnType<typeof parseCliArgs>) {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  if (command.name === "help" || command.name === "version") {
+    return;
+  }
+
+  throw new Error(
+    "Native Windows is not supported yet. Run clisbot from WSL2 or use Linux/macOS instead.",
+  );
+}
+
 function getPrimaryWorkspacePath(
   summary: Awaited<ReturnType<typeof getRuntimeOperatorSummary>>,
 ) {
@@ -640,6 +654,7 @@ async function logs(lines: number) {
 }
 
 async function main(command = parseCliArgs(process.argv)) {
+  assertSupportedPlatform(command);
 
   if (command.name === "help") {
     console.log(renderCliHelp());

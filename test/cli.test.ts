@@ -159,6 +159,9 @@ describe("renderCliHelp", () => {
     const help = renderCliHelp();
 
     expect(help).toContain(`clisbot v${getClisbotVersion()}`);
+    expect(help).toContain("Platform support:");
+    expect(help).toContain("Linux/macOS  Supported.");
+    expect(help).toContain("Windows      Native Windows is not supported yet. Use WSL2.");
     expect(help).toContain("clisbot start");
     expect(help).toContain("Bot types:");
     expect(help).toContain("personal  One human gets one dedicated long-lived assistant workspace and session path");

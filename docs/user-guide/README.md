@@ -28,6 +28,12 @@ Related pages:
 
 If setup is unclear, clone this repo, open it in Codex or Claude Code, and ask it to help set up `clisbot`. The docs here are kept current enough for guided setup and troubleshooting.
 
+## Platform Support
+
+- Linux and macOS are the supported host environments today.
+- Native Windows is not supported yet because `clisbot` currently depends on `tmux`, a dedicated tmux socket, and Bash-based runtime helpers.
+- If you use Windows, run `clisbot` inside WSL2 and follow the normal Linux-style setup from that WSL2 shell.
+
 ## Service
 
 Default config path:
@@ -67,6 +73,8 @@ clisbot start --cli codex --bot-type personal --telegram-bot-token <your-telegra
 ```
 
 Packaged CLI runtime expects Node 20+.
+
+Native Windows shells such as PowerShell or Command Prompt are not supported for runtime operation. Use WSL2 instead.
 
 Start the service in the foreground:
 

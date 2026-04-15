@@ -42,6 +42,12 @@ The challenge is not whether AI is useful. It is how to make it work at enterpri
 
 ## Quick Start
 
+Platform support:
+
+- Linux and macOS are the supported host environments today.
+- Native Windows is not supported yet because `clisbot` currently depends on `tmux` and Bash-based runtime flows.
+- If you use Windows, run `clisbot` inside WSL2.
+
 Most people should start here:
 
 ```bash

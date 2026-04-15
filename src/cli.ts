@@ -129,6 +129,10 @@ export function renderCliHelp() {
   return [
     `clisbot v${getClisbotVersion()}`,
     "",
+    "Platform support:",
+    "  Linux/macOS  Supported.",
+    "  Windows      Native Windows is not supported yet. Use WSL2.",
+    "",
     "Fastest start:",
     "  1. Choose the channels you want to bootstrap explicitly.",
     "  2. Run one of these commands:",
