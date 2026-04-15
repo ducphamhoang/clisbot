@@ -6,7 +6,7 @@ Audit `clisbot` as a long-running remote service and harden the places where one
 
 ## Status
 
-Ready
+In Progress
 
 ## Why
 
@@ -122,6 +122,21 @@ Relevant code:
 - `src/control/runtime-health-store.ts`
 - `src/agents/session-store.ts`
 - `src/shared/fs.ts`
+
+## Current Implementation Progress
+
+The current P0 slice is now implemented:
+
+- detached runtime now installs fatal handlers for `uncaughtException` and `unhandledRejection`
+- fatal shutdown records channel health as `failed` before exit instead of silently disappearing
+- periodic session cleanup no longer leaves an unhandled rejection path behind
+- channel runtime services now have a supervisor-owned lifecycle callback for post-start health updates
+- Telegram polling conflict after startup now reports a failed channel state instead of silently stopping while the pid stays alive
+
+Still open after this slice:
+
+- service-grade hardening for runtime-owned state files such as atomic writes and corruption-tolerant reads
+- broader post-start lifecycle reporting beyond the Telegram failure path
 
 ## Subtasks
 

@@ -340,4 +340,215 @@ describe("RuntimeSupervisor", () => {
       },
     ]);
   });
+
+  test("records a failed channel when a started service reports post-start failure", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-supervisor-"));
+    const runtimeHealthStore = new RuntimeHealthStore(join(tempDir, "runtime-health.json"));
+    let reportFailure!: (error?: unknown) => Promise<void>;
+
+    const plugins: ChannelPlugin[] = [
+      {
+        id: "telegram",
+        isEnabled: () => true,
+        listAccounts: () => [{ accountId: "default", config: {} }],
+        createRuntimeService: (context) => {
+          reportFailure = async (error?: unknown) =>
+            await context.reportLifecycle({
+              connection: "failed",
+              summary: "Telegram polling stopped because another instance is already using this bot token.",
+              detail: error instanceof Error ? error.message : String(error ?? "conflict"),
+              actions: ["stop the other poller"],
+            });
+          return {
+            start: async () => undefined,
+            stop: async () => undefined,
+            getRuntimeIdentity: () => ({
+              accountId: "default",
+              label: "bot=@longluong2bot",
+            }),
+          };
+        },
+        renderHealthSummary: (state) =>
+          state === "starting"
+            ? "Telegram channel is starting."
+            : state === "disabled"
+              ? "Telegram channel is disabled in config."
+              : "Telegram channel is stopped.",
+        renderActiveHealthSummary: () => "Telegram polling connected for 1 account(s).",
+        markStartupFailure: (store, error) => store.markTelegramFailure(error),
+        runMessageCommand: async () => ({ accountId: "default", result: { ok: true } }),
+        resolveMessageReplyTarget: () => null,
+      },
+    ];
+
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(configPath, "{}\n");
+
+    const supervisor = new RuntimeSupervisor(undefined, {
+      loadConfig: async () => createLoadedConfigAt(configPath),
+      listChannelPlugins: () => plugins,
+      runtimeHealthStore,
+      createAgentService: () =>
+        ({
+          start: async () => undefined,
+          stop: async () => undefined,
+        }) as any,
+      createProcessedEventsStore: () => ({}) as any,
+      createActivityStore: () => ({}) as any,
+    });
+
+    await supervisor.start();
+    await reportFailure(new Error("Conflict: terminated by other getUpdates request"));
+
+    const document = await runtimeHealthStore.read();
+    expect(document.channels.telegram?.connection).toBe("failed");
+    expect(document.channels.telegram?.summary).toBe(
+      "Telegram polling stopped because another instance is already using this bot token.",
+    );
+    expect(document.channels.telegram?.detail).toContain("account=default");
+    expect(document.channels.telegram?.detail).toContain("Conflict: terminated by other getUpdates request");
+    expect(document.channels.telegram?.instances).toEqual([
+      {
+        accountId: "default",
+        label: "bot=@longluong2bot",
+      },
+    ]);
+  });
+
+  test("marks enabled channels as failed when the runtime hits a fatal error", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-supervisor-"));
+    const runtimeHealthStore = new RuntimeHealthStore(join(tempDir, "runtime-health.json"));
+
+    const plugins: ChannelPlugin[] = [
+      {
+        id: "slack",
+        isEnabled: () => true,
+        listAccounts: () => [{ accountId: "default", config: {} }],
+        createRuntimeService: () => ({
+          start: async () => undefined,
+          stop: async () => undefined,
+          getRuntimeIdentity: () => ({
+            accountId: "default",
+            label: "bot=@longluong2bot",
+          }),
+        }),
+        renderHealthSummary: (state) =>
+          state === "starting"
+            ? "Slack channel is starting."
+            : state === "disabled"
+              ? "Slack channel is disabled in config."
+              : "Slack channel is stopped.",
+        renderActiveHealthSummary: () => "Slack Socket Mode connected for 1 account(s).",
+        markStartupFailure: (store, error) => store.markSlackFailure(error),
+        runMessageCommand: async () => ({ accountId: "default", result: { ok: true } }),
+        resolveMessageReplyTarget: () => null,
+      },
+    ];
+
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(configPath, "{}\n");
+
+    const supervisor = new RuntimeSupervisor(undefined, {
+      loadConfig: async () => createLoadedConfigAt(configPath),
+      listChannelPlugins: () => plugins,
+      runtimeHealthStore,
+      createAgentService: () =>
+        ({
+          start: async () => undefined,
+          stop: async () => undefined,
+        }) as any,
+      createProcessedEventsStore: () => ({}) as any,
+      createActivityStore: () => ({}) as any,
+    });
+
+    await supervisor.start();
+    await supervisor.markFatalFailure(new Error("fatal unhandledRejection: session cleanup failed"));
+
+    const document = await runtimeHealthStore.read();
+    expect(document.channels.slack?.connection).toBe("failed");
+    expect(document.channels.slack?.summary).toBe("Runtime crashed due to a fatal error.");
+    expect(document.channels.slack?.detail).toBe(
+      "fatal unhandledRejection: session cleanup failed",
+    );
+    expect(document.channels.slack?.instances).toEqual([
+      {
+        accountId: "default",
+        label: "bot=@longluong2bot",
+      },
+    ]);
+  });
+
+  test("ignores stale lifecycle events from an older runtime after reload", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-runtime-supervisor-"));
+    const runtimeHealthStore = new RuntimeHealthStore(join(tempDir, "runtime-health.json"));
+    const lifecycleReports: Array<(detail: string) => Promise<void>> = [];
+
+    const plugins: ChannelPlugin[] = [
+      {
+        id: "telegram",
+        isEnabled: () => true,
+        listAccounts: () => [{ accountId: "default", config: {} }],
+        createRuntimeService: (context) => {
+          lifecycleReports.push(async (detail: string) =>
+            await context.reportLifecycle({
+              connection: "failed",
+              summary: "Telegram polling stopped because another instance is already using this bot token.",
+              detail,
+            }));
+          return {
+            start: async () => undefined,
+            stop: async () => undefined,
+            getRuntimeIdentity: () => ({
+              accountId: "default",
+              label: `bot=@longluong2bot-${lifecycleReports.length}`,
+            }),
+          };
+        },
+        renderHealthSummary: (state) =>
+          state === "starting"
+            ? "Telegram channel is starting."
+            : state === "disabled"
+              ? "Telegram channel is disabled in config."
+              : "Telegram channel is stopped.",
+        renderActiveHealthSummary: () => "Telegram polling connected for 1 account(s).",
+        markStartupFailure: (store, error) => store.markTelegramFailure(error),
+        runMessageCommand: async () => ({ accountId: "default", result: { ok: true } }),
+        resolveMessageReplyTarget: () => null,
+      },
+    ];
+
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(configPath, "{}\n");
+
+    const supervisor = new RuntimeSupervisor(undefined, {
+      loadConfig: async () => createLoadedConfigAt(configPath),
+      listChannelPlugins: () => plugins,
+      runtimeHealthStore,
+      createAgentService: () =>
+        ({
+          start: async () => undefined,
+          stop: async () => undefined,
+        }) as any,
+      createProcessedEventsStore: () => ({}) as any,
+      createActivityStore: () => ({}) as any,
+    });
+
+    await supervisor.start();
+    expect(lifecycleReports).toHaveLength(1);
+
+    await (supervisor as any).reload("watch");
+    expect(lifecycleReports).toHaveLength(2);
+
+    await lifecycleReports[0]("stale runtime failure");
+
+    const document = await runtimeHealthStore.read();
+    expect(document.channels.telegram?.connection).toBe("active");
+    expect(document.channels.telegram?.summary).toBe("Telegram polling connected for 1 account(s).");
+    expect(document.channels.telegram?.instances).toEqual([
+      {
+        accountId: "default",
+        label: "bot=@longluong2bot-2",
+      },
+    ]);
+  });
 });

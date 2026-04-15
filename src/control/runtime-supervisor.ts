@@ -21,6 +21,8 @@ import type {
 } from "../channels/channel-plugin.ts";
 
 type ActiveRuntime = {
+  id: number;
+  loadedConfig: LoadedConfig;
   agentService: AgentService;
   channelServices: ChannelRuntimeEntry[];
 };
@@ -38,12 +40,12 @@ type RuntimeSupervisorDependencies = {
 
 export class RuntimeSupervisor {
   private activeRuntime?: ActiveRuntime;
-  private latestLoadedConfig?: LoadedConfig;
   private configWatcher?: FSWatcher;
   private reloadTimer?: ReturnType<typeof setTimeout>;
   private reloadInFlight = false;
   private reloadRequested = false;
   private configWatchDebounceMs = 250;
+  private nextRuntimeId = 1;
   private readonly dependencies: RuntimeSupervisorDependencies;
 
   constructor(
@@ -81,14 +83,14 @@ export class RuntimeSupervisor {
   }
 
   async markFatalFailure(error: unknown) {
-    const loadedConfig = this.latestLoadedConfig;
-    if (!loadedConfig) {
+    const activeRuntime = this.activeRuntime;
+    if (!activeRuntime) {
       return;
     }
 
     const detail = error instanceof Error ? error.message : String(error);
     const instancesByChannel = new Map<string, ChannelRuntimeIdentity[]>();
-    for (const entry of this.activeRuntime?.channelServices ?? []) {
+    for (const entry of activeRuntime.channelServices) {
       const identity = entry.service.getRuntimeIdentity?.();
       if (!identity) {
         continue;
@@ -99,7 +101,7 @@ export class RuntimeSupervisor {
     }
 
     for (const plugin of this.dependencies.listChannelPlugins()) {
-      if (!plugin.isEnabled(loadedConfig)) {
+      if (!plugin.isEnabled(activeRuntime.loadedConfig)) {
         continue;
       }
 
@@ -129,7 +131,6 @@ export class RuntimeSupervisor {
 
     try {
       const loadedConfig = await this.dependencies.loadConfig(this.configPath);
-      this.latestLoadedConfig = loadedConfig;
       nextRuntime = await this.createRuntime(loadedConfig);
 
       await this.reconcileConfigWatcher(loadedConfig);
@@ -201,6 +202,7 @@ export class RuntimeSupervisor {
   private async createRuntime(
     loadedConfig: LoadedConfig,
   ): Promise<ActiveRuntime> {
+    const runtimeId = this.nextRuntimeId++;
     const agentService = this.dependencies.createAgentService(loadedConfig);
     const processedEventsStore = this.dependencies.createProcessedEventsStore(
       loadedConfig.processedEventsPath,
@@ -230,6 +232,7 @@ export class RuntimeSupervisor {
               activityStore,
               reportLifecycle: (event) =>
                 this.reportChannelLifecycle({
+                  runtimeId,
                   plugin,
                   channelServices,
                   accountId: account.accountId,
@@ -273,6 +276,8 @@ export class RuntimeSupervisor {
       }
 
       return {
+        id: runtimeId,
+        loadedConfig,
         agentService,
         channelServices,
       };
@@ -326,17 +331,22 @@ export class RuntimeSupervisor {
   }
 
   private async reportChannelLifecycle(params: {
+    runtimeId: number;
     plugin: ChannelPlugin;
     channelServices: ChannelRuntimeEntry[];
     accountId: string;
     event: ChannelRuntimeLifecycleEvent;
   }) {
+    if (this.activeRuntime?.id !== params.runtimeId) {
+      return;
+    }
+
     const instances = this.getChannelInstances(params.channelServices, params.plugin.id);
     if (params.event.connection === "active") {
       await this.dependencies.runtimeHealthStore.setChannel({
         channel: params.plugin.id,
         connection: "active",
-        summary: params.event.summary ?? params.plugin.renderActiveHealthSummary(instances.length),
+        summary: params.event.summary ?? params.plugin.renderActiveHealthSummary(Math.max(1, instances.length)),
         detail: params.event.detail,
         actions: params.event.actions,
         instances,
