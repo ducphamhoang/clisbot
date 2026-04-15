@@ -11,7 +11,7 @@ The goal is to reduce silent waiting and make autonomous or delayed work visible
 
 ## Status
 
-Ready
+Done
 
 ## Outcome
 
@@ -21,6 +21,16 @@ After this task:
 - loop ticks can announce that a new run has started in the same chat surface
 - the product has an explicit policy for notification verbosity: `brief`, `full`, or `none`
 - defaults are optimized for low friction and low spam
+- route resolution remains channel-owned, and managed loop ticks re-resolve the current surface policy from persisted surface binding instead of replaying stale wrapped prompt text
+
+## Delivered Behavior
+
+- route and channel config now support `surfaceNotifications.queueStart` and `surfaceNotifications.loopStart`
+- default templates for Slack and Telegram ship both values as `brief`
+- queue-start and loop-start notifications are independent from `streaming`; `streaming` owns previews, while `surfaceNotifications` owns explicit start announcements
+- queued work with `streaming: "off"` stays free of queued placeholders and running previews, but can still emit one explicit queue-start notification unless `queueStart` is set to `none`
+- managed interval and calendar loops can emit one start notification per scheduled tick, while the immediate first interval run still relies on the existing loop-created acknowledgment
+- loop persistence now keeps `surfaceBinding.accountId` so later ticks can resolve the correct Slack or Telegram account before sending notifications
 
 ## Why
 

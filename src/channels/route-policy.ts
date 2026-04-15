@@ -3,6 +3,7 @@ import type { FollowUpConfig } from "../agents/follow-up-policy.ts";
 import { resolveTopLevelBoundAgentId } from "../config/bindings.ts";
 import { resolveConfigDurationMs } from "../config/duration.ts";
 import { getAgentEntry, type LoadedConfig } from "../config/load-config.ts";
+import type { SurfaceNotificationsConfig } from "./surface-notifications.ts";
 import {
   resolvePrivilegeCommands,
   type PrivilegeCommandsConfig,
@@ -19,6 +20,7 @@ export type SharedChannelRoute = {
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
   additionalMessageMode: "queue" | "steer";
+  surfaceNotifications: SurfaceNotificationsConfig;
   verbose: "off" | "minimal";
   followUp: FollowUpConfig;
   timezone?: string;
@@ -34,6 +36,7 @@ export type SharedChannelRouteOverride = {
   response?: "all" | "final";
   responseMode?: "capture-pane" | "message-tool";
   additionalMessageMode?: "queue" | "steer";
+  surfaceNotifications?: Partial<SurfaceNotificationsConfig>;
   verbose?: "off" | "minimal";
   followUp?: {
     mode?: FollowUpConfig["mode"];
@@ -52,6 +55,7 @@ type SharedChannelConfig = {
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
   additionalMessageMode: "queue" | "steer";
+  surfaceNotifications?: SurfaceNotificationsConfig;
   verbose: "off" | "minimal";
   followUp: {
     mode: FollowUpConfig["mode"];
@@ -110,6 +114,16 @@ export function buildSharedChannelRoute(params: BuildSharedChannelRouteParams): 
       params.route?.additionalMessageMode ??
       agentEntry?.additionalMessageMode ??
       params.channelConfig.additionalMessageMode,
+    surfaceNotifications: {
+      queueStart:
+        params.route?.surfaceNotifications?.queueStart ??
+        params.channelConfig.surfaceNotifications?.queueStart ??
+        "brief",
+      loopStart:
+        params.route?.surfaceNotifications?.loopStart ??
+        params.channelConfig.surfaceNotifications?.loopStart ??
+        "brief",
+    },
     verbose: params.route?.verbose ?? params.channelConfig.verbose,
     followUp: {
       mode: params.route?.followUp?.mode ?? params.channelConfig.followUp.mode,

@@ -95,7 +95,11 @@ User-visible reply delivery is configured beside `streaming` and `response`:
 "streaming": "off",
 "response": "final",
 "responseMode": "message-tool",
-"additionalMessageMode": "steer"
+"additionalMessageMode": "steer",
+"surfaceNotifications": {
+  "queueStart": "brief",
+  "loopStart": "brief"
+}
 ```
 
 - `capture-pane`: existing clisbot behavior. The channel posts progress or final settlement from normalized runner output.
@@ -103,6 +107,10 @@ User-visible reply delivery is configured beside `streaming` and `response`:
 - `streaming` now affects both response modes. In `message-tool`, enabled streaming means clisbot may keep one disposable live draft preview visible while the run is active.
 - `steer`: when a session is already active, later human messages are sent straight into that live session as steering input.
 - `queue`: when a session is already active, later human messages wait behind the current run and clisbot settles them one by one.
+- `surfaceNotifications.queueStart`: controls whether a queued turn announces when it actually starts running.
+- `surfaceNotifications.loopStart`: controls whether a scheduled loop tick announces when it actually starts running.
+- notification modes are `none`, `brief`, or `full`, with `brief` as the shipped default.
+- `surfaceNotifications` is independent of `streaming`. `streaming` controls previews or placeholders; `surfaceNotifications` controls explicit start announcements.
 
 Use `message-tool` when you want to avoid duplicate replies or raw pane-derived final settlement while still keeping tmux observation available for status, attach, watch, and internal runtime logic.
 
@@ -119,7 +127,7 @@ Use `additionalMessageMode: "steer"` when you want natural chatbot follow-ups to
 
 Use `additionalMessageMode: "queue"` when you want each later human message to become its own queued turn instead.
 
-If the route keeps `streaming: "off"`, queued turns still settle through clisbot, but you should only expect the final queued answer on the surface, not an interim queued placeholder.
+If the route keeps `streaming: "off"`, queued turns still settle through clisbot without queued placeholders or running previews. You may still see one explicit `Queued message is now running...` notification if `surfaceNotifications.queueStart` is enabled, because that is a separate start-announcement policy and does not depend on `streaming`.
 
 Current runtime note:
 
@@ -328,7 +336,7 @@ clisbot agents additional-message-mode clear --agent reviewer
 Status surfaces:
 
 - `clisbot status` shows provider-level `responseMode` and `additionalMessageMode` for Slack and Telegram plus any per-agent overrides in the agent summary.
-- `/status` shows the active route `responseMode` and `additionalMessageMode` for the current conversation.
+- `/status` shows the active route `responseMode`, `additionalMessageMode`, `surfaceNotifications.queueStart`, and `surfaceNotifications.loopStart` for the current conversation.
 - `/streaming status` shows the active route value plus the current persisted surface target value.
 - `/responsemode status` shows the active route value plus the current persisted surface target value.
 - `/additionalmessagemode status` shows the active route busy-session behavior plus the current persisted surface target value.

@@ -105,6 +105,20 @@ export class SlackSocketService {
       socketMode: true,
     });
 
+    this.agentService.registerSurfaceNotificationHandler({
+      platform: "slack",
+      accountId: this.accountId,
+      handler: async ({ binding, text }) => {
+        if (!binding.channelId) {
+          return;
+        }
+        await postSlackText(this.app.client as any, {
+          channel: binding.channelId,
+          threadTs: binding.threadTs,
+          text,
+        });
+      },
+    });
     this.registerEvents();
   }
 
@@ -417,6 +431,7 @@ export class SlackSocketService {
     const cliTool = getAgentEntry(this.loadedConfig, params.route.agentId)?.cliTool;
     const identity = {
       platform: "slack" as const,
+      accountId: this.accountId,
       conversationKind: params.conversationKind,
       senderId:
         typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
@@ -643,6 +658,10 @@ export class SlackSocketService {
   }
 
   async stop() {
+    this.agentService.unregisterSurfaceNotificationHandler({
+      platform: "slack",
+      accountId: this.accountId,
+    });
     await this.app.stop();
   }
 

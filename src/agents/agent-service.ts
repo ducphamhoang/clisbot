@@ -26,6 +26,10 @@ import {
 } from "../config/load-config.ts";
 import { buildAgentPromptText } from "../channels/agent-prompt.ts";
 import {
+  renderLoopStartNotification,
+  type SurfaceNotificationsConfig,
+} from "../channels/surface-notifications.ts";
+import {
   buildConfiguredTargetFromIdentity,
   resolveConfiguredSurfaceModeTarget,
 } from "../channels/mode-config-shared.ts";
@@ -70,6 +74,13 @@ type LoopConfig = {
   legacyMaxTimes?: number;
 };
 
+type SurfaceNotificationRequest = {
+  binding: StoredLoopSurfaceBinding;
+  text: string;
+};
+
+type SurfaceNotificationHandler = (request: SurfaceNotificationRequest) => Promise<void>;
+
 function escapeRegExp(raw: string) {
   return raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -84,6 +95,7 @@ export class AgentService {
   private cleanupTimer?: ReturnType<typeof setInterval>;
   private loopTimers = new Set<ReturnType<typeof setTimeout>>();
   private intervalLoops = new Map<string, ManagedIntervalLoop>();
+  private surfaceNotificationHandlers = new Map<string, SurfaceNotificationHandler>();
 
   constructor(
     private readonly loadedConfig: LoadedConfig,
@@ -162,6 +174,26 @@ export class AgentService {
 
   async cleanupStaleSessions() {
     await this.runnerSessions.runSessionCleanup();
+  }
+
+  registerSurfaceNotificationHandler(params: {
+    platform: "slack" | "telegram";
+    accountId?: string;
+    handler: SurfaceNotificationHandler;
+  }) {
+    this.surfaceNotificationHandlers.set(
+      this.getSurfaceNotificationHandlerKey(params.platform, params.accountId),
+      params.handler,
+    );
+  }
+
+  unregisterSurfaceNotificationHandler(params: {
+    platform: "slack" | "telegram";
+    accountId?: string;
+  }) {
+    this.surfaceNotificationHandlers.delete(
+      this.getSurfaceNotificationHandlerKey(params.platform, params.accountId),
+    );
   }
 
   private resolveTarget(target: AgentSessionTarget): ResolvedAgentTarget {
@@ -321,7 +353,9 @@ export class AgentService {
       target: params.target,
       loop,
     });
-    await this.runIntervalLoopIteration(loop.id);
+    await this.runIntervalLoopIteration(loop.id, {
+      notifyStart: false,
+    });
     return this.getIntervalLoop(loop.id);
   }
 
@@ -549,7 +583,12 @@ export class AgentService {
     this.intervalLoops.delete(loopId);
   }
 
-  private async runIntervalLoopIteration(loopId: string) {
+  private async runIntervalLoopIteration(
+    loopId: string,
+    options: {
+      notifyStart?: boolean;
+    } = {},
+  ) {
     const managed = this.intervalLoops.get(loopId);
     if (!managed) {
       return;
@@ -590,6 +629,10 @@ export class AgentService {
       return;
     }
 
+    if (options.notifyStart !== false) {
+      await this.notifyManagedLoopStart(managed.target, nextLoopState);
+    }
+
     const promptText = this.buildManagedLoopPrompt(managed.target.agentId, nextLoopState);
     const { result } = this.enqueuePrompt(
       managed.target,
@@ -613,6 +656,130 @@ export class AgentService {
     this.scheduleIntervalLoopTimer(loopId, Math.max(0, nextLoopState.nextRunAt - now));
   }
 
+  private getSurfaceNotificationHandlerKey(
+    platform: "slack" | "telegram",
+    accountId?: string,
+  ) {
+    return `${platform}:${accountId?.trim() || "default"}`;
+  }
+
+  private async notifySurface(request: SurfaceNotificationRequest) {
+    const handler = this.surfaceNotificationHandlers.get(
+      this.getSurfaceNotificationHandlerKey(request.binding.platform, request.binding.accountId),
+    );
+    if (!handler) {
+      return;
+    }
+    await handler(request);
+  }
+
+  private resolveLoopSurfaceNotifications(identity: ChannelIdentity): SurfaceNotificationsConfig {
+    if (identity.platform === "slack") {
+      const channelConfig = this.loadedConfig.raw.channels.slack;
+      let resolved: SurfaceNotificationsConfig = {
+        queueStart: channelConfig.surfaceNotifications?.queueStart ?? "brief",
+        loopStart: channelConfig.surfaceNotifications?.loopStart ?? "brief",
+      };
+
+      if (identity.conversationKind === "dm") {
+        return {
+          ...resolved,
+          ...(channelConfig.directMessages.surfaceNotifications ?? {}),
+        };
+      }
+
+      const routeCollection =
+        identity.conversationKind === "group" ? channelConfig.groups : channelConfig.channels;
+      const route = identity.channelId
+        ? routeCollection[identity.channelId] ?? routeCollection["*"]
+        : undefined;
+      return {
+        ...resolved,
+        ...(route?.surfaceNotifications ?? {}),
+      };
+    }
+
+    const channelConfig = this.loadedConfig.raw.channels.telegram;
+    let resolved: SurfaceNotificationsConfig = {
+      queueStart: channelConfig.surfaceNotifications?.queueStart ?? "brief",
+      loopStart: channelConfig.surfaceNotifications?.loopStart ?? "brief",
+    };
+
+    if (identity.conversationKind === "dm") {
+      return {
+        ...resolved,
+        ...(channelConfig.directMessages.surfaceNotifications ?? {}),
+      };
+    }
+
+    const groupRoute = identity.chatId
+      ? channelConfig.groups[identity.chatId] ?? channelConfig.groups["*"]
+      : undefined;
+    resolved = {
+      ...resolved,
+      ...(groupRoute?.surfaceNotifications ?? {}),
+    };
+
+    if (identity.conversationKind === "topic" && identity.topicId) {
+      return {
+        ...resolved,
+        ...(groupRoute?.topics?.[identity.topicId]?.surfaceNotifications ?? {}),
+      };
+    }
+
+    return resolved;
+  }
+
+  private async notifyManagedLoopStart(
+    target: AgentSessionTarget,
+    loop: StoredIntervalLoop,
+  ) {
+    if (!loop.surfaceBinding) {
+      return;
+    }
+
+    const identity = this.buildLoopChannelIdentity(loop.surfaceBinding);
+    const notifications = this.resolveLoopSurfaceNotifications(identity);
+    const text =
+      loop.kind === "calendar"
+        ? renderLoopStartNotification({
+            mode: notifications.loopStart,
+            agentId: target.agentId,
+            loopId: loop.id,
+            promptSummary: loop.promptSummary,
+            cadence: loop.cadence,
+            dayOfWeek: loop.dayOfWeek,
+            localTime: loop.localTime,
+            timezone: loop.timezone,
+            nextRunAt: loop.nextRunAt,
+            remainingRuns: Math.max(0, loop.maxRuns - loop.attemptedRuns),
+            maxRuns: loop.maxRuns,
+            kind: "calendar",
+          })
+        : renderLoopStartNotification({
+            mode: notifications.loopStart,
+            agentId: target.agentId,
+            loopId: loop.id,
+            promptSummary: loop.promptSummary,
+            intervalMs: loop.intervalMs,
+            nextRunAt: loop.nextRunAt,
+            remainingRuns: Math.max(0, loop.maxRuns - loop.attemptedRuns),
+            maxRuns: loop.maxRuns,
+          });
+    if (!text) {
+      return;
+    }
+
+    try {
+      await this.notifySurface({
+        binding: loop.surfaceBinding,
+        text,
+      });
+    } catch (error) {
+      console.error("loop start notification failed", error);
+    }
+  }
+
   private scheduleIntervalLoopTimer(loopId: string, delayMs: number) {
     const managed = this.intervalLoops.get(loopId);
     if (!managed) {
@@ -631,7 +798,9 @@ export class AgentService {
         return;
       }
       current.timer = undefined;
-      void this.runIntervalLoopIteration(loopId).catch((error) => {
+      void this.runIntervalLoopIteration(loopId, {
+        notifyStart: true,
+      }).catch((error) => {
         if (this.shouldSuppressLoopShutdownError(error)) {
           return;
         }
@@ -709,6 +878,7 @@ export class AgentService {
   private buildLoopChannelIdentity(binding: StoredLoopSurfaceBinding): ChannelIdentity {
     return {
       platform: binding.platform,
+      accountId: binding.accountId,
       conversationKind: binding.conversationKind,
       channelId: binding.channelId,
       chatId: binding.chatId,

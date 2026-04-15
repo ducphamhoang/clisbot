@@ -1422,6 +1422,95 @@ describe("AgentService session identity", () => {
     await service.stop();
   });
 
+  test("managed interval loops post loop-start notifications for scheduled ticks", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-loop-notify-"));
+    const storePath = join(tempDir, "sessions.json");
+    const socketPath = join(tempDir, "clisbot.sock");
+    const workspaceTemplate = join(tempDir, "workspaces", "{agentId}");
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        buildConfig({
+          socketPath,
+          storePath,
+          workspaceTemplate,
+          runnerCommand: "codex",
+          runnerArgs: ["-C", "{workspace}"],
+          sessionId: {
+            create: { mode: "runner", args: [] },
+            capture: {
+              mode: "status-command",
+              statusCommand: "/status",
+              pattern: RUNNER_GENERATED_ID,
+              timeoutMs: 10,
+              pollIntervalMs: 1,
+            },
+            resume: { mode: "command", args: ["resume", "{sessionId}"] },
+          },
+          cleanupEnabled: false,
+        }),
+        null,
+        2,
+      ),
+    );
+
+    const loadedConfig = await loadConfig(configPath);
+    loadedConfig.raw.channels.slack.channels["c4"] = {
+      requireMention: true,
+      allowBots: false,
+      surfaceNotifications: {
+        queueStart: "brief",
+        loopStart: "brief",
+      },
+    };
+
+    const tmux = new FakeTmuxClient() as unknown as TmuxClient;
+    const service = new AgentService(loadedConfig, { tmux });
+    const notifications: string[] = [];
+    service.registerSurfaceNotificationHandler({
+      platform: "slack",
+      accountId: "default",
+      handler: async ({ text }) => {
+        notifications.push(text);
+      },
+    });
+    const target = {
+      agentId: "default",
+      sessionKey: "agent:default:slack:channel:c4:thread:loop-notify",
+    };
+
+    await service.createIntervalLoop({
+      target,
+      promptText: "check deploy",
+      promptSummary: "check deploy",
+      promptSource: "custom",
+      surfaceBinding: {
+        platform: "slack",
+        accountId: "default",
+        conversationKind: "channel",
+        channelId: "c4",
+        threadTs: "loop-notify",
+      },
+      intervalMs: 300,
+      maxRuns: 3,
+      createdBy: "U123",
+      force: true,
+    });
+
+    const deadline = Date.now() + 2_000;
+    while (notifications.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    expect(notifications.length).toBeGreaterThan(0);
+    expect(notifications[0]).toContain("Loop `");
+    expect(notifications[0]).toContain("`check deploy`");
+    expect(notifications[0]).toContain("remaining `");
+
+    await service.stop();
+  });
+
   test("persists and restores managed calendar loops across service restart", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-calendar-loops-"));
     const storePath = join(tempDir, "sessions.json");

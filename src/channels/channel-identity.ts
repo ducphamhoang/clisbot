@@ -1,5 +1,6 @@
 export type ChannelIdentity = {
   platform: "slack" | "telegram";
+  accountId?: string;
   conversationKind: "dm" | "channel" | "group" | "topic";
   senderId?: string;
   senderName?: string;

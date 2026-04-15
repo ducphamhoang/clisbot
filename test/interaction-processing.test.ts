@@ -27,6 +27,10 @@ function createRoute(
     response: "final",
     responseMode: "capture-pane",
     additionalMessageMode: "steer",
+    surfaceNotifications: {
+      queueStart: "brief",
+      loopStart: "brief",
+    },
     verbose: "minimal",
     followUp: {
       mode: "auto",
@@ -1544,6 +1548,74 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(reconciled.at(-1)).toContain("queued reply complete");
   });
 
+  test("queue start notifications can promote the initial queued placeholder when running begins immediately", async () => {
+    const posted: string[] = [];
+    const reconciled: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        isAwaitingFollowUpRouting: async () => true,
+        enqueuePrompt: (_target: AgentSessionTarget, _prompt: string, callbacks: any) => ({
+          positionAhead: 1,
+          result: (async () => {
+            await callbacks.onUpdate({
+              status: "running",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "",
+              fullSnapshot: "",
+              initialSnapshot: "",
+            });
+            await callbacks.onUpdate({
+              status: "running",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "working through the queued task",
+              fullSnapshot: "working through the queued task",
+              initialSnapshot: "",
+            });
+            return {
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "queued reply complete",
+              fullSnapshot: "queued reply complete",
+              initialSnapshot: "",
+            };
+          })(),
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/queue send the short summary after the current run",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "steer",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => {
+        reconciled.push(text);
+        return [text];
+      },
+    });
+
+    expect(posted.some((text) => text.includes("Queued: 1 ahead."))).toBe(true);
+    expect(reconciled[0]).toContain("Queued message is now running");
+    expect(reconciled.at(-1)).toContain("queued reply complete");
+  });
+
   test("queue mode forces queued acknowledgment and clisbot-managed settlement while busy", async () => {
     const posted: string[] = [];
     const reconciled: string[] = [];
@@ -1591,8 +1663,9 @@ describe("processChannelInteraction agent prompt text", () => {
     });
 
     expect(observedPrompt).toBe("follow up after the active run");
-    expect(posted).toHaveLength(1);
-    expect(posted[0]).toContain("queued mode final");
+    expect(posted).toHaveLength(2);
+    expect(posted[0]).toContain("Queued message is now running");
+    expect(posted[1]).toContain("queued mode final");
     expect(reconciled).toEqual([]);
   });
 
@@ -1643,9 +1716,56 @@ describe("processChannelInteraction agent prompt text", () => {
     });
 
     expect(observedPrompt).toBe("send the short summary after the current run");
+    expect(posted).toHaveLength(2);
+    expect(posted[0]).toContain("Queued message is now running");
+    expect(posted[1]).toContain("queued final only");
+    expect(reconciled).toEqual([]);
+  });
+
+  test("queue start notifications can be disabled per route", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        isAwaitingFollowUpRouting: async () => true,
+        enqueuePrompt: () => ({
+          positionAhead: 1,
+          result: Promise.resolve({
+            status: "completed",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            sessionName: "session",
+            workspacePath: "/tmp/workspace",
+            snapshot: "queued final only",
+            fullSnapshot: "queued final only",
+            initialSnapshot: "",
+          }),
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/queue send the short summary after the current run",
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "steer",
+        streaming: "off",
+        surfaceNotifications: {
+          queueStart: "none",
+          loopStart: "brief",
+        },
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("queued final only");
-    expect(reconciled).toEqual([]);
   });
 
   test("explicit steer command injects a steering message into the active run", async () => {

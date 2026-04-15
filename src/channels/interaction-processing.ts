@@ -34,6 +34,12 @@ import {
   renderPlatformInteraction,
   type ChannelRenderedMessageState,
 } from "./rendering.ts";
+import {
+  renderQueueStartNotification,
+  summarizeSurfaceNotificationText,
+  type SurfaceNotificationMode,
+  type SurfaceNotificationsConfig,
+} from "./surface-notifications.ts";
 import { type PrivilegeCommandsConfig } from "./privilege-commands.ts";
 import type { RunObserverMode, RunUpdate } from "../agents/run-observation.ts";
 import {
@@ -63,6 +69,7 @@ export type ChannelInteractionRoute = {
   response: "all" | "final";
   responseMode: "capture-pane" | "message-tool";
   additionalMessageMode: "queue" | "steer";
+  surfaceNotifications: SurfaceNotificationsConfig;
   verbose: "off" | "minimal";
   followUp: FollowUpConfig;
   timezone?: string;
@@ -191,6 +198,8 @@ function renderRouteStatusMessage(params: {
     `response: \`${params.route.response}\``,
     `responseMode: \`${params.route.responseMode}\``,
     `additionalMessageMode: \`${params.route.additionalMessageMode}\``,
+    `surfaceNotifications.queueStart: \`${params.route.surfaceNotifications.queueStart}\``,
+    `surfaceNotifications.loopStart: \`${params.route.surfaceNotifications.loopStart}\``,
     `verbose: \`${params.route.verbose}\``,
     `principal: \`${params.auth.principal ?? "(none)"}\``,
     `appRole: \`${params.auth.appRole}\``,
@@ -583,6 +592,7 @@ async function resolveLoopPromptText(params: {
 function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
   return {
     platform: identity.platform,
+    accountId: identity.accountId,
     conversationKind: identity.conversationKind,
     channelId: identity.channelId,
     chatId: identity.chatId,
@@ -603,6 +613,8 @@ async function executePromptDelivery<TChunk>(params: {
   observerId: string;
   timingContext?: LatencyDebugContext;
   forceQueuedDelivery?: boolean;
+  queueStartMode?: SurfaceNotificationMode;
+  notificationPromptSummary?: string;
 }) {
   let responseChunks: TChunk[] = [];
   let renderedState: ChannelRenderedMessageState | undefined;
@@ -612,6 +624,8 @@ async function executePromptDelivery<TChunk>(params: {
   let loggedFirstRunningUpdate = false;
   let activePreviewStartedAt: number | undefined;
   let messageToolPreviewHandedOff = false;
+  let queueStartPending = false;
+  let deferredQueueStartPreview = false;
   const paneManagedDelivery =
     params.route.responseMode === "capture-pane" || params.forceQueuedDelivery === true;
   const messageToolPreview =
@@ -714,6 +728,83 @@ async function executePromptDelivery<TChunk>(params: {
     sessionKey: params.sessionTarget.sessionKey,
   });
 
+  async function maybeRenderQueueStartNotification() {
+    if (!queueStartPending) {
+      return false;
+    }
+
+    const text = renderQueueStartNotification({
+      mode: params.queueStartMode ?? "none",
+      agentId: params.route.agentId,
+      promptSummary:
+        params.notificationPromptSummary ??
+        summarizeSurfaceNotificationText(params.promptText),
+    });
+    if (!text) {
+      queueStartPending = false;
+      return false;
+    }
+
+    if (previewEnabled && responseChunks.length === 0) {
+      deferredQueueStartPreview = true;
+      return true;
+    }
+
+    queueStartPending = false;
+    if (responseChunks.length > 0) {
+      const postedNew = await renderResponseText(text);
+      if (postedNew) {
+        await recordVisibleReply("reply", "channel");
+        activePreviewStartedAt = Date.now();
+      }
+      renderedState = {
+        text,
+        body: "",
+      };
+      return true;
+    }
+
+    const posted = await params.postText(text);
+    if (posted.length > 0) {
+      await recordVisibleReply("reply", "channel");
+    }
+    return posted.length > 0;
+  }
+
+  function buildInitialPlaceholderText(positionAhead: number) {
+    if (deferredQueueStartPreview && queueStartPending) {
+      deferredQueueStartPreview = false;
+      queueStartPending = false;
+      return (
+        renderQueueStartNotification({
+          mode: params.queueStartMode ?? "none",
+          agentId: params.route.agentId,
+          promptSummary:
+            params.notificationPromptSummary ??
+            summarizeSurfaceNotificationText(params.promptText),
+        }) ??
+        renderPlatformInteraction({
+          platform: params.identity.platform,
+          status: positionAhead > 0 ? "queued" : "running",
+          content: "",
+          queuePosition: positionAhead,
+          maxChars: Number.POSITIVE_INFINITY,
+          note:
+            positionAhead > 0 ? "Waiting for the agent queue to clear." : "Working...",
+        })
+      );
+    }
+
+    return renderPlatformInteraction({
+      platform: params.identity.platform,
+      status: positionAhead > 0 ? "queued" : "running",
+      content: "",
+      queuePosition: positionAhead,
+      maxChars: Number.POSITIVE_INFINITY,
+      note: positionAhead > 0 ? "Waiting for the agent queue to clear." : "Working...",
+    });
+  }
+
   try {
     const { positionAhead, result } = params.agentService.enqueuePrompt(
       params.sessionTarget,
@@ -725,9 +816,6 @@ async function executePromptDelivery<TChunk>(params: {
           if (!paneManagedDelivery && !messageToolPreview) {
             return;
           }
-          if (params.route.streaming === "off" && update.status === "running") {
-            return;
-          }
           if (update.status === "running" && !loggedFirstRunningUpdate) {
             loggedFirstRunningUpdate = true;
             logLatencyDebug("channel-first-running-update", params.timingContext, {
@@ -737,6 +825,16 @@ async function executePromptDelivery<TChunk>(params: {
           }
 
           await (renderChain = renderChain.then(async () => {
+            let renderedQueueStart = false;
+            if (update.status === "running") {
+              renderedQueueStart = await maybeRenderQueueStartNotification();
+            }
+            if (params.route.streaming === "off" && update.status === "running") {
+              return;
+            }
+            if (renderedQueueStart) {
+              return;
+            }
             const signals = await getMessageToolRuntimeSignals();
             if (
               messageToolPreview &&
@@ -775,19 +873,12 @@ async function executePromptDelivery<TChunk>(params: {
         },
       },
     );
+    queueStartPending =
+      positionAhead > 0 &&
+      (params.queueStartMode ?? "none") !== "none";
 
     if (previewEnabled) {
-      const placeholderText = renderPlatformInteraction({
-        platform: params.identity.platform,
-        status: positionAhead > 0 ? "queued" : "running",
-        content: "",
-        queuePosition: positionAhead,
-        maxChars: Number.POSITIVE_INFINITY,
-        note:
-          positionAhead > 0
-            ? "Waiting for the agent queue to clear."
-            : "Working...",
-      });
+      const placeholderText = buildInitialPlaceholderText(positionAhead);
       const postedNew = await renderResponseText(placeholderText);
       if (postedNew) {
         await recordVisibleReply("reply", "channel");
@@ -818,6 +909,7 @@ async function executePromptDelivery<TChunk>(params: {
 
     const finalResult = await result;
     await renderChain;
+    await maybeRenderQueueStartNotification();
 
     if (!paneManagedDelivery && messageToolPreviewHandedOff) {
       return;
@@ -1481,6 +1573,11 @@ export async function processChannelInteraction<TChunk>(params: {
           route: params.route,
           maxChars: params.maxChars,
           promptText: buildLoopPromptText(resolvedLoopPrompt.text),
+          queueStartMode: params.route.surfaceNotifications.queueStart,
+          notificationPromptSummary: summarizeLoopPrompt(
+            resolvedLoopPrompt.text,
+            resolvedLoopPrompt.maintenancePrompt,
+          ),
           postText: params.postText,
           reconcileText: params.reconcileText,
           observerId: `${observerId}:loop:${index + 1}`,
@@ -1647,6 +1744,10 @@ export async function processChannelInteraction<TChunk>(params: {
     route: params.route,
     maxChars: params.maxChars,
     promptText: delayedPromptText,
+    queueStartMode: params.route.surfaceNotifications.queueStart,
+    notificationPromptSummary:
+      explicitQueueMessage ??
+      summarizeSurfaceNotificationText(params.text),
     postText: params.postText,
     reconcileText: params.reconcileText,
     observerId,

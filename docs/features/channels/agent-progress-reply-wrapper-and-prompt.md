@@ -20,6 +20,7 @@ The feature combines three pieces:
 - inject a short channel context and reply command into the agent-bound prompt
 - support `responseMode: "message-tool"` so progress and final replies come from `clisbot message send`, not from pane settlement
 - support `streaming` for both response modes, with `message-tool` preview modeled as one disposable draft message
+- support channel-owned `surfaceNotifications` so queued work and managed loop ticks can announce when they actually start
 - resolve reply delivery in this order: surface override, agent override, provider default
 - resolve busy-session follow-up in this order: surface override, agent override, provider default
 - support explicit `/queue <message>` to force ordered queued delivery for one extra message
@@ -31,6 +32,7 @@ The feature combines three pieces:
 
 - channels own the prompt-envelope text because the envelope is surface context
 - delayed queued work and looped work must reapply current channel delivery policy instead of relying on stale wrapped prompt text
+- queue-start and loop-start notifications remain channel-owned surface policy, not agent-owned prompt behavior
 - channels still observe runner state even when `responseMode` is `message-tool`
 - channels may render one disposable live draft preview while `message-tool` owns canonical replies
 - channels still monitor pane state even when additional human messages are handled as steering input

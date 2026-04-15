@@ -310,8 +310,19 @@ const channelAgentPromptSchema = z.object({
 const channelResponseModeSchema = z.enum(["capture-pane", "message-tool"]);
 const channelAdditionalMessageModeSchema = z.enum(["queue", "steer"]);
 const channelVerboseSchema = z.enum(["off", "minimal"]);
+const surfaceNotificationModeSchema = z.enum(["none", "brief", "full"]);
 const timezoneSchema = z.string().refine(isValidLoopTimezone, {
   message: "Expected a valid IANA timezone such as Asia/Ho_Chi_Minh",
+});
+
+const surfaceNotificationsSchema = z.object({
+  queueStart: surfaceNotificationModeSchema.default("brief"),
+  loopStart: surfaceNotificationModeSchema.default("brief"),
+});
+
+const surfaceNotificationsOverrideSchema = z.object({
+  queueStart: surfaceNotificationModeSchema.optional(),
+  loopStart: surfaceNotificationModeSchema.optional(),
 });
 
 const slackRouteSchema = z.object({
@@ -324,6 +335,7 @@ const slackRouteSchema = z.object({
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
+  surfaceNotifications: surfaceNotificationsOverrideSchema.optional(),
   verbose: channelVerboseSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
   timezone: timezoneSchema.optional(),
@@ -339,6 +351,7 @@ const telegramTopicRouteSchema = z.object({
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
+  surfaceNotifications: surfaceNotificationsOverrideSchema.optional(),
   verbose: channelVerboseSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
   timezone: timezoneSchema.optional(),
@@ -354,6 +367,7 @@ const telegramGroupRouteSchema = z.object({
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
+  surfaceNotifications: surfaceNotificationsOverrideSchema.optional(),
   verbose: channelVerboseSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
   timezone: timezoneSchema.optional(),
@@ -373,6 +387,7 @@ const telegramDirectMessagesSchema = z.object({
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
+  surfaceNotifications: surfaceNotificationsOverrideSchema.optional(),
   verbose: channelVerboseSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
   timezone: timezoneSchema.optional(),
@@ -413,6 +428,7 @@ const telegramSchema = z.object({
   response: slackResponseSchema.default("final"),
   responseMode: channelResponseModeSchema.default("message-tool"),
   additionalMessageMode: channelAdditionalMessageModeSchema.default("steer"),
+  surfaceNotifications: surfaceNotificationsSchema.optional(),
   verbose: channelVerboseSchema.default("minimal"),
   followUp: slackFollowUpSchema.default({
     mode: "auto",
@@ -445,6 +461,7 @@ const directMessagesSchema = z.object({
   response: slackResponseSchema.optional(),
   responseMode: channelResponseModeSchema.optional(),
   additionalMessageMode: channelAdditionalMessageModeSchema.optional(),
+  surfaceNotifications: surfaceNotificationsOverrideSchema.optional(),
   verbose: channelVerboseSchema.optional(),
   followUp: slackFollowUpOverrideSchema.optional(),
   timezone: timezoneSchema.optional(),
@@ -490,6 +507,7 @@ const slackSchema = z.object({
   response: slackResponseSchema.default("final"),
   responseMode: channelResponseModeSchema.default("message-tool"),
   additionalMessageMode: channelAdditionalMessageModeSchema.default("steer"),
+  surfaceNotifications: surfaceNotificationsSchema.optional(),
   verbose: channelVerboseSchema.default("minimal"),
   followUp: slackFollowUpSchema.default({
     mode: "auto",
@@ -652,6 +670,10 @@ export const clisbotConfigSchema = z.object({
       response: "final",
       responseMode: "message-tool",
       additionalMessageMode: "steer",
+      surfaceNotifications: {
+        queueStart: "brief",
+        loopStart: "brief",
+      },
       verbose: "minimal",
       followUp: {
         mode: "auto",

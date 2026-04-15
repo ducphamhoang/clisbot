@@ -215,6 +215,10 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           response: "final",
           responseMode: "message-tool",
           additionalMessageMode: "steer",
+          surfaceNotifications: {
+            queueStart: "brief",
+            loopStart: "brief",
+          },
           verbose: "minimal",
           followUp: {
             mode: "auto",
@@ -264,6 +268,10 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           response: "final",
           responseMode: "message-tool",
           additionalMessageMode: "steer",
+          surfaceNotifications: {
+            queueStart: "brief",
+            loopStart: "brief",
+          },
           verbose: "minimal",
           followUp: {
             mode: "auto",

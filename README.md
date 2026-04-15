@@ -111,8 +111,8 @@ bun run start --cli codex --bot-type personal --telegram-bot-token <your-telegra
 First conversation path:
 
 - send a DM to the bot in Slack or Telegram
-- `clisbot` defaults DMs to pairing mode
-- the bot replies with a pairing code and approval command
+- if that principal is already app `owner` or app `admin`, pairing is bypassed and the bot should answer normally
+- otherwise, `clisbot` defaults DMs to pairing mode and replies with a pairing code plus approval command
 
 Approve it with:
 
@@ -156,7 +156,7 @@ The easiest setup flow is still:
 
 1. Install `clisbot`.
 2. Run the quick start command above.
-3. DM the bot and approve pairing.
+3. DM the bot; approve pairing unless that principal is already app `owner` or app `admin`.
 4. Only move into advanced config after the first successful run.
 
 If you want the repo-guided setup path:
@@ -240,14 +240,16 @@ Most users only need a small set of commands at first:
 - `clisbot stop`
 - `clisbot status`
 - `clisbot logs`
+- `clisbot auth show app`
+- `clisbot auth show agent-defaults`
+- `clisbot auth add-user app --role owner --user <principal>`
+- `clisbot auth add-user agent --agent <id> --role admin --user <principal>`
 - `clisbot pairing approve slack <CODE>`
 - `clisbot pairing approve telegram <CODE>`
 - `clisbot channels enable slack`
 - `clisbot channels enable telegram`
 - `clisbot channels add telegram-group <chatId> [--topic <topicId>] [--agent <id>] [--require-mention true|false]`
 - `clisbot channels add slack-channel <channelId> [--agent <id>] [--require-mention true|false]`
-- `clisbot channels privilege enable <target>`
-- `clisbot channels privilege allow-user <target> <userId>`
 - `clisbot agents list --bindings`
 - `clisbot agents bindings`
 - `clisbot --help`
@@ -290,9 +292,9 @@ Common commands:
 - `/followup mention-only`: require an explicit mention for later turns in the thread.
 - `/followup pause`: pause passive follow-up so the bot does not keep interrupting the thread unless explicitly mentioned again.
 - `/followup resume`: restore the default follow-up behavior for that conversation.
-- `/transcript`: return the current conversation transcript when privilege commands are enabled on the route.
+- `/transcript`: return the current conversation transcript when the route `verbose` policy allows it.
 - `::transcript` or `\transcript`: transcript shortcuts from the default slash-style prefixes.
-- `/bash <command>`: run a shell command in the current agent workspace when sensitive commands are enabled.
+- `/bash <command>`: run a shell command in the current agent workspace when the resolved agent role allows `shellExecute`.
 - `!<command>`: shorthand for `/bash <command>`.
 
 Command prefix defaults:
@@ -301,12 +303,12 @@ Command prefix defaults:
 - bash shortcuts: `["!"]`
 - both are configurable with `channels.slack.commandPrefixes` and `channels.telegram.commandPrefixes`
 
-Sensitive commands are disabled by default:
+Sensitive actions now follow auth and route policy:
 
-- enable them per route with `clisbot channels privilege enable ...`
-- optionally restrict them to specific users with `clisbot channels privilege allow-user ...`
-- DM examples: `clisbot channels privilege enable slack-dm` or `clisbot channels privilege enable telegram-dm`
-- use `clisbot channels --help` for the route and privilege command guide
+- `/transcript` depends on the route `verbose` policy
+- `/bash` depends on resolved agent auth through `shellExecute`
+- use `clisbot auth --help` to inspect scopes and mutate role users or permissions
+- use `clisbot channels --help` for route-level setup and channel policy guidance
 
 Follow-up behavior matters in team threads:
 

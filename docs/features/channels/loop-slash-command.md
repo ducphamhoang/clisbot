@@ -55,6 +55,7 @@ Examples:
 - managed loops stop after `control.loop.maxRunsPerLoop` attempts
 - managed loop scheduling is `skip-if-busy`, so a busy session drops that tick instead of piling a queue
 - managed loops are persisted and restored after restart from session state
+- scheduled interval and calendar ticks may post one brief start notification in the same surface, based on route `surfaceNotifications.loopStart`
 - times mode reserves all iterations immediately so later queued messages do not jump ahead
 - interval mode starts the first run immediately, then schedules later enqueue events on the configured cadence
 - wall-clock mode schedules the first run at the next matching wall-clock time in the loop timezone
@@ -65,7 +66,6 @@ Examples:
 ## Current Limits
 
 - times mode does not add delay between iterations
-- no proactive per-iteration loop status notification mode yet
 - `/stop` stops the current run only; it does not cancel loops
 
 ## Implementation Notes

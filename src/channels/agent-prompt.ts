@@ -168,6 +168,9 @@ function buildReplyCommand(params: {
   const lines = [`${params.command} message send \\`];
   if (params.identity.platform === "slack") {
     lines.push("  --channel slack \\");
+    if (params.identity.accountId) {
+      lines.push(`  --account ${params.identity.accountId} \\`);
+    }
     lines.push(`  --target channel:${params.identity.channelId ?? ""} \\`);
     if (params.identity.threadTs) {
       lines.push(`  --thread-id ${params.identity.threadTs} \\`);
@@ -182,6 +185,9 @@ function buildReplyCommand(params: {
   }
 
   lines.push("  --channel telegram \\");
+  if (params.identity.accountId) {
+    lines.push(`  --account ${params.identity.accountId} \\`);
+  }
   lines.push(`  --target ${params.identity.chatId ?? ""} \\`);
   if (params.identity.topicId) {
     lines.push(`  --thread-id ${params.identity.topicId} \\`);

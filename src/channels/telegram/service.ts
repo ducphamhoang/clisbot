@@ -222,7 +222,29 @@ export class TelegramPollingService {
     private readonly accountId = "default",
     private readonly accountConfig: TelegramAccountConfig,
     private readonly reportLifecycle?: (event: ChannelRuntimeLifecycleEvent) => Promise<void>,
-  ) {}
+  ) {
+    this.agentService.registerSurfaceNotificationHandler({
+      platform: "telegram",
+      accountId: this.accountId,
+      handler: async ({ binding, text }) => {
+        if (!binding.chatId) {
+          return;
+        }
+        const chatId = Number(binding.chatId);
+        if (!Number.isFinite(chatId)) {
+          return;
+        }
+        const topicId = binding.topicId ? Number(binding.topicId) : undefined;
+        await postTelegramText({
+          token: this.accountConfig.botToken,
+          chatId,
+          text,
+          topicId: Number.isFinite(topicId) ? topicId : undefined,
+          omitThreadId: shouldOmitTelegramThreadId(Number.isFinite(topicId) ? topicId : undefined),
+        });
+      },
+    });
+  }
 
   async start() {
     const me = await callTelegramApi<TelegramGetMeResult>(
@@ -244,6 +266,10 @@ export class TelegramPollingService {
     this.activePollController?.abort();
     await this.loopPromise;
     await Promise.allSettled([...this.inFlightUpdates]);
+    this.agentService.unregisterSurfaceNotificationHandler({
+      platform: "telegram",
+      accountId: this.accountId,
+    });
   }
 
   getBotLabel() {
@@ -524,6 +550,7 @@ export class TelegramPollingService {
         .trim();
       const identity = {
         platform: "telegram" as const,
+        accountId: this.accountId,
         conversationKind: routeInfo.conversationKind,
         senderId:
           message.from?.id != null ? String(message.from.id).trim() : undefined,

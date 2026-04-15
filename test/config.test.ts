@@ -183,6 +183,7 @@ describe("loadConfig", () => {
     });
     expect(loaded.raw.channels.slack.responseMode).toBe("message-tool");
     expect(loaded.raw.channels.slack.additionalMessageMode).toBe("queue");
+    expect(loaded.raw.channels.slack.surfaceNotifications).toBeUndefined();
     expect(loaded.raw.channels.slack.verbose).toBe("minimal");
     expect(loaded.raw.channels.slack.streaming).toBe("all");
     expect(loaded.raw.channels.slack.response).toBe("final");

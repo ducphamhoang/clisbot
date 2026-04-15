@@ -16,11 +16,16 @@ Done
 
 After this task:
 
-- explicit `/queue ...` and implicit `additionalMessageMode: "queue"` no longer show interim queued or running surface updates when `streaming: "off"`
+- explicit `/queue ...` and implicit `additionalMessageMode: "queue"` no longer show interim queued placeholders or running previews when `streaming: "off"`
 - `/loop <count>` does not leak queued placeholders or running previews from later queued iterations when `streaming: "off"`
 - managed interval or calendar loops do not keep emitting progress-style surface replies just because an older wrapped prompt was persisted
 - queue-by-mode preserves the real user prompt instead of risking an `undefined` prompt handoff
 - delayed work follows the current resolved surface delivery contract instead of a stale, prewrapped prompt artifact
+
+Later follow-up note:
+
+- a separate queue-start or loop-start notification may still appear if route `surfaceNotifications` is enabled
+- those notifications are independent from `streaming`; they are explicit start announcements, not preview leakage
 
 ## Why
 
