@@ -11,6 +11,8 @@ import {
   captureTmuxSessionIdentity,
   dismissTmuxTrustPromptIfPresent,
   submitTmuxSessionInput,
+  TmuxBootstrapSessionLostError,
+  tmuxPaneHasTrustPrompt,
   waitForTmuxSessionBootstrap,
 } from "../runners/tmux/session-handshake.ts";
 import {
@@ -40,7 +42,11 @@ export type ShellCommandResult = {
 };
 
 const TMUX_MISSING_SESSION_PATTERN = /(?:can't find session:|no server running on )/i;
+const TMUX_SERVER_UNAVAILABLE_PATTERN = /(?:No such file or directory|error connecting to|failed to connect to server)/i;
 const TMUX_DUPLICATE_SESSION_PATTERN = /duplicate session:/i;
+const TMUX_TRANSIENT_TARGET_PATTERN = /(?:no current target|can't find pane|can't find window)/i;
+const SESSION_READY_CAPTURE_RETRY_COUNT = 5;
+const SESSION_READY_CAPTURE_RETRY_DELAY_MS = 100;
 
 type SessionErrorAction =
   | "during startup"
@@ -66,6 +72,26 @@ function isMissingTmuxSessionError(error: unknown) {
   return error instanceof Error && TMUX_MISSING_SESSION_PATTERN.test(error.message);
 }
 
+function isTmuxServerUnavailableError(error: unknown) {
+  return error instanceof Error && TMUX_SERVER_UNAVAILABLE_PATTERN.test(error.message);
+}
+
+function isTransientTmuxTargetError(error: unknown) {
+  return error instanceof Error && TMUX_TRANSIENT_TARGET_PATTERN.test(error.message);
+}
+
+function isBootstrapSessionLostError(error: unknown) {
+  return error instanceof TmuxBootstrapSessionLostError;
+}
+
+function isRecoverableStartupSessionLoss(error: unknown) {
+  return (
+    isMissingTmuxSessionError(error) ||
+    isTmuxServerUnavailableError(error) ||
+    isBootstrapSessionLostError(error)
+  );
+}
+
 export class RunnerSessionService {
   private cleanupInFlight = false;
 
@@ -82,7 +108,7 @@ export class RunnerSessionService {
     action: SessionErrorAction,
     lastSnapshot = "",
   ) {
-    if (isMissingTmuxSessionError(error)) {
+    if (isRecoverableStartupSessionLoss(error)) {
       const exitRecord = await readRunnerExitRecord(this.loadedConfig.stateDir, sessionName);
       console.error("runner session disappeared", {
         sessionName,
@@ -93,6 +119,12 @@ export class RunnerSessionService {
         lastVisiblePane: lastSnapshot ? summarizeSnapshot(lastSnapshot).trim() : undefined,
       });
       return new Error(`Runner session "${sessionName}" disappeared ${action}.`);
+    }
+
+    if (isTransientTmuxTargetError(error)) {
+      return new Error(
+        `Runner session "${sessionName}" lost its tmux target ${action}. clisbot stayed alive, but this request could not continue cleanly. Retry once. If it keeps happening, inspect \`clisbot status\` and \`clisbot logs\`.${summarizeSnapshot(lastSnapshot)}`,
+      );
     }
 
     return error instanceof Error ? error : new Error(String(error));
@@ -181,6 +213,22 @@ export class RunnerSessionService {
     });
   }
 
+  private async retryAfterStartupFault(
+    target: AgentSessionTarget,
+    resolved: ResolvedAgentTarget,
+    error: unknown,
+    allowFreshRetry?: boolean,
+  ) {
+    if (!isRecoverableStartupSessionLoss(error)) {
+      return null;
+    }
+
+    return this.retryFreshStartWithClearedSessionId(target, resolved, {
+      allowRetry: allowFreshRetry,
+      nextAllowFreshRetry: false,
+    });
+  }
+
   private async abortUnreadySession(
     resolved: ResolvedAgentTarget,
     reason: string,
@@ -188,6 +236,48 @@ export class RunnerSessionService {
   ) {
     await this.tmux.killSession(resolved.sessionName);
     throw new Error(`${reason}${summarizeSnapshot(snapshot)}`);
+  }
+
+  private async verifySessionReady(resolved: ResolvedAgentTarget) {
+    if (!(await this.tmux.isServerRunning())) {
+      throw new TmuxBootstrapSessionLostError(
+        resolved.sessionName,
+        "tmux server became unavailable before startup finished",
+      );
+    }
+
+    if (!(await this.tmux.hasSession(resolved.sessionName))) {
+      throw new TmuxBootstrapSessionLostError(
+        resolved.sessionName,
+        "tmux session disappeared before startup finished",
+      );
+    }
+
+    for (let attempt = 0; attempt < SESSION_READY_CAPTURE_RETRY_COUNT; attempt += 1) {
+      try {
+        const snapshot = await this.captureSessionSnapshot(resolved);
+        if (tmuxPaneHasTrustPrompt(snapshot)) {
+          await this.dismissVisibleTrustPrompt(resolved);
+          continue;
+        }
+        return;
+      } catch (error) {
+        if (isRecoverableStartupSessionLoss(error)) {
+          throw new TmuxBootstrapSessionLostError(
+            resolved.sessionName,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+        if (
+          !isTransientTmuxTargetError(error) ||
+          attempt === SESSION_READY_CAPTURE_RETRY_COUNT - 1
+        ) {
+          throw error;
+        }
+      }
+
+      await sleep(SESSION_READY_CAPTURE_RETRY_DELAY_MS);
+    }
   }
 
   async runSessionCleanup() {
@@ -250,9 +340,6 @@ export class RunnerSessionService {
     await ensureRunnerExitRecordDir(this.loadedConfig.stateDir, resolved.sessionName);
     const existing = await this.sessionState.getEntry(resolved.sessionKey);
     const serverRunning = await this.tmux.isServerRunning();
-    if (serverRunning) {
-      await this.tmux.ensureServerDefaults();
-    }
 
     if (serverRunning && (await this.tmux.hasSession(resolved.sessionName))) {
       logLatencyDebug("ensure-session-ready-existing-session", timingContext, {
@@ -310,53 +397,46 @@ export class RunnerSessionService {
       resumingExistingSession,
       hasStoredSessionId: Boolean(existing?.sessionId),
     });
-    const bootstrapResult = await waitForTmuxSessionBootstrap({
-      tmux: this.tmux,
-      sessionName: resolved.sessionName,
-      captureLines: resolved.stream.captureLines,
-      startupDelayMs: resolved.runner.startupDelayMs,
-      trustWorkspace: resolved.runner.trustWorkspace,
-      readyPattern: resolved.runner.startupReadyPattern,
-      blockers: resolved.runner.startupBlockers,
-    });
-    const sessionStillExists = await this.tmux.hasSession(resolved.sessionName);
-    if (!sessionStillExists) {
-      if (resumingExistingSession) {
-        const retried = await this.retryFreshStartWithClearedSessionId(target, resolved, {
-          allowRetry: options.allowFreshRetry,
-          nextAllowFreshRetry: false,
-        });
-        if (retried) {
-          return retried;
-        }
-      }
-      throw new Error(`Runner session "${resolved.sessionName}" disappeared during startup.`);
-    }
-
-    if (bootstrapResult.status === "blocked") {
-      await this.abortUnreadySession(
-        resolved,
-        bootstrapResult.message,
-        bootstrapResult.snapshot,
-      );
-    }
-
-    if (bootstrapResult.status === "timeout" && resolved.runner.startupReadyPattern) {
-      await this.abortUnreadySession(
-        resolved,
-        `Runner session "${resolved.sessionName}" did not reach the configured ready state within ${resolved.runner.startupDelayMs}ms.`,
-        bootstrapResult.snapshot,
-      );
-    }
-
     try {
-      await this.finalizeSessionStartup(target, resolved, {
+      const bootstrapResult = await waitForTmuxSessionBootstrap({
+        tmux: this.tmux,
+        sessionName: resolved.sessionName,
+        captureLines: resolved.stream.captureLines,
+        startupDelayMs: resolved.runner.startupDelayMs,
+        trustWorkspace: resolved.runner.trustWorkspace,
+        readyPattern: resolved.runner.startupReadyPattern,
+        blockers: resolved.runner.startupBlockers,
+      });
+      if (bootstrapResult.status === "blocked") {
+        await this.abortUnreadySession(
+          resolved,
+          bootstrapResult.message,
+          bootstrapResult.snapshot,
+        );
+      }
+
+      if (bootstrapResult.status === "timeout" && resolved.runner.startupReadyPattern) {
+        await this.abortUnreadySession(
+          resolved,
+          `Runner session "${resolved.sessionName}" did not reach the configured ready state within ${resolved.runner.startupDelayMs}ms.`,
+          bootstrapResult.snapshot,
+        );
+      }
+
+      await this.finalizeSessionStartup(resolved, {
         startupSessionId,
-        resumingExistingSession,
         runnerCommand: runnerLaunch.command,
-        allowFreshRetry: options.allowFreshRetry,
       });
     } catch (error) {
+      const retried = await this.retryAfterStartupFault(
+        target,
+        resolved,
+        error,
+        options.allowFreshRetry,
+      );
+      if (retried) {
+        return retried;
+      }
       throw await this.mapSessionError(error, resolved.sessionName, "during startup");
     }
 
@@ -368,16 +448,14 @@ export class RunnerSessionService {
   }
 
   private async finalizeSessionStartup(
-    target: AgentSessionTarget,
     resolved: ResolvedAgentTarget,
     params: {
       startupSessionId: string;
-      resumingExistingSession: boolean;
       runnerCommand: string;
-      allowFreshRetry?: boolean;
     },
   ) {
-    await this.dismissTrustPrompt(target, resolved, params);
+    await this.dismissTrustPrompt(resolved);
+    await this.verifySessionReady(resolved);
 
     if (params.startupSessionId) {
       await this.sessionState.touchSessionEntry(resolved, {
@@ -387,65 +465,23 @@ export class RunnerSessionService {
       return;
     }
 
-    try {
-      await this.syncSessionIdentity(resolved);
-    } catch (error) {
-      const retried = await this.retryFromMissingSessionDuringResume(
-        target,
-        resolved,
-        error,
-        params.allowFreshRetry,
-      );
-      if (!retried) {
-        throw error;
-      }
-    }
+    await this.syncSessionIdentity(resolved);
   }
 
-  private async dismissTrustPrompt(
-    target: AgentSessionTarget,
-    resolved: ResolvedAgentTarget,
-    params: { resumingExistingSession: boolean; allowFreshRetry?: boolean },
-  ) {
+  private async dismissTrustPrompt(resolved: ResolvedAgentTarget) {
     if (!resolved.runner.trustWorkspace) {
       return;
     }
 
-    try {
-      await dismissTmuxTrustPromptIfPresent({
-        tmux: this.tmux,
-        sessionName: resolved.sessionName,
-        captureLines: resolved.stream.captureLines,
-        startupDelayMs: resolved.runner.startupDelayMs,
-      });
-    } catch (error) {
-      const retried = await this.retryFromMissingSessionDuringResume(
-        target,
-        resolved,
-        error,
-        params.allowFreshRetry,
-        params.resumingExistingSession,
-      );
-      if (!retried) {
-        throw error;
-      }
-    }
+    await this.dismissVisibleTrustPrompt(resolved);
   }
 
-  private async retryFromMissingSessionDuringResume(
-    target: AgentSessionTarget,
-    resolved: ResolvedAgentTarget,
-    error: unknown,
-    allowFreshRetry?: boolean,
-    resumingExistingSession = true,
-  ) {
-    if (!resumingExistingSession || !isMissingTmuxSessionError(error)) {
-      return null;
-    }
-
-    return this.retryFreshStartWithClearedSessionId(target, resolved, {
-      allowRetry: allowFreshRetry,
-      nextAllowFreshRetry: false,
+  private async dismissVisibleTrustPrompt(resolved: ResolvedAgentTarget) {
+    await dismissTmuxTrustPromptIfPresent({
+      tmux: this.tmux,
+      sessionName: resolved.sessionName,
+      captureLines: resolved.stream.captureLines,
+      startupDelayMs: resolved.runner.startupDelayMs,
     });
   }
 
@@ -473,11 +509,9 @@ export class RunnerSessionService {
         initialSnapshot: await this.captureSessionSnapshot(resolved),
       };
     } catch (error) {
-      const existing = await this.sessionState.getEntry(resolved.sessionKey);
       if (
         options.allowFreshRetryBeforePrompt === false ||
-        !existing?.sessionId ||
-        !isMissingTmuxSessionError(error)
+        !isRecoverableStartupSessionLoss(error)
       ) {
         throw await this.mapSessionError(
           error,
