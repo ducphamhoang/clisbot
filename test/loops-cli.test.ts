@@ -107,10 +107,6 @@ function buildConfig(params: {
         channelPolicy: "allowlist",
         groupPolicy: "allowlist",
         defaultAgentId: "default",
-        privilegeCommands: {
-          enabled: false,
-          allowUsers: [],
-        },
         commandPrefixes: {
           slash: ["::", "\\"],
           bash: ["!"],
@@ -143,10 +139,6 @@ function buildConfig(params: {
         allowBots: false,
         groupPolicy: "allowlist",
         defaultAgentId: "default",
-        privilegeCommands: {
-          enabled: false,
-          allowUsers: [],
-        },
         commandPrefixes: {
           slash: ["::", "\\"],
           bash: ["!"],

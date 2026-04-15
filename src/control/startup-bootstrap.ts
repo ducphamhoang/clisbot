@@ -10,7 +10,6 @@ import {
   describeSlackCredentialSource,
   describeTelegramCredentialSource,
 } from "../config/channel-credentials.ts";
-import { renderGenericPrivilegeCommandHelpLines } from "../channels/privilege-help.ts";
 
 export const CHANNEL_ACCOUNT_DOC_PATH = "docs/user-guide/channel-accounts.md";
 export const USER_GUIDE_DOC_PATH = "docs/user-guide/README.md";
@@ -305,7 +304,7 @@ export function renderTmuxDebugHelpLines(prefix = "") {
 
 export function renderChannelSetupHelpLines(
   prefix = "",
-  options: { includePrivilegeHelp?: boolean } = {},
+  _options: { includePrivilegeHelp?: boolean } = {},
 ) {
   return [
     `${prefix}Channel setup docs: ${CHANNEL_ACCOUNT_DOC_PATH}`,
@@ -316,7 +315,6 @@ export function renderChannelSetupHelpLines(
       telegramDirectMessagesPolicy: "pairing",
     }),
     ...renderTmuxDebugHelpLines(prefix),
-    ...(options.includePrivilegeHelp === false ? [] : renderGenericPrivilegeCommandHelpLines(prefix)),
     ...renderRepoHelpLines(prefix),
   ];
 }

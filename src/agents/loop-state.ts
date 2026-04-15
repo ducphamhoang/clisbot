@@ -17,6 +17,7 @@ type StoredLoopBase = {
   nextRunAt: number;
   promptText: string;
   canonicalPromptText?: string;
+  protectedControlMutationRule?: string;
   promptSummary: string;
   promptSource: "custom" | "LOOP.md";
   createdBy?: string;

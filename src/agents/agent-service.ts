@@ -277,6 +277,7 @@ export class AgentService {
     target: AgentSessionTarget;
     promptText: string;
     canonicalPromptText?: string;
+    protectedControlMutationRule?: string;
     promptSummary: string;
     promptSource: "custom" | "LOOP.md";
     surfaceBinding?: StoredLoopSurfaceBinding;
@@ -304,6 +305,7 @@ export class AgentService {
       nextRunAt: Date.now(),
       promptText: params.promptText,
       canonicalPromptText: params.canonicalPromptText,
+      protectedControlMutationRule: params.protectedControlMutationRule,
       promptSummary: params.promptSummary,
       promptSource: params.promptSource,
       createdBy: params.createdBy,
@@ -325,6 +327,7 @@ export class AgentService {
     target: AgentSessionTarget;
     promptText: string;
     canonicalPromptText?: string;
+    protectedControlMutationRule?: string;
     promptSummary: string;
     promptSource: "custom" | "LOOP.md";
     surfaceBinding?: StoredLoopSurfaceBinding;
@@ -369,6 +372,7 @@ export class AgentService {
       nextRunAt,
       promptText: params.promptText,
       canonicalPromptText: params.canonicalPromptText,
+      protectedControlMutationRule: params.protectedControlMutationRule,
       promptSummary: params.promptSummary,
       promptSource: params.promptSource,
       createdBy: params.createdBy,
@@ -696,6 +700,7 @@ export class AgentService {
       cliTool: getAgentEntry(this.loadedConfig, agentId)?.cliTool,
       responseMode,
       streaming,
+      protectedControlMutationRule: loop.protectedControlMutationRule,
     });
   }
 

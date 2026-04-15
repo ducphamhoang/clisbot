@@ -80,8 +80,8 @@ Current rule:
   - `/transcript`
   - configured slash-style transcript shortcuts such as `::transcript` or `\transcript`
 - `verbose: "off"` blocks transcript inspection
-- bash execution still follows `privilegeCommands.enabled`
-- privilege gating applies to:
+- bash execution follows resolved agent auth
+- `shellExecute` gating applies to:
   - `/bash <command>`
   - configured bash shortcuts such as `!<command>`
 

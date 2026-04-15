@@ -2,6 +2,11 @@ import { z } from "zod";
 import { getDefaultSessionIdPattern } from "../agents/session-identity.ts";
 import { isValidLoopTimezone } from "../agents/loop-command.ts";
 import {
+  APP_ADMIN_PERMISSIONS,
+  DEFAULT_AGENT_ADMIN_PERMISSIONS,
+  DEFAULT_AGENT_MEMBER_PERMISSIONS,
+} from "../auth/defaults.ts";
+import {
   SUPPORTED_AGENT_CLI_TOOLS,
   SUPPORTED_BOOTSTRAP_MODES,
 } from "./agent-tool-presets.ts";
@@ -150,10 +155,49 @@ const agentBootstrapSchema = z.object({
   mode: z.enum(SUPPORTED_BOOTSTRAP_MODES).default("personal-assistant"),
 });
 
+const authRoleSchema = z.object({
+  allow: z.array(z.string().min(1)).default([]),
+  users: z.array(z.string().min(1)).default([]),
+});
+
+const appAuthSchema = z.object({
+  ownerClaimWindowMinutes: z.number().int().positive().default(30),
+  defaultRole: z.string().min(1).default("member"),
+  roles: z.record(z.string(), authRoleSchema).default({
+    owner: {
+      allow: [...APP_ADMIN_PERMISSIONS],
+      users: [],
+    },
+    admin: {
+      allow: [...APP_ADMIN_PERMISSIONS],
+      users: [],
+    },
+    member: {
+      allow: [],
+      users: [],
+    },
+  }),
+});
+
+const agentAuthSchema = z.object({
+  defaultRole: z.string().min(1).default("member"),
+  roles: z.record(z.string(), authRoleSchema).default({
+    admin: {
+      allow: [...DEFAULT_AGENT_ADMIN_PERMISSIONS],
+      users: [],
+    },
+    member: {
+      allow: [...DEFAULT_AGENT_MEMBER_PERMISSIONS],
+      users: [],
+    },
+  }),
+});
+
 const agentOverrideSchema = z.object({
   workspace: z.string().optional(),
   responseMode: z.enum(["capture-pane", "message-tool"]).optional(),
   additionalMessageMode: z.enum(["queue", "steer"]).optional(),
+  auth: agentAuthSchema.optional(),
   runner: runnerOverrideSchema.optional(),
   stream: streamSchema.partial().optional(),
   session: sessionSchema.partial().optional(),
@@ -170,6 +214,19 @@ const agentEntrySchema = agentOverrideSchema.extend({
 
 const agentDefaultsSchema = z.object({
   workspace: z.string().default("~/.clisbot/workspaces/{agentId}"),
+  auth: agentAuthSchema.default({
+    defaultRole: "member",
+    roles: {
+      admin: {
+        allow: [...DEFAULT_AGENT_ADMIN_PERMISSIONS],
+        users: [],
+      },
+      member: {
+        allow: [...DEFAULT_AGENT_MEMBER_PERMISSIONS],
+        users: [],
+      },
+    },
+  }),
   runner: runnerSchema.default({
     command: "codex",
     args: [
@@ -495,6 +552,45 @@ export const clisbotConfigSchema = z.object({
     dmScope: "main",
     identityLinks: {},
     storePath: "~/.clisbot/state/sessions.json",
+  }),
+  app: z.object({
+    auth: appAuthSchema.default({
+      ownerClaimWindowMinutes: 30,
+      defaultRole: "member",
+      roles: {
+        owner: {
+          allow: [...APP_ADMIN_PERMISSIONS],
+          users: [],
+        },
+        admin: {
+          allow: [...APP_ADMIN_PERMISSIONS],
+          users: [],
+        },
+        member: {
+          allow: [],
+          users: [],
+        },
+      },
+    }),
+  }).default({
+    auth: {
+      ownerClaimWindowMinutes: 30,
+      defaultRole: "member",
+      roles: {
+        owner: {
+          allow: [...APP_ADMIN_PERMISSIONS],
+          users: [],
+        },
+        admin: {
+          allow: [...APP_ADMIN_PERMISSIONS],
+          users: [],
+        },
+        member: {
+          allow: [],
+          users: [],
+        },
+      },
+    },
   }),
   agents: z.object({
     defaults: agentDefaultsSchema,

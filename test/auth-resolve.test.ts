@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  listSlackAccounts,
-  resolveSlackAccountConfig,
-  resolveTelegramAccountConfig,
-} from "../src/config/channel-accounts.ts";
+import { resolveChannelAuth } from "../src/auth/resolve.ts";
 import type { ClisbotConfig } from "../src/config/schema.ts";
 
 function createConfig(): ClisbotConfig {
@@ -22,7 +18,7 @@ function createConfig(): ClisbotConfig {
         defaultRole: "member",
         roles: {
           owner: { allow: ["configManage"], users: [] },
-          admin: { allow: ["configManage"], users: [] },
+          admin: { allow: ["configManage", "appAuthManage"], users: ["slack:UADMIN"] },
           member: { allow: [], users: [] },
         },
       },
@@ -33,7 +29,7 @@ function createConfig(): ClisbotConfig {
         auth: {
           defaultRole: "member",
           roles: {
-            admin: { allow: ["shellExecute"], users: [] },
+            admin: { allow: ["sendMessage", "shellExecute"], users: ["slack:UOPS"] },
             member: { allow: ["sendMessage"], users: [] },
           },
         },
@@ -45,13 +41,7 @@ function createConfig(): ClisbotConfig {
           promptSubmitDelayMs: 1,
           sessionId: {
             create: { mode: "runner", args: [] },
-            capture: {
-              mode: "off",
-              statusCommand: "/status",
-              pattern: "x",
-              timeoutMs: 1,
-              pollIntervalMs: 1,
-            },
+            capture: { mode: "off", statusCommand: "/status", pattern: "x", timeoutMs: 1, pollIntervalMs: 1 },
             resume: { mode: "off", args: [] },
           },
         },
@@ -69,7 +59,7 @@ function createConfig(): ClisbotConfig {
           name: "{sessionKey}",
         },
       },
-      list: [],
+      list: [{ id: "default" }],
     },
     bindings: [],
     control: {
@@ -79,32 +69,23 @@ function createConfig(): ClisbotConfig {
     },
     channels: {
       slack: {
-        enabled: true,
+        enabled: false,
         mode: "socket",
-        appToken: "root-app",
-        botToken: "root-bot",
-        defaultAccount: "work",
-        accounts: {
-          work: {
-            appToken: "work-app",
-            botToken: "work-bot",
-          },
-        },
-        agentPrompt: {
-          enabled: true,
-          maxProgressMessages: 3,
-          requireFinalResponse: true,
-        },
-        ackReaction: ":heavy_check_mark:",
+        appToken: "",
+        botToken: "",
+        defaultAccount: "default",
+        accounts: {},
+        agentPrompt: { enabled: true, maxProgressMessages: 3, requireFinalResponse: true },
+        allowBots: false,
+        ackReaction: "",
         typingReaction: "",
         processingStatus: { enabled: true, status: "Working...", loadingMessages: [] },
-        allowBots: false,
         replyToMode: "thread",
         channelPolicy: "allowlist",
         groupPolicy: "allowlist",
         defaultAgentId: "default",
         privilegeCommands: { enabled: false, allowUsers: [] },
-        commandPrefixes: { slash: ["::"], bash: ["!"] },
+        commandPrefixes: { slash: ["::", "\\"], bash: ["!"] },
         streaming: "all",
         response: "final",
         responseMode: "message-tool",
@@ -113,28 +94,26 @@ function createConfig(): ClisbotConfig {
         followUp: { mode: "auto", participationTtlMin: 5 },
         channels: {},
         groups: {},
-        directMessages: { enabled: true, policy: "open", allowFrom: [], requireMention: false },
+        directMessages: {
+          enabled: true,
+          policy: "pairing",
+          allowFrom: [],
+          requireMention: false,
+          agentId: "default",
+        },
       },
       telegram: {
-        enabled: true,
+        enabled: false,
         mode: "polling",
-        botToken: "root-telegram",
-        defaultAccount: "alerts",
-        accounts: {
-          alerts: {
-            botToken: "alerts-token",
-          },
-        },
-        agentPrompt: {
-          enabled: true,
-          maxProgressMessages: 3,
-          requireFinalResponse: true,
-        },
+        botToken: "",
+        defaultAccount: "default",
+        accounts: {},
+        agentPrompt: { enabled: true, maxProgressMessages: 3, requireFinalResponse: true },
         allowBots: false,
         groupPolicy: "allowlist",
         defaultAgentId: "default",
         privilegeCommands: { enabled: false, allowUsers: [] },
-        commandPrefixes: { slash: ["::"], bash: ["!"] },
+        commandPrefixes: { slash: ["::", "\\"], bash: ["!"] },
         streaming: "all",
         response: "final",
         responseMode: "message-tool",
@@ -145,44 +124,49 @@ function createConfig(): ClisbotConfig {
         groups: {},
         directMessages: {
           enabled: true,
-          policy: "open",
+          policy: "pairing",
           allowFrom: [],
           requireMention: false,
-          allowBots: false,
+          agentId: "default",
         },
       },
     },
   };
 }
 
-describe("channel accounts", () => {
-  test("resolves explicit slack account config", () => {
-    const config = createConfig();
-    const resolved = resolveSlackAccountConfig(config.channels.slack, "work");
-    expect(resolved.accountId).toBe("work");
-    expect(resolved.config.botToken).toBe("work-bot");
+describe("resolveChannelAuth", () => {
+  test("grants app admins pairing bypass and protected-resource management", () => {
+    const auth = resolveChannelAuth({
+      config: createConfig(),
+      agentId: "default",
+      identity: {
+        platform: "slack",
+        conversationKind: "dm",
+        senderId: "UADMIN",
+      },
+    });
+
+    expect(auth.appRole).toBe("admin");
+    expect(auth.mayBypassPairing).toBe(true);
+    expect(auth.mayManageProtectedResources).toBe(true);
+    expect(auth.canUseShell).toBe(true);
   });
 
-  test("falls back to root slack tokens when no account map is configured", () => {
-    const config = createConfig();
-    config.channels.slack.accounts = {};
-    const resolved = resolveSlackAccountConfig(config.channels.slack);
-    expect(resolved.accountId).toBe("work");
-    expect(resolved.config.botToken).toBe("root-bot");
-  });
+  test("grants shell only when the resolved agent role allows it", () => {
+    const auth = resolveChannelAuth({
+      config: createConfig(),
+      agentId: "default",
+      identity: {
+        platform: "slack",
+        conversationKind: "channel",
+        senderId: "UOPS",
+      },
+    });
 
-  test("resolves telegram default account config", () => {
-    const config = createConfig();
-    const resolved = resolveTelegramAccountConfig(config.channels.telegram);
-    expect(resolved.accountId).toBe("alerts");
-    expect(resolved.config.botToken).toBe("alerts-token");
-  });
-
-  test("lists only valid slack accounts", () => {
-    const config = createConfig();
-    config.channels.slack.accounts.empty = { appToken: "", botToken: "" };
-    expect(listSlackAccounts(config.channels.slack).map((entry) => entry.accountId)).toEqual([
-      "work",
-    ]);
+    expect(auth.appRole).toBe("member");
+    expect(auth.agentRole).toBe("admin");
+    expect(auth.mayBypassPairing).toBe(false);
+    expect(auth.mayManageProtectedResources).toBe(false);
+    expect(auth.canUseShell).toBe(true);
   });
 });

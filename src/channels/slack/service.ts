@@ -16,6 +16,8 @@ import { ProcessedEventsStore } from "../processed-events-store.ts";
 import { ActivityStore } from "../../control/activity-store.ts";
 import { renderChannelInteraction } from "../../shared/transcript.ts";
 import { buildAgentPromptText } from "../agent-prompt.ts";
+import { DEFAULT_PROTECTED_CONTROL_RULE } from "../../auth/defaults.ts";
+import { resolveChannelAuth } from "../../auth/resolve.ts";
 import {
   type SlackConversationKind,
   resolveSlackConversationTarget,
@@ -269,13 +271,23 @@ export class SlackSocketService {
       const directUserId =
         typeof event.user === "string" ? event.user.trim() : "";
       const dmConfig = this.loadedConfig.raw.channels.slack.directMessages;
+      const auth = resolveChannelAuth({
+        config: this.loadedConfig.raw,
+        agentId: params.route.agentId,
+        identity: {
+          platform: "slack",
+          conversationKind: params.conversationKind,
+          senderId: directUserId || undefined,
+          channelId,
+        },
+      });
       if (!directUserId || dmConfig.policy === "disabled") {
         debugSlackEvent("drop-dm-disabled", { eventId, directUserId });
         await this.processedEventsStore.markCompleted(eventId);
         return;
       }
 
-      if (dmConfig.policy !== "open") {
+      if (dmConfig.policy !== "open" && !auth.mayBypassPairing) {
         const storedAllowFrom = await readChannelAllowFromStore("slack");
         const allowed = isSlackSenderAllowed({
           allowFrom: [...dmConfig.allowFrom, ...storedAllowFrom],
@@ -403,20 +415,30 @@ export class SlackSocketService {
     };
     let responseChunks: SlackPostedMessageChunk[] = [];
     const cliTool = getAgentEntry(this.loadedConfig, params.route.agentId)?.cliTool;
+    const identity = {
+      platform: "slack" as const,
+      conversationKind: params.conversationKind,
+      senderId:
+        typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
+      channelId,
+      threadTs,
+    };
+    const auth = resolveChannelAuth({
+      config: this.loadedConfig.raw,
+      agentId: params.route.agentId,
+      identity,
+    });
+    const protectedControlMutationRule = auth.mayManageProtectedResources
+      ? undefined
+      : DEFAULT_PROTECTED_CONTROL_RULE;
     const agentPromptText = buildAgentPromptText({
       text,
-      identity: {
-        platform: "slack",
-        conversationKind: params.conversationKind,
-        senderId:
-          typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
-        channelId,
-        threadTs,
-      },
+      identity,
       config: this.loadedConfig.raw.channels.slack.agentPrompt,
       cliTool,
       responseMode: params.route.responseMode,
       streaming: params.route.streaming,
+      protectedControlMutationRule,
     });
     const timingContext = {
       platform: "slack" as const,
@@ -480,14 +502,8 @@ export class SlackSocketService {
       const interaction = await processChannelInteraction({
         agentService: this.agentService,
         sessionTarget,
-        identity: {
-          platform: "slack",
-          conversationKind: params.conversationKind,
-          senderId:
-            typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
-          channelId,
-          threadTs,
-        },
+        identity,
+        auth,
         senderId:
           typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
         text,
@@ -495,19 +511,14 @@ export class SlackSocketService {
         agentPromptBuilder: (nextText) =>
           buildAgentPromptText({
             text: nextText,
-            identity: {
-              platform: "slack",
-              conversationKind: params.conversationKind,
-              senderId:
-                typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
-              channelId,
-              threadTs,
-            },
+            identity,
             config: this.loadedConfig.raw.channels.slack.agentPrompt,
             cliTool,
             responseMode: params.route.responseMode,
             streaming: params.route.streaming,
+            protectedControlMutationRule,
           }),
+        protectedControlMutationRule,
         route: params.route,
         maxChars: this.getSlackMaxChars(params.route.agentId),
         timingContext,

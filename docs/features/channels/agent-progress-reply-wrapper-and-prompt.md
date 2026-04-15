@@ -24,7 +24,7 @@ The feature combines three pieces:
 - resolve busy-session follow-up in this order: surface override, agent override, provider default
 - support explicit `/queue <message>` to force ordered queued delivery for one extra message
 - support explicit steering and queue management commands for active conversations
-- keep slash commands and privilege commands unaffected
+- keep slash commands unaffected while letting routed auth decide whether protected control guidance must be appended to agent-bound prompts
 - make the flow easy to test on a fresh machine with `bun start`
 
 ## Invariants

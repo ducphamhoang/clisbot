@@ -1,9 +1,5 @@
 import { readEditableConfig, writeEditableConfig } from "../config/config-file.ts";
 import {
-  renderGenericPrivilegeCommandHelpLines,
-  renderPrivilegeCommandHelpLines,
-} from "../channels/privilege-help.ts";
-import {
   getConfiguredAdditionalMessageMode,
   setConfiguredAdditionalMessageMode,
 } from "../channels/additional-message-mode-config.ts";
@@ -17,6 +13,8 @@ import type {
 } from "../channels/mode-config-shared.ts";
 import { runChannelPrivilegeCli } from "./channel-privilege-cli.ts";
 import { renderChannelSetupHelpLines } from "./startup-bootstrap.ts";
+
+const AUTH_USER_GUIDE_DOC_PATH = "docs/user-guide/auth-and-roles.md";
 
 type ChannelId = "slack" | "telegram";
 type ChannelAction = "enable" | "disable";
@@ -41,7 +39,6 @@ export function renderChannelsHelp() {
     "  clisbot channels remove slack-channel <channelId>",
     "  clisbot channels add slack-group <groupId> [--agent <id>] [--require-mention true|false]",
     "  clisbot channels remove slack-group <groupId>",
-    "  clisbot channels privilege <enable|disable|allow-user|remove-user> <target> ...",
     "  clisbot channels response-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
     "  clisbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
     "  clisbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]",
@@ -57,7 +54,8 @@ export function renderChannelsHelp() {
     "  - Telegram groups need channels.telegram.groups.<chatId>",
     "  - Telegram forum topics need channels.telegram.groups.<chatId>.topics.<topicId>",
     "  - Adding a route puts that surface on the allowlist; other channels, groups, or topics still need to be added explicitly",
-    "  - Tune route settings such as requireMention, privilegeCommands, and followUp in clisbot.json when a surface should behave differently",
+    "  - Tune route settings such as requireMention and followUp in clisbot.json when a surface should behave differently",
+    `  - Manage routed auth and /bash access in ${AUTH_USER_GUIDE_DOC_PATH}`,
     "  - Response delivery can be tuned with responseMode: `capture-pane` or `message-tool`",
     "  - Busy-session follow-up can be tuned with additionalMessageMode: `steer` or `queue`",
     "  - Slack response-mode targets use `channel:<id>`, `group:<id>`, or `dm:<id>`",
@@ -90,7 +88,6 @@ export function renderChannelsHelp() {
     "Next steps:",
     "  - Run `clisbot status` to inspect routes and current channel state",
     "  - Run `clisbot logs` if the bot is still not responding",
-    ...renderGenericPrivilegeCommandHelpLines(),
     ...renderChannelSetupHelpLines("", { includePrivilegeHelp: false }),
   ].join("\n");
 }
@@ -582,7 +579,7 @@ function renderRouteAddGuidance(params: {
       "  - direct messages still follow channels.slack.directMessages.policy (`open`, `pairing`, `allowlist`, or `disabled`)",
     );
     console.log(
-      `  - this ${routeLabel} still follows channels.slack.groupPolicy and route settings such as requireMention, privilegeCommands, and followUp`,
+      `  - this ${routeLabel} still follows channels.slack.groupPolicy and route settings such as requireMention and followUp`,
     );
     console.log(
       "  - if you want pairing-style access control for DMs, set channels.slack.directMessages.policy to `pairing`",
@@ -590,13 +587,7 @@ function renderRouteAddGuidance(params: {
     console.log(
       "  - if you want stricter route access, keep Slack groups on allowlist and only add the channels/groups you trust",
     );
-    for (const line of renderPrivilegeCommandHelpLines({
-      platform: "slack",
-      conversationKind: params.kind === "group" ? "group" : "channel",
-      channelId: params.routeId,
-    }, "  ")) {
-      console.log(line);
-    }
+    console.log(`  - manage routed auth and /bash access in ${AUTH_USER_GUIDE_DOC_PATH}`);
   } else {
     const [chatId, topicId] = params.routeId.split("/");
     const routePath = params.kind === "topic"
@@ -615,16 +606,9 @@ function renderRouteAddGuidance(params: {
       "  - if you want pairing-style access control for DMs, set channels.telegram.directMessages.policy to `pairing`",
     );
     console.log(
-      "  - tune route settings such as requireMention, privilegeCommands, and followUp in clisbot.json if this surface should behave differently",
+      "  - tune route settings such as requireMention and followUp in clisbot.json if this surface should behave differently",
     );
-    for (const line of renderPrivilegeCommandHelpLines({
-      platform: "telegram",
-      conversationKind: params.kind === "topic" ? "topic" : "group",
-      chatId: chatId ?? params.routeId,
-      topicId,
-    }, "  ")) {
-      console.log(line);
-    }
+    console.log(`  - manage routed auth and /bash access in ${AUTH_USER_GUIDE_DOC_PATH}`);
   }
 
   console.log("Run `clisbot status` to inspect routes and current channel state.");

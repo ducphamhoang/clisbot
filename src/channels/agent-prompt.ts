@@ -14,6 +14,7 @@ export function buildAgentPromptText(params: {
   cliTool?: "codex" | "claude" | "gemini";
   responseMode?: "capture-pane" | "message-tool";
   streaming?: "off" | "latest" | "all";
+  protectedControlMutationRule?: string;
 }) {
   if (!params.config.enabled) {
     return params.text;
@@ -29,6 +30,7 @@ function renderAgentPromptInstruction(params: {
   cliTool?: "codex" | "claude" | "gemini";
   responseMode?: "capture-pane" | "message-tool";
   streaming?: "off" | "latest" | "all";
+  protectedControlMutationRule?: string;
 }) {
   const messageToolMode = (params.responseMode ?? "message-tool") === "message-tool";
   const progressAllowed = messageToolMode && (params.streaming ?? "all") !== "off";
@@ -68,6 +70,10 @@ function renderAgentPromptInstruction(params: {
           ]
         : []),
     );
+  }
+
+  if (params.protectedControlMutationRule) {
+    lines.push("", params.protectedControlMutationRule);
   }
 
   return lines.join("\n");

@@ -560,8 +560,8 @@ export function renderAgentControlSlashHelp() {
     "- `/queue-list`: show queued messages that have not started yet",
     "- `/queue-clear`: clear queued messages that have not started yet",
     ...renderLoopHelpLines(),
-    "- `/bash` followed by a shell command: requires `privilegeCommands.enabled: true` on the current route",
-    "- shortcut prefixes such as `!` run bash when the route allows privilege commands",
+    "- `/bash` followed by a shell command: requires `shellExecute` on the resolved agent role",
+    "- shortcut prefixes such as `!` run bash only when the resolved agent role allows `shellExecute`",
     "",
     "Other slash commands are forwarded to the agent unchanged.",
   ].join("\n");

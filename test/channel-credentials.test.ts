@@ -23,9 +23,27 @@ function createConfig(): ClisbotConfig {
       identityLinks: {},
       storePath: "~/.clisbot/state/sessions.json",
     },
+    app: {
+      auth: {
+        ownerClaimWindowMinutes: 30,
+        defaultRole: "member",
+        roles: {
+          owner: { allow: ["configManage"], users: [] },
+          admin: { allow: ["configManage"], users: [] },
+          member: { allow: [], users: [] },
+        },
+      },
+    },
     agents: {
       defaults: {
         workspace: "~/.clisbot/workspaces/{agentId}",
+        auth: {
+          defaultRole: "member",
+          roles: {
+            admin: { allow: ["shellExecute"], users: [] },
+            member: { allow: ["sendMessage"], users: [] },
+          },
+        },
         runner: {
           command: "codex",
           args: ["-C", "{workspace}"],

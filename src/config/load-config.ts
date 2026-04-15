@@ -58,6 +58,7 @@ export async function loadConfig(
   const expandedConfigPath = expandHomePath(configPath);
   const text = await readTextFile(expandedConfigPath);
   const parsed = JSON.parse(text);
+  assertNoLegacyPrivilegeCommands(parsed);
   const withDynamicDefaults = clisbotConfigSchema.parse(applyDynamicPathDefaults(parsed));
   const substituted = resolveConfigEnvVars(withDynamicDefaults, process.env, {
     skipPaths: getCredentialSkipPaths(withDynamicDefaults),
@@ -77,6 +78,7 @@ export async function loadConfigWithoutEnvResolution(
   const expandedConfigPath = expandHomePath(configPath);
   const text = await readTextFile(expandedConfigPath);
   const parsed = JSON.parse(text);
+  assertNoLegacyPrivilegeCommands(parsed);
   const validated = clisbotConfigSchema.parse(applyDynamicPathDefaults(parsed));
   return materializeLoadedConfig(expandedConfigPath, validated);
 }
@@ -157,6 +159,27 @@ export function applyDynamicPathDefaults(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertNoLegacyPrivilegeCommands(value: unknown, path = "root"): void {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertNoLegacyPrivilegeCommands(entry, `${path}[${index}]`));
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, "privilegeCommands")) {
+    throw new Error(
+      `Unsupported config key at ${path}.privilegeCommands. Move routed permissions to app.auth and agents.<id>.auth.`,
+    );
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    assertNoLegacyPrivilegeCommands(entry, `${path}.${key}`);
+  }
 }
 
 export function getAgentEntry(config: LoadedConfig, agentId: string): AgentEntry | undefined {

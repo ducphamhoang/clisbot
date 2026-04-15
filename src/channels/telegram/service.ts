@@ -45,6 +45,8 @@ import { resolveTelegramAttachmentPaths } from "./attachments.ts";
 import { sleep } from "../../shared/process.ts";
 import type { TelegramAccountConfig } from "../../config/channel-accounts.ts";
 import { buildAgentPromptText } from "../agent-prompt.ts";
+import { DEFAULT_PROTECTED_CONTROL_RULE } from "../../auth/defaults.ts";
+import { resolveChannelAuth } from "../../auth/resolve.ts";
 import { logLatencyDebug } from "../../control/latency-debug.ts";
 import { renderTelegramRouteChoiceMessage } from "./route-guidance.ts";
 import { beginTelegramTypingHeartbeat } from "./typing.ts";
@@ -388,12 +390,22 @@ export class TelegramPollingService {
       const directMessages = this.loadedConfig.raw.channels.telegram.directMessages;
       const senderId = message.from?.id != null ? String(message.from.id) : "";
       const senderUsername = message.from?.username;
+      const auth = resolveChannelAuth({
+        config: this.loadedConfig.raw,
+        agentId: routeInfo.route.agentId,
+        identity: {
+          platform: "telegram",
+          conversationKind: routeInfo.conversationKind,
+          senderId: senderId || undefined,
+          chatId: String(message.chat.id),
+        },
+      });
       if (!senderId || directMessages.policy === "disabled") {
         await this.processedEventsStore.markCompleted(eventId);
         return;
       }
 
-      if (directMessages.policy !== "open") {
+      if (directMessages.policy !== "open" && !auth.mayBypassPairing) {
         const storedAllowFrom = await readChannelAllowFromStore("telegram");
         const allowed = isTelegramSenderAllowed({
           allowFrom: [...directMessages.allowFrom, ...storedAllowFrom],
@@ -509,6 +521,14 @@ export class TelegramPollingService {
           routeInfo.topicId != null ? String(routeInfo.topicId) : undefined,
       };
       const cliTool = getAgentEntry(this.loadedConfig, routeInfo.route.agentId)?.cliTool;
+      const auth = resolveChannelAuth({
+        config: this.loadedConfig.raw,
+        agentId: routeInfo.route.agentId,
+        identity,
+      });
+      const protectedControlMutationRule = auth.mayManageProtectedResources
+        ? undefined
+        : DEFAULT_PROTECTED_CONTROL_RULE;
       const agentPromptText = buildAgentPromptText({
         text,
         identity,
@@ -516,6 +536,7 @@ export class TelegramPollingService {
         cliTool,
         responseMode: routeInfo.route.responseMode,
         streaming: routeInfo.route.streaming,
+        protectedControlMutationRule,
       });
       const timingContext = {
         platform: "telegram" as const,
@@ -549,6 +570,7 @@ export class TelegramPollingService {
           agentService: this.agentService,
           sessionTarget: routeInfo.sessionTarget,
           identity,
+          auth,
           senderId:
             message.from?.id != null ? String(message.from.id).trim() : undefined,
           text,
@@ -561,7 +583,9 @@ export class TelegramPollingService {
               cliTool,
               responseMode: routeInfo.route.responseMode,
               streaming: routeInfo.route.streaming,
+              protectedControlMutationRule,
             }),
+          protectedControlMutationRule,
           route: routeInfo.route,
           maxChars: this.getTelegramMaxChars(routeInfo.route.agentId),
           timingContext,

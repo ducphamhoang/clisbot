@@ -120,10 +120,6 @@ describe("loadConfig", () => {
             channelPolicy: "allowlist",
             groupPolicy: "allowlist",
             defaultAgentId: "default",
-            privilegeCommands: {
-              enabled: false,
-              allowUsers: [],
-            },
             commandPrefixes: {
               slash: ["::", "\\"],
               bash: ["!"],
@@ -140,10 +136,6 @@ describe("loadConfig", () => {
             channels: {
               C123: {
                 requireMention: true,
-                privilegeCommands: {
-                  enabled: true,
-                  allowUsers: ["u123"],
-                },
                 followUp: {
                   mode: "mention-only",
                 },
@@ -198,18 +190,14 @@ describe("loadConfig", () => {
     expect(loaded.raw.channels.slack.followUp.participationTtlSec).toBe(13);
     expect(loaded.raw.channels.slack.channelPolicy).toBe("allowlist");
     expect(loaded.raw.channels.slack.groupPolicy).toBe("allowlist");
-    expect(loaded.raw.channels.slack.privilegeCommands.enabled).toBe(false);
-    expect(loaded.raw.channels.slack.privilegeCommands.allowUsers).toEqual([]);
     expect(loaded.raw.channels.slack.directMessages.requireMention).toBe(false);
     expect(loaded.raw.channels.slack.directMessages.policy).toBe("pairing");
     expect(loaded.raw.channels.slack.directMessages.allowFrom).toEqual(["U123"]);
-    expect(loaded.raw.channels.slack.channels.C123?.privilegeCommands).toEqual({
-      enabled: true,
-      allowUsers: ["u123"],
-    });
     expect(loaded.raw.channels.slack.channels.C123?.followUp?.mode).toBe(
       "mention-only",
     );
+    expect(loaded.raw.app.auth.defaultRole).toBe("member");
+    expect(loaded.raw.agents.defaults.auth.defaultRole).toBe("member");
     expect(loaded.raw.session.mainKey).toBe("main");
     expect(loaded.raw.session.dmScope).toBe("main");
     expect(loaded.raw.session.identityLinks.alice).toEqual(["slack:U123"]);
@@ -297,12 +285,10 @@ describe("loadConfig", () => {
     );
     expect(loaded.raw.channels.slack.followUp.mode).toBe("auto");
     expect(loaded.raw.channels.slack.followUp.participationTtlMin).toBe(5);
-    expect(loaded.raw.channels.slack.privilegeCommands).toEqual({
-      enabled: false,
-      allowUsers: [],
-    });
     expect(loaded.raw.channels.slack.directMessages.policy).toBe("pairing");
     expect(loaded.raw.channels.slack.directMessages.allowFrom).toEqual([]);
+    expect(loaded.raw.app.auth.roles.owner.allow).toContain("configManage");
+    expect(loaded.raw.agents.defaults.auth.roles.admin.allow).toContain("shellExecute");
     expect(loaded.raw.channels.slack.ackReaction).toBe("");
     expect(loaded.raw.channels.slack.typingReaction).toBe("");
     expect(loaded.raw.channels.slack.processingStatus.enabled).toBe(true);
@@ -319,8 +305,56 @@ describe("loadConfig", () => {
     expect(loaded.raw.agents.defaults.session.staleAfterMinutes).toBe(60);
   });
 
+  test("rejects legacy privilegeCommands config keys", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
+    await Bun.write(
+      configPath,
+      JSON.stringify({
+        channels: {
+          slack: {
+            enabled: true,
+            mode: "socket",
+            appToken: "${SLACK_APP_TOKEN}",
+            botToken: "${SLACK_BOT_TOKEN}",
+            privilegeCommands: {
+              enabled: true,
+              allowUsers: ["U123"],
+            },
+            channels: {},
+            groups: {},
+            directMessages: {
+              enabled: true,
+              requireMention: false,
+              agentId: "default",
+            },
+          },
+        },
+      }),
+    );
+
+    process.env.SLACK_APP_TOKEN = "app-token";
+    process.env.SLACK_BOT_TOKEN = "bot-token";
+
+    await expect(loadConfig(configPath)).rejects.toThrow(
+      "Unsupported config key at root.channels.slack.privilegeCommands. Move routed permissions to app.auth and agents.<id>.auth.",
+    );
+  });
+
   test("default config template does not preseed sample slack or telegram routes", () => {
     const config = JSON.parse(renderDefaultConfigTemplate()) as {
+      app: {
+        auth: {
+          defaultRole: string;
+        };
+      };
+      agents: {
+        defaults: {
+          auth: {
+            defaultRole: string;
+          };
+        };
+      };
       channels: {
         slack: {
           enabled: boolean;
@@ -329,22 +363,12 @@ describe("loadConfig", () => {
           verbose: string;
           channels: Record<string, unknown>;
           groups: Record<string, unknown>;
-          directMessages: {
-            privilegeCommands: {
-              enabled: boolean;
-            };
-          };
         };
         telegram: {
           enabled: boolean;
           botToken: string;
           verbose: string;
           groups: Record<string, unknown>;
-          directMessages: {
-            privilegeCommands: {
-              enabled: boolean;
-            };
-          };
         };
       };
     };
@@ -359,8 +383,9 @@ describe("loadConfig", () => {
     expect(config.channels.slack.channels).toEqual({});
     expect(config.channels.slack.groups).toEqual({});
     expect(config.channels.telegram.groups).toEqual({});
-    expect(config.channels.slack.directMessages.privilegeCommands.enabled).toBe(false);
-    expect(config.channels.telegram.directMessages.privilegeCommands.enabled).toBe(false);
+    expect(config.app.auth.defaultRole).toBe("member");
+    expect(config.agents.defaults.auth.defaultRole).toBe("member");
+    expect(JSON.stringify(config)).not.toContain("privilegeCommands");
   });
 
   test("default config template can enable only the available default channels", () => {

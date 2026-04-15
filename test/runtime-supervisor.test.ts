@@ -22,12 +22,30 @@ function createLoadedConfig(): LoadedConfig {
         identityLinks: {},
         storePath: "/tmp/sessions.json",
       },
+      app: {
+        auth: {
+          ownerClaimWindowMinutes: 30,
+          defaultRole: "member",
+          roles: {
+            owner: { allow: ["configManage"], users: [] },
+            admin: { allow: ["configManage"], users: [] },
+            member: { allow: [], users: [] },
+          },
+        },
+      },
       tmux: {
         socketPath: "/tmp/clisbot.sock",
       },
       agents: {
         defaults: {
           workspace: "/tmp/{agentId}",
+          auth: {
+            defaultRole: "member",
+            roles: {
+              admin: { allow: ["shellExecute"], users: [] },
+              member: { allow: ["sendMessage"], users: [] },
+            },
+          },
           runner: {
             command: "codex",
             args: ["-C", "{workspace}"],

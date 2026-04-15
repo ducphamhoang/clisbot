@@ -176,7 +176,7 @@ describe("channels cli", () => {
     expect(output).toContain("Next steps:");
   });
 
-  test("updates route privilege commands", async () => {
+  test("rejects removed route privilege commands", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
     process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
@@ -190,47 +190,16 @@ describe("channels cli", () => {
       "42",
     ]);
 
-    await runChannelsCli([
-      "privilege",
-      "enable",
-      "telegram-group",
-      "-1001234567890",
-      "--topic",
-      "42",
-    ]);
-    await runChannelsCli([
-      "privilege",
-      "allow-user",
-      "telegram-group",
-      "-1001234567890",
-      "123456",
-      "--topic",
-      "42",
-    ]);
-
-    const rawConfig = JSON.parse(
-      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
-    ) as {
-      channels: {
-        telegram: {
-          groups: Record<string, {
-            topics?: Record<string, {
-              privilegeCommands?: {
-                enabled?: boolean;
-                allowUsers?: string[];
-              };
-            }>;
-          }>;
-        };
-      };
-    };
-
-    expect(
-      rawConfig.channels.telegram.groups["-1001234567890"]?.topics?.["42"]?.privilegeCommands,
-    ).toEqual({
-      enabled: true,
-      allowUsers: ["123456"],
-    });
+    await expect(
+      runChannelsCli([
+        "privilege",
+        "enable",
+        "telegram-group",
+        "-1001234567890",
+        "--topic",
+        "42",
+      ]),
+    ).rejects.toThrow("`clisbot channels privilege` has been removed.");
   });
 
   test("updates top-level channel responseMode", async () => {

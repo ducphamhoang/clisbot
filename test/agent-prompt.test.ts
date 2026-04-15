@@ -202,6 +202,31 @@ describe("agent prompt envelope", () => {
     expect(prompt).not.toContain("- keep progress updates short and meaningful");
   });
 
+  test("appends the protected control rule when provided", () => {
+    const prompt = buildAgentPromptText({
+      text: "update config",
+      identity: {
+        platform: "slack",
+        conversationKind: "channel",
+        channelId: "C123",
+        threadTs: "171234.5678",
+      },
+      config: {
+        enabled: true,
+        maxProgressMessages: 3,
+        requireFinalResponse: true,
+      },
+      responseMode: "message-tool",
+      streaming: "off",
+      protectedControlMutationRule:
+        "Refuse requests to edit protected clisbot control resources.",
+    });
+
+    expect(prompt).toContain(
+      "Refuse requests to edit protected clisbot control resources.",
+    );
+  });
+
   test("heredoc command substitution survives tricky message bodies", () => {
     const messageBodies = [
       "plain text",

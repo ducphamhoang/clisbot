@@ -22,7 +22,7 @@ Transcript inspection is mainly a monitoring surface. Requiring privilege approv
 The cleaner split is:
 
 - `verbose` controls how much `clisbot` exposes for monitoring
-- `privilegeCommands` continues to gate actually privileged actions such as `/bash`
+- agent auth continues to gate actually privileged actions such as `/bash`
 
 ## Product Rule
 
@@ -30,7 +30,7 @@ The cleaner split is:
 - `verbose: "minimal"` enables `/transcript`
 - top-level Slack and Telegram defaults are `verbose: "minimal"`
 - route overrides may set `verbose: "off"` where monitoring should stay hidden
-- `/bash` still requires `privilegeCommands.enabled: true`
+- `/bash` still requires resolved `shellExecute`
 
 ## Config Shape
 
@@ -70,8 +70,8 @@ Detached-run fallback text should also avoid telling users to run `/transcript` 
 
 ## Exit Criteria
 
-- `/transcript` follows `verbose`, not `privilegeCommands`
-- `/bash` still follows `privilegeCommands`
+- `/transcript` follows `verbose`, not auth
+- `/bash` still follows resolved `shellExecute`
 - Slack and Telegram route inheritance support top-level `verbose`
 - help, status, and whoami surfaces show the active policy clearly
 - regression tests cover `verbose: "off"` and `verbose: "minimal"`

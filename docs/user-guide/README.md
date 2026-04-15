@@ -231,10 +231,6 @@ Current subcommands:
 - `clisbot channels response-mode set <capture-pane|message-tool> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
 - `clisbot channels additional-message-mode status --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
 - `clisbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
-- `clisbot channels privilege enable <target>`
-- `clisbot channels privilege disable <target>`
-- `clisbot channels privilege allow-user <target> <userId>`
-- `clisbot channels privilege remove-user <target> <userId>`
 
 Important behavior:
 
@@ -251,10 +247,8 @@ Important behavior:
   - Telegram groups: negative chat id
   - Telegram topics: negative chat id plus `--topic <topicId>`
 - channel and topic response-mode overrides require the route to exist first
-- current shipped `channels privilege ...` commands still update route-level bash access in the runtime today
-- the planned auth model replaces that design with `app.auth` and `agents.<id>.auth`; see [Authorization And Roles](auth-and-roles.md) for the target direction
+- routed auth now lives in `app.auth` and `agents.<id>.auth`; see [Authorization And Roles](auth-and-roles.md)
 - transcript visibility is controlled separately by route-level `verbose`
-- direct-message privilege targets are literal command targets: `slack-dm` and `telegram-dm`
 - conversation-level busy-session tools are available on routed Slack and Telegram conversations:
   - `/queue <message>` or `\q <message>`
   - `/steer <message>` or `\s <message>`
@@ -323,7 +317,7 @@ Timezone config examples:
 - route `timezone` overrides `control.loop.defaultTimezone`
 - once a wall-clock loop is created, its effective timezone is persisted on that loop record
 - if the service is already running, restart it after changing channel enablement
-- `clisbot channels` and `clisbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and privilege commands
+- `clisbot channels` and `clisbot channels --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and routed auth docs
 
 ## Loops CLI
 

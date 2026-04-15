@@ -100,7 +100,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain('verbose: "minimal"');
   });
 
-  test("blocks bash commands when sensitive commands are disabled", async () => {
+  test("blocks bash commands when shell execution is not allowed", async () => {
     const posted: string[] = [];
     let bashCalls = 0;
 
@@ -136,9 +136,8 @@ describe("processChannelInteraction sensitive command gating", () => {
 
     expect(bashCalls).toBe(0);
     expect(posted).toHaveLength(1);
-    expect(posted[0]).toContain("Privilege commands are not allowed");
-    expect(posted[0]).toContain("clisbot channels privilege enable slack-channel C123");
-    expect(posted[0]).toContain("clisbot channels privilege allow-user slack-channel C123 U123");
+    expect(posted[0]).toContain("Shell execution is not allowed");
+    expect(posted[0]).toContain("grant `shellExecute`");
   });
 
   test("allows transcript requests when route verbose is minimal", async () => {
@@ -237,11 +236,14 @@ describe("processChannelInteraction sensitive command gating", () => {
       identity: createIdentity(),
       senderId: "U123",
       text: "$pwd",
+      auth: {
+        appRole: "member",
+        agentRole: "admin",
+        mayBypassPairing: false,
+        mayManageProtectedResources: false,
+        canUseShell: true,
+      },
       route: createRoute({
-        privilegeCommands: {
-          enabled: true,
-          allowUsers: [],
-        },
         commandPrefixes: {
           slash: ["::"],
           bash: ["$"],
@@ -259,7 +261,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("command: `pwd`");
   });
 
-  test("blocks privilege commands when allowUsers excludes the sender", async () => {
+  test("still blocks bash when legacy route privilege settings would have allowed it", async () => {
     const posted: string[] = [];
     let bashCalls = 0;
 
@@ -300,7 +302,7 @@ describe("processChannelInteraction sensitive command gating", () => {
 
     expect(bashCalls).toBe(0);
     expect(posted).toHaveLength(1);
-    expect(posted[0]).toContain("Privilege commands are not allowed");
+    expect(posted[0]).toContain("Shell execution is not allowed");
   });
 
   test("renders whoami for Slack routes", async () => {
@@ -332,6 +334,9 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("senderId: `U123`");
     expect(posted[0]).toContain("channelId: `C123`");
     expect(posted[0]).toContain("threadTs: `1.2`");
+    expect(posted[0]).toContain("appRole: `member`");
+    expect(posted[0]).toContain("agentRole: `member`");
+    expect(posted[0]).toContain("canUseShell: `false`");
     expect(posted[0]).toContain("verbose: `minimal`");
   });
 
@@ -369,10 +374,12 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("conversationKind: `topic`");
     expect(posted[0]).toContain("chatId: `-1001`");
     expect(posted[0]).toContain("topicId: `4`");
+    expect(posted[0]).toContain("appRole: `member`");
+    expect(posted[0]).toContain("agentRole: `member`");
     expect(posted[0]).toContain("verbose: `minimal`");
   });
 
-  test("renders status with operator privilege commands for routed conversations", async () => {
+  test("renders status with resolved auth details for routed conversations", async () => {
     const posted: string[] = [];
     const startedAt = 1_700_000_000_000;
     const detachedAt = 1_700_000_060_000;
@@ -410,11 +417,12 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("run.state: `detached`");
     expect(posted[0]).toContain(`run.startedAt: \`${new Date(startedAt).toISOString()}\``);
     expect(posted[0]).toContain(`run.detachedAt: \`${new Date(detachedAt).toISOString()}\``);
+    expect(posted[0]).toContain("appRole: `member`");
+    expect(posted[0]).toContain("agentRole: `member`");
+    expect(posted[0]).toContain("canUseShell: `false`");
     expect(posted[0]).toContain("/attach`, `/detach`, `/watch every 30s`");
     expect(posted[0]).toContain("/transcript` enabled on this route (`verbose: minimal`)");
-    expect(posted[0]).toContain("Operator commands:");
-    expect(posted[0]).toContain("clisbot channels privilege enable slack-channel C123");
-    expect(posted[0]).toContain("clisbot channels privilege allow-user slack-channel C123 U123");
+    expect(posted[0]).toContain("/bash` requires `shellExecute`");
   });
 
   test("shows persisted response mode for the current route", async () => {
@@ -749,6 +757,48 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("Updated additional message mode");
     expect(posted[0]).toContain("config.additionalMessageMode: `queue`");
   });
+
+  test("passes the protected control rule into created loops", async () => {
+    const posted: string[] = [];
+    let observedProtectedRule: string | undefined;
+
+    await processChannelInteraction({
+      agentService: {
+        getLoopConfig: () => ({
+          maxRunsPerLoop: 20,
+          maxActiveLoops: 10,
+          defaultTimezone: "UTC",
+        }),
+        createIntervalLoop: async (params: { protectedControlMutationRule?: string }) => {
+          observedProtectedRule = params.protectedControlMutationRule;
+          return {
+            id: "loop1",
+            maxRuns: 20,
+          };
+        },
+        listIntervalLoops: () => [],
+        getActiveIntervalLoopCount: () => 1,
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/loop 5m review the queue",
+      protectedControlMutationRule: "Refuse protected control changes.",
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(observedProtectedRule).toBe("Refuse protected control changes.");
+    expect(posted[0]).toContain("Started loop");
+  });
 });
 
 describe("processChannelInteraction detached long-running settlement", () => {
@@ -882,6 +932,48 @@ describe("processChannelInteraction agent prompt text", () => {
 
     expect(observedPrompt).toContain("use wrapper");
     expect(observedPrompt).toContain("<user>");
+  });
+
+  test("wraps explicit queue messages with the protected control rule when a builder is provided", async () => {
+    let observedPrompt = "";
+
+    await processChannelInteraction({
+      agentService: {
+        isAwaitingFollowUpRouting: async () => true,
+        enqueuePrompt: (_target: AgentSessionTarget, prompt: string) => {
+          observedPrompt = prompt;
+          return {
+            positionAhead: 0,
+            result: Promise.resolve({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "done",
+              fullSnapshot: "done",
+              initialSnapshot: "",
+            }),
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/queue update clisbot.json",
+      protectedControlMutationRule: "Refuse protected control changes.",
+      agentPromptBuilder: (text) => `<system>\nRefuse protected control changes.\n</system>\n\n<user>\n${text}\n</user>`,
+      route: createRoute({
+        responseMode: "message-tool",
+      }),
+      maxChars: 4000,
+      postText: async (text) => [text],
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(observedPrompt).toContain("Refuse protected control changes.");
+    expect(observedPrompt).toContain("<user>\nupdate clisbot.json\n</user>");
   });
 
   test("does not post a pane final settlement when message-tool mode has streaming off and no tool final arrives", async () => {
@@ -1240,6 +1332,7 @@ describe("processChannelInteraction agent prompt text", () => {
       identity: createIdentity(),
       senderId: "U123",
       text: "please focus on the regression first",
+      protectedControlMutationRule: "Refuse protected control changes.",
       route: createRoute({
         responseMode: "message-tool",
         additionalMessageMode: "steer",
@@ -1254,6 +1347,7 @@ describe("processChannelInteraction agent prompt text", () => {
 
     expect(submitted[0]).toContain("<system>");
     expect(submitted[0]).toContain("A new user message arrived while you were still working.");
+    expect(submitted[0]).toContain("Refuse protected control changes.");
     expect(submitted[0]).toContain("</system>");
     expect(submitted[0]).toContain("<user>");
     expect(submitted[0]).toContain("please focus on the regression first");

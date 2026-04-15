@@ -27,17 +27,14 @@ import {
   escapeCodeFence,
   resolveDetachedInteractionNote,
 } from "../shared/transcript.ts";
+import type { ResolvedChannelAuth } from "../auth/resolve.ts";
 import {
   buildRenderedMessageState,
   formatChannelFollowUpStatus,
   renderPlatformInteraction,
   type ChannelRenderedMessageState,
 } from "./rendering.ts";
-import {
-  canUsePrivilegeCommands,
-  type PrivilegeCommandsConfig,
-} from "./privilege-commands.ts";
-import { renderPrivilegeCommandHelpLines } from "./privilege-help.ts";
+import { type PrivilegeCommandsConfig } from "./privilege-commands.ts";
 import type { RunObserverMode, RunUpdate } from "../agents/run-observation.ts";
 import {
   getConversationResponseMode,
@@ -83,12 +80,10 @@ export type ProcessChannelInteractionResult = {
 const MESSAGE_TOOL_FINAL_GRACE_WINDOW_MS = 3_000;
 const MESSAGE_TOOL_FINAL_GRACE_POLL_MS = 100;
 
-function renderSensitiveCommandDisabledMessage(identity: ChannelInteractionIdentity) {
+function renderSensitiveCommandDisabledMessage() {
   return [
-    "Privilege commands are not allowed for this route or user.",
-    "Enable `privilegeCommands.enabled` on the route to allow bash commands. Use `privilegeCommands.allowUsers` to restrict access to specific user ids.",
-    "",
-    ...renderPrivilegeCommandHelpLines(identity),
+    "Shell execution is not allowed for your current role on this agent.",
+    "Ask an app or agent admin to grant `shellExecute` if this surface should allow `/bash`.",
   ].join("\n");
 }
 
@@ -102,6 +97,7 @@ function renderTranscriptDisabledMessage() {
 function renderWhoAmIMessage(params: {
   identity: ChannelInteractionIdentity;
   route: ChannelInteractionRoute;
+  auth: ResolvedChannelAuth;
   sessionTarget: AgentSessionTarget;
 }) {
   const lines = [
@@ -134,10 +130,12 @@ function renderWhoAmIMessage(params: {
   }
 
   lines.push(
-    `privilegeCommands.enabled: \`${params.route.privilegeCommands.enabled}\``,
-    `privilegeCommands.allowUsers: \`${
-      params.route.privilegeCommands.allowUsers.join(", ") || "(all users on route)"
-    }\``,
+    `principal: \`${params.auth.principal ?? "(none)"}\``,
+    `appRole: \`${params.auth.appRole}\``,
+    `agentRole: \`${params.auth.agentRole}\``,
+    `mayBypassPairing: \`${params.auth.mayBypassPairing}\``,
+    `mayManageProtectedResources: \`${params.auth.mayManageProtectedResources}\``,
+    `canUseShell: \`${params.auth.canUseShell}\``,
     `verbose: \`${params.route.verbose}\``,
   );
 
@@ -147,6 +145,7 @@ function renderWhoAmIMessage(params: {
 function renderRouteStatusMessage(params: {
   identity: ChannelInteractionIdentity;
   route: ChannelInteractionRoute;
+  auth: ResolvedChannelAuth;
   sessionTarget: AgentSessionTarget;
   followUpState: {
     overrideMode?: "auto" | "mention-only" | "paused";
@@ -193,14 +192,15 @@ function renderRouteStatusMessage(params: {
     `responseMode: \`${params.route.responseMode}\``,
     `additionalMessageMode: \`${params.route.additionalMessageMode}\``,
     `verbose: \`${params.route.verbose}\``,
+    `principal: \`${params.auth.principal ?? "(none)"}\``,
+    `appRole: \`${params.auth.appRole}\``,
+    `agentRole: \`${params.auth.agentRole}\``,
+    `mayManageProtectedResources: \`${params.auth.mayManageProtectedResources}\``,
+    `canUseShell: \`${params.auth.canUseShell}\``,
     `timezone: \`${params.route.timezone ?? "(inherit host/app)"}\``,
     `followUp.mode: \`${params.followUpState.overrideMode ?? params.route.followUp.mode}\``,
     `followUp.windowMinutes: \`${formatFollowUpTtlMinutes(params.route.followUp.participationTtlMs)}\``,
     `run.state: \`${params.runtimeState.state}\``,
-    `privilegeCommands.enabled: \`${params.route.privilegeCommands.enabled}\``,
-    `privilegeCommands.allowUsers: \`${
-      params.route.privilegeCommands.allowUsers.join(", ") || "(all users on route)"
-    }\``,
   );
 
   if (params.runtimeState.startedAt) {
@@ -242,10 +242,9 @@ function renderRouteStatusMessage(params: {
     params.route.verbose === "off"
       ? "- `/transcript` disabled on this route (`verbose: off`)"
       : "- `/transcript` enabled on this route (`verbose: minimal`)",
-    "- `/bash` requires privilege commands",
+    "- `/bash` requires `shellExecute`",
   );
 
-  lines.push("", ...renderPrivilegeCommandHelpLines(params.identity));
   return lines.join("\n");
 }
 
@@ -354,11 +353,18 @@ function buildChannelObserverId(identity: ChannelInteractionIdentity) {
   ].join(":");
 }
 
-function buildSteeringMessage(text: string) {
-  return [
-    "<system>",
+function buildSteeringMessage(text: string, protectedControlMutationRule?: string) {
+  const systemLines = [
     "A new user message arrived while you were still working.",
     "Adjust your current work if needed and continue.",
+  ];
+  if (protectedControlMutationRule) {
+    systemLines.push("", protectedControlMutationRule);
+  }
+
+  return [
+    "<system>",
+    ...systemLines,
     "</system>",
     "",
     "<user>",
@@ -950,10 +956,12 @@ export async function processChannelInteraction<TChunk>(params: {
   agentService: AgentService;
   sessionTarget: AgentSessionTarget;
   identity: ChannelInteractionIdentity;
+  auth?: ResolvedChannelAuth;
   senderId?: string;
   text: string;
   agentPromptText?: string;
   agentPromptBuilder?: (text: string) => string;
+  protectedControlMutationRule?: string;
   route: ChannelInteractionRoute;
   maxChars: number;
   postText: PostText<TChunk>;
@@ -966,6 +974,14 @@ export async function processChannelInteraction<TChunk>(params: {
   let responseChunks: TChunk[] = [];
   let renderedState: ChannelRenderedMessageState | undefined;
   const observerId = buildChannelObserverId(params.identity);
+  const auth = params.auth ?? {
+    principal: params.senderId ? `${params.identity.platform}:${params.senderId}` : undefined,
+    appRole: "member",
+    agentRole: "member",
+    mayBypassPairing: false,
+    mayManageProtectedResources: false,
+    canUseShell: false,
+  };
   let replyRecorded = false;
   let renderChain = Promise.resolve();
 
@@ -1043,17 +1059,15 @@ export async function processChannelInteraction<TChunk>(params: {
   const queueByMode = !explicitQueueMessage && params.route.additionalMessageMode === "queue" && sessionBusy;
   const forceQueuedDelivery = typeof explicitQueueMessage === "string" || queueByMode;
   const delayedPromptText =
-    explicitQueueMessage ?? params.agentPromptText ?? params.text;
+    explicitQueueMessage
+      ? params.agentPromptBuilder
+        ? params.agentPromptBuilder(explicitQueueMessage)
+        : explicitQueueMessage
+      : params.agentPromptText ?? params.text;
   const isSensitiveCommand = slashCommand?.type === "bash";
 
-  if (
-    isSensitiveCommand &&
-    !canUsePrivilegeCommands({
-      config: params.route.privilegeCommands,
-      userId: params.senderId,
-    })
-  ) {
-    await params.postText(renderSensitiveCommandDisabledMessage(params.identity));
+  if (isSensitiveCommand && !auth.canUseShell) {
+    await params.postText(renderSensitiveCommandDisabledMessage());
     await params.agentService.recordConversationReply(params.sessionTarget);
     return interactionResult;
   }
@@ -1070,6 +1084,7 @@ export async function processChannelInteraction<TChunk>(params: {
         renderRouteStatusMessage({
           identity: params.identity,
           route: params.route,
+          auth,
           sessionTarget: params.sessionTarget,
           followUpState,
           runtimeState,
@@ -1094,6 +1109,7 @@ export async function processChannelInteraction<TChunk>(params: {
         renderWhoAmIMessage({
           identity: params.identity,
           route: params.route,
+          auth,
           sessionTarget: params.sessionTarget,
         }),
       );
@@ -1484,6 +1500,7 @@ export async function processChannelInteraction<TChunk>(params: {
         timezone: effectiveTimezone,
         maxRuns: maxRunsPerLoop,
         createdBy: params.senderId,
+        protectedControlMutationRule: params.protectedControlMutationRule,
       });
       await params.postText(
         renderLoopStartedMessage({
@@ -1522,6 +1539,7 @@ export async function processChannelInteraction<TChunk>(params: {
       maxRuns: maxRunsPerLoop,
       createdBy: params.senderId,
       force: slashCommand.params.force,
+      protectedControlMutationRule: params.protectedControlMutationRule,
     });
     await params.postText(
       renderLoopStartedMessage({
@@ -1587,10 +1605,10 @@ export async function processChannelInteraction<TChunk>(params: {
       return interactionResult;
     }
 
-    await params.agentService.submitSessionInput(
-      params.sessionTarget,
-      buildSteeringMessage(explicitSteerMessage),
-    );
+      await params.agentService.submitSessionInput(
+        params.sessionTarget,
+        buildSteeringMessage(explicitSteerMessage, params.protectedControlMutationRule),
+      );
     await params.postText("Steered.");
     await params.agentService.recordConversationReply(params.sessionTarget);
     return {
@@ -1602,7 +1620,7 @@ export async function processChannelInteraction<TChunk>(params: {
     if (sessionBusy) {
       await params.agentService.submitSessionInput(
         params.sessionTarget,
-        buildSteeringMessage(params.text),
+        buildSteeringMessage(params.text, params.protectedControlMutationRule),
       );
       return {
         processingIndicatorLifecycle: "active-run",

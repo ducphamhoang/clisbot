@@ -12,7 +12,6 @@ This page is the canonical overview for operator CLI surfaces and a quick refere
 - Runtime dispatch: `src/main.ts`
 - Subcommand families:
   - `src/control/channels-cli.ts`
-  - `src/control/channel-privilege-cli.ts`
   - `src/control/accounts-cli.ts`
   - `src/control/loops-cli.ts`
   - `src/control/message-cli.ts`
@@ -62,7 +61,6 @@ If this page and runtime ever disagree, runtime wins.
 - `clisbot channels additional-message-mode set <queue|steer> --channel <slack|telegram> [--target <target>] [--topic <topicId>]`
 - `clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
 - `clisbot channels clear-token <slack-app|slack-bot|telegram-bot>`
-- `clisbot channels privilege <enable|disable|allow-user|remove-user> <target> ...`
 
 ## Accounts
 

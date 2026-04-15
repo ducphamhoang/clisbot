@@ -1,5 +1,10 @@
 import { normalizeEnvReference } from "../shared/env-references.ts";
 import {
+  APP_ADMIN_PERMISSIONS,
+  DEFAULT_AGENT_ADMIN_PERMISSIONS,
+  DEFAULT_AGENT_MEMBER_PERMISSIONS,
+} from "../auth/defaults.ts";
+import {
   collapseHomePath,
   getDefaultSessionStorePath,
   getDefaultTmuxSocketPath,
@@ -50,9 +55,42 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
         identityLinks: {},
         storePath: sessionStorePath,
       },
+      app: {
+        auth: {
+          ownerClaimWindowMinutes: 30,
+          defaultRole: "member",
+          roles: {
+            owner: {
+              allow: [...APP_ADMIN_PERMISSIONS],
+              users: [],
+            },
+            admin: {
+              allow: [...APP_ADMIN_PERMISSIONS],
+              users: [],
+            },
+            member: {
+              allow: [],
+              users: [],
+            },
+          },
+        },
+      },
       agents: {
         defaults: {
           workspace: workspaceTemplate,
+          auth: {
+            defaultRole: "member",
+            roles: {
+              admin: {
+                allow: [...DEFAULT_AGENT_ADMIN_PERMISSIONS],
+                users: [],
+              },
+              member: {
+                allow: [...DEFAULT_AGENT_MEMBER_PERMISSIONS],
+                users: [],
+              },
+            },
+          },
           runner: {
             command: "codex",
             args: [
@@ -169,10 +207,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           channelPolicy: "allowlist",
           groupPolicy: "allowlist",
           defaultAgentId: "default",
-          privilegeCommands: {
-            enabled: false,
-            allowUsers: [],
-          },
           commandPrefixes: {
             slash: ["::", "\\"],
             bash: ["!"],
@@ -194,10 +228,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             allowFrom: [],
             requireMention: false,
             agentId: "default",
-            privilegeCommands: {
-              enabled: false,
-              allowUsers: [],
-            },
           },
         },
         telegram: {
@@ -226,10 +256,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           allowBots: false,
           groupPolicy: "allowlist",
           defaultAgentId: "default",
-          privilegeCommands: {
-            enabled: false,
-            allowUsers: [],
-          },
           commandPrefixes: {
             slash: ["::", "\\"],
             bash: ["!"],
@@ -255,10 +281,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             requireMention: false,
             allowBots: false,
             agentId: "default",
-            privilegeCommands: {
-              enabled: false,
-              allowUsers: [],
-            },
           },
         },
       },

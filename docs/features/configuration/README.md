@@ -48,7 +48,7 @@ The system needs one explicit place to define:
 - runner session-id strategy such as `runner.sessionId.create`, `runner.sessionId.capture`, and `runner.sessionId.resume`
 - turn execution timers such as `stream.idleTimeoutMs`, `stream.noOutputTimeoutMs`, `stream.maxRuntimeMin`, and `stream.maxRuntimeSec`
 - stale cleanup loop policy such as `control.sessionCleanup.enabled` and `control.sessionCleanup.intervalMinutes`
-- persisted auth policy such as `app.auth`, `agents.<id>.auth`, and route-local privilege shape
+- persisted auth policy such as `app.auth` and `agents.<id>.auth`
 
 Without that, the implementation will drift into hidden defaults and hand-wired behavior.
 
@@ -172,30 +172,27 @@ Current Slack route defaults should stay explicit:
 - `directMessages.allowFrom: []`
 - `directMessages.requireMention: false`
 - `verbose: "minimal"`
-- `privilegeCommands.enabled: false`
-- `privilegeCommands.allowUsers: []`
 - `commandPrefixes.slash: ["::", "\\"]`
 - `commandPrefixes.bash: ["!"]`
 - channel and group routes default to `requireMention: true` unless a route overrides it
 - Telegram groups and topics added through the CLI also default to `requireMention: true`
 
-Planned auth-model transition:
+Current auth-model rule:
 
-- the current runtime still uses `privilegeCommands.enabled` plus `privilegeCommands.allowUsers`
-- the planned app-or-agent auth slice will migrate that route-local shape to `privilegeCommands.mode` plus `privilegeCommands.users`
-- the planned slice should reject the legacy keys with a clear rewrite error instead of keeping a compatibility layer
-- until that slice lands, this README section describes current behavior and the auth feature doc describes the target behavior
+- routed authorization is owned by `app.auth` and `agents.<id>.auth`
+- legacy `privilegeCommands` keys are no longer part of the supported config model
+- config loading should reject `privilegeCommands` instead of carrying a compatibility layer
 
 Current sensitive-command rule should stay explicit:
 
 - transcript inspection is controlled by route `verbose`
 - `verbose: "minimal"` allows `/transcript`
 - `verbose: "off"` blocks `/transcript`
-- bash execution is controlled separately by `privilegeCommands`
-- current privilege-gated commands are:
+- bash execution is controlled by resolved agent auth through `shellExecute`
+- current shell-gated commands are:
   - `/bash <command>`
   - configured bash shortcuts such as `!<command>`
-- observer commands such as `/attach`, `/detach`, and `/watch every <duration>` use the normal channel route and do not require `privilegeCommands.enabled`
+- observer commands such as `/attach`, `/detach`, and `/watch every <duration>` use the normal channel route and do not require `shellExecute`
 - transcript visibility is configured under:
   - `channels.slack.verbose`
   - `channels.slack.channels.<id>.verbose`
@@ -205,13 +202,6 @@ Current sensitive-command rule should stay explicit:
   - `channels.telegram.groups.<id>.verbose`
   - `channels.telegram.groups.<id>.topics.<topicId>.verbose`
   - `channels.telegram.directMessages.verbose`
-- route-level enablement is supported under:
-  - `channels.slack.channels.<id>.privilegeCommands`
-  - `channels.slack.groups.<id>.privilegeCommands`
-  - `channels.slack.directMessages.privilegeCommands`
-  - `channels.telegram.groups.<id>.privilegeCommands`
-  - `channels.telegram.groups.<id>.topics.<topicId>.privilegeCommands`
-  - `channels.telegram.directMessages.privilegeCommands`
 - command shortcut configuration is owned by:
   - `channels.slack.commandPrefixes`
   - `channels.telegram.commandPrefixes`
