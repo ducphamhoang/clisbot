@@ -50,6 +50,12 @@ import {
   addConfiguredReaction,
   removeConfiguredReaction,
 } from "./reactions.ts";
+import {
+  isSlackCommandLikeMessage,
+  renderSlackMentionRequiredMessage,
+  renderSlackRouteChoiceMessage,
+  sendSlackGuidanceOnce,
+} from "./feedback.ts";
 import { resolveSlackAttachmentPaths } from "./attachments.ts";
 import {
   getSlackMaxChars as getTransportSlackMaxChars,
@@ -403,6 +409,24 @@ export class SlackSocketService {
           directReplyToBot: isImplicitBotThreadReply(event, this.botUserId),
         }));
     if (requiresMention && !wasMentioned) {
+      if (
+        isSlackCommandLikeMessage({
+          text: event.text ?? "",
+          botUserId: this.botUserId,
+          botUsername: this.botLabel,
+          commandPrefixes: params.route.commandPrefixes,
+        })
+      ) {
+        try {
+          await postSlackText(this.app.client, {
+            channel: channelId,
+            threadTs,
+            text: renderSlackMentionRequiredMessage(this.botLabel),
+          });
+        } catch (error) {
+          console.error("slack mention guidance failed", error);
+        }
+      }
       debugSlackEvent("drop-require-mention", {
         eventId,
         channelId,
@@ -606,6 +630,27 @@ export class SlackSocketService {
     }
   }
 
+  private async maybeGuideUnroutedSlackEvent(params: {
+    eventId?: string;
+    channelId: string;
+    threadTs?: string;
+  }) {
+    return sendSlackGuidanceOnce({
+      eventId: params.eventId,
+      processedEventsStore: this.processedEventsStore,
+      send: async () => {
+        await postSlackText(this.app.client, {
+          channel: params.channelId,
+          threadTs: params.threadTs,
+          text: renderSlackRouteChoiceMessage({
+            channelId: params.channelId,
+            botLabel: this.botLabel,
+          }),
+        });
+      },
+    });
+  }
+
   private registerEvents() {
     this.app.event("app_mention", async ({ body, event }) => {
       const normalizedEvent = normalizeSlackMessageEvent(event as any);
@@ -621,6 +666,20 @@ export class SlackSocketService {
       );
       const route = resolvedRoute.route;
       if (!route) {
+        try {
+          await this.maybeGuideUnroutedSlackEvent({
+            eventId: body.event_id,
+            channelId: normalizedEvent.channel as string,
+            threadTs:
+              typeof normalizedEvent.thread_ts === "string"
+                ? normalizedEvent.thread_ts
+                : typeof normalizedEvent.ts === "string"
+                  ? normalizedEvent.ts
+                  : undefined,
+          });
+        } catch (error) {
+          console.error("slack unrouted guidance failed", error);
+        }
         debugSlackEvent("drop-no-route", {
           eventId: body.event_id,
           channel: normalizedEvent.channel,
@@ -654,6 +713,29 @@ export class SlackSocketService {
       const route = resolvedRoute.route;
 
       if (!route) {
+        const shouldGuide =
+          isSlackCommandLikeMessage({
+            text: normalizedEvent.text ?? "",
+            botUserId: this.botUserId,
+            botUsername: this.botLabel,
+            commandPrefixes: this.loadedConfig.raw.channels.slack.commandPrefixes,
+        });
+        if (shouldGuide) {
+          try {
+            await this.maybeGuideUnroutedSlackEvent({
+              eventId: body.event_id,
+              channelId: normalizedEvent.channel as string,
+              threadTs:
+                typeof normalizedEvent.thread_ts === "string"
+                  ? normalizedEvent.thread_ts
+                  : typeof normalizedEvent.ts === "string"
+                    ? normalizedEvent.ts
+                    : undefined,
+            });
+          } catch (error) {
+            console.error("slack unrouted guidance failed", error);
+          }
+        }
         debugSlackEvent("drop-no-route", {
           eventId: body.event_id,
           channel: normalizedEvent.channel,

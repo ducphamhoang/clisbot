@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
 import {
+  dismissTmuxTrustPromptIfPresent,
   submitTmuxSessionInput,
+  TmuxBootstrapSessionLostError,
   waitForTmuxSessionBootstrap,
 } from "../src/runners/tmux/session-handshake.ts";
 import { monitorTmuxRun } from "../src/runners/tmux/run-monitor.ts";
@@ -152,6 +154,98 @@ describe("tmux runner latency behavior", () => {
     });
     expect(enterCount).toBe(1);
     expect(captureCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test("waitForTmuxSessionBootstrap tolerates transient no-current-target races", async () => {
+    let captureCount = 0;
+    const fakeTmux = {
+      async capturePane() {
+        captureCount += 1;
+        if (captureCount === 1) {
+          throw new Error("tmux capture-pane failed with code 1: no current target");
+        }
+        return "READY";
+      },
+    } as unknown as TmuxClient;
+
+    const result = await waitForTmuxSessionBootstrap({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      captureLines: 80,
+      startupDelayMs: 500,
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      snapshot: "READY",
+    });
+  });
+
+  test("dismissTmuxTrustPromptIfPresent tolerates transient no-current-target races", async () => {
+    let captureCount = 0;
+    let enterCount = 0;
+    const fakeTmux = {
+      async capturePane() {
+        captureCount += 1;
+        if (captureCount === 1) {
+          return [
+            "Quick safety check:",
+            "❯ 1. Yes, I trust this folder",
+            "Enter to confirm · Esc to cancel",
+          ].join("\n");
+        }
+        if (captureCount === 2) {
+          throw new Error("tmux capture-pane failed with code 1: no current target");
+        }
+        return "READY";
+      },
+      async sendKey(_sessionName: string, key: string) {
+        if (key === "Enter") {
+          enterCount += 1;
+        }
+      },
+    } as unknown as TmuxClient;
+
+    await dismissTmuxTrustPromptIfPresent({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      captureLines: 80,
+      startupDelayMs: 500,
+    });
+
+    expect(enterCount).toBe(1);
+    expect(captureCount).toBeGreaterThanOrEqual(3);
+  });
+
+  test("dismissTmuxTrustPromptIfPresent throws when tmux server disappears", async () => {
+    let captureCount = 0;
+    const fakeTmux = {
+      async capturePane() {
+        captureCount += 1;
+        if (captureCount === 1) {
+          return [
+            "Quick safety check:",
+            "❯ 1. Yes, I trust this folder",
+            "Enter to confirm · Esc to cancel",
+          ].join("\n");
+        }
+        throw new Error(
+          "tmux capture-pane failed with code 1: error connecting to /tmp/clisbot.sock (No such file or directory)",
+        );
+      },
+      async sendKey() {
+        return;
+      },
+    } as unknown as TmuxClient;
+
+    await expect(
+      dismissTmuxTrustPromptIfPresent({
+        tmux: fakeTmux,
+        sessionName: "test-session",
+        captureLines: 80,
+        startupDelayMs: 500,
+      }),
+    ).rejects.toBeInstanceOf(TmuxBootstrapSessionLostError);
   });
 
   test("monitorTmuxRun polls quickly for the first visible output", async () => {

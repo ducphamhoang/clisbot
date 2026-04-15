@@ -13,6 +13,19 @@ const PASTE_SETTLE_MULTILINE_MAX_WAIT_MS = 800;
 const PASTE_SETTLE_SINGLE_LINE_MAX_WAIT_MS = 80;
 const SUBMIT_CONFIRM_POLL_INTERVAL_MS = 40;
 const SUBMIT_CONFIRM_MAX_WAIT_MS = 160;
+const TMUX_MISSING_TARGET_PATTERN = /(?:no current target|can't find pane|can't find window)/i;
+const TMUX_MISSING_SESSION_PATTERN = /(?:can't find session:|no server running on )/i;
+const TMUX_SERVER_UNAVAILABLE_PATTERN = /(?:No such file or directory|error connecting to|failed to connect to server)/i;
+
+export class TmuxBootstrapSessionLostError extends Error {
+  constructor(
+    readonly sessionName: string,
+    detail: string,
+  ) {
+    super(`tmux bootstrap lost session "${sessionName}": ${detail}`);
+    this.name = "TmuxBootstrapSessionLostError";
+  }
+}
 
 export type TmuxSessionBootstrapResult =
   | {
@@ -100,10 +113,21 @@ export async function captureTmuxSessionIdentity(params: {
 
   while (Date.now() < deadline) {
     await sleep(params.pollIntervalMs);
-    const snapshot = normalizePaneText(
-      await params.tmux.capturePane(params.sessionName, params.captureLines),
-    );
-    if (hasTrustPrompt(snapshot)) {
+    let snapshot = "";
+    try {
+      snapshot = normalizePaneText(
+        await params.tmux.capturePane(params.sessionName, params.captureLines),
+      );
+    } catch (error) {
+      if (isRetryableBootstrapTargetError(error)) {
+        continue;
+      }
+      if (isBootstrapSessionGoneError(error)) {
+        throw buildBootstrapSessionLostError(params.sessionName, error);
+      }
+      throw error;
+    }
+    if (tmuxPaneHasTrustPrompt(snapshot)) {
       await dismissTrustPrompt({
         tmux: params.tmux,
         sessionName: params.sessionName,
@@ -138,15 +162,27 @@ export async function dismissTmuxTrustPromptIfPresent(params: {
   const deadline = Date.now() + Math.max(TRUST_PROMPT_MAX_WAIT_MS, params.startupDelayMs);
 
   while (Date.now() <= deadline) {
-    const snapshot = normalizePaneText(
-      await params.tmux.capturePane(params.sessionName, params.captureLines),
-    );
+    let snapshot = "";
+    try {
+      snapshot = normalizePaneText(
+        await params.tmux.capturePane(params.sessionName, params.captureLines),
+      );
+    } catch (error) {
+      if (isRetryableBootstrapTargetError(error)) {
+        await sleep(TRUST_PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (isBootstrapSessionGoneError(error)) {
+        throw buildBootstrapSessionLostError(params.sessionName, error);
+      }
+      throw error;
+    }
     if (!snapshot) {
       await sleep(TRUST_PROMPT_POLL_INTERVAL_MS);
       continue;
     }
 
-    if (!hasTrustPrompt(snapshot)) {
+    if (!tmuxPaneHasTrustPrompt(snapshot)) {
       return;
     }
 
@@ -185,18 +221,18 @@ export async function waitForTmuxSessionBootstrap(params: {
         await params.tmux.capturePane(params.sessionName, params.captureLines),
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("can't find session:") || message.includes("no server running on ")) {
-        return {
-          status: "timeout",
-          snapshot: lastSnapshot,
-        };
+      if (isRetryableBootstrapTargetError(error)) {
+        await sleep(SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (isBootstrapSessionGoneError(error)) {
+        throw buildBootstrapSessionLostError(params.sessionName, error);
       }
       throw error;
     }
     if (snapshot) {
       lastSnapshot = snapshot;
-      if (params.trustWorkspace && hasTrustPrompt(snapshot)) {
+      if (params.trustWorkspace && tmuxPaneHasTrustPrompt(snapshot)) {
         await dismissTrustPrompt({
           tmux: params.tmux,
           sessionName: params.sessionName,
@@ -243,10 +279,21 @@ async function dismissTrustPrompt(params: {
   const deadline = Date.now() + TRUST_PROMPT_MAX_WAIT_MS;
   while (Date.now() <= deadline) {
     await sleep(TRUST_PROMPT_POLL_INTERVAL_MS);
-    const snapshot = normalizePaneText(
-      await params.tmux.capturePane(params.sessionName, params.captureLines),
-    );
-    if (!snapshot || hasTrustPrompt(snapshot)) {
+    let snapshot = "";
+    try {
+      snapshot = normalizePaneText(
+        await params.tmux.capturePane(params.sessionName, params.captureLines),
+      );
+    } catch (error) {
+      if (isRetryableBootstrapTargetError(error)) {
+        continue;
+      }
+      if (isBootstrapSessionGoneError(error)) {
+        throw buildBootstrapSessionLostError(params.sessionName, error);
+      }
+      throw error;
+    }
+    if (!snapshot || tmuxPaneHasTrustPrompt(snapshot)) {
       continue;
     }
 
@@ -322,6 +369,24 @@ function hasPaneStateChanged(left: TmuxPaneState, right: TmuxPaneState) {
   );
 }
 
+function isRetryableBootstrapTargetError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return TMUX_MISSING_TARGET_PATTERN.test(message);
+}
+
+function isBootstrapSessionGoneError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    TMUX_MISSING_SESSION_PATTERN.test(message) ||
+    TMUX_SERVER_UNAVAILABLE_PATTERN.test(message)
+  );
+}
+
+function buildBootstrapSessionLostError(sessionName: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return new TmuxBootstrapSessionLostError(sessionName, message);
+}
+
 function arePaneStatesEqual(left: TmuxPaneState, right: TmuxPaneState) {
   return (
     left.cursorX === right.cursorX &&
@@ -347,7 +412,7 @@ function looksLikeGeminiTrustPrompt(snapshot: string) {
   );
 }
 
-function hasTrustPrompt(snapshot: string) {
+export function tmuxPaneHasTrustPrompt(snapshot: string) {
   return (
     snapshot.includes("Do you trust the contents of this directory?") ||
     snapshot.includes("Press enter to continue") ||

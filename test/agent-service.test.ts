@@ -25,6 +25,8 @@ type FakeSession = {
   trustPromptOnCapture?: number;
   trustPromptVariant?: "codex" | "claude" | "gemini";
   ignoreNextEnter?: boolean;
+  noServerAfterTrustDismiss?: boolean;
+  failWithNoServerOnNextCapture?: boolean;
 };
 
 class FakeTmuxClient {
@@ -38,6 +40,7 @@ class FakeTmuxClient {
   private serverRunning = true;
   private nextTrustPromptCaptureCount: number | null = null;
   private nextTrustPromptVariant: "codex" | "claude" | "gemini" = "codex";
+  private nextNoServerAfterTrustDismiss = false;
   private ignoreNextEnterSessionNames = new Set<string>();
 
   markInvalidResumeSessionId(sessionId: string) {
@@ -66,6 +69,10 @@ class FakeTmuxClient {
   ) {
     this.nextTrustPromptCaptureCount = captureCount;
     this.nextTrustPromptVariant = variant;
+  }
+
+  setNoServerAfterTrustDismissOnNextSession() {
+    this.nextNoServerAfterTrustDismiss = true;
   }
 
   ignoreNextEnter(sessionName: string) {
@@ -111,9 +118,12 @@ class FakeTmuxClient {
         trustPromptOnCapture: this.nextTrustPromptCaptureCount ?? undefined,
         trustPromptVariant: this.nextTrustPromptVariant,
         ignoreNextEnter: this.ignoreNextEnterSessionNames.delete(params.sessionName),
+        noServerAfterTrustDismiss: this.nextNoServerAfterTrustDismiss,
+        failWithNoServerOnNextCapture: false,
       });
       this.nextTrustPromptCaptureCount = null;
       this.nextTrustPromptVariant = "codex";
+      this.nextNoServerAfterTrustDismiss = false;
       throw new Error(`duplicate session: ${params.sessionName}`);
     }
     if (
@@ -135,9 +145,12 @@ class FakeTmuxClient {
       trustPromptOnCapture: this.nextTrustPromptCaptureCount ?? undefined,
       trustPromptVariant: this.nextTrustPromptVariant,
       ignoreNextEnter: this.ignoreNextEnterSessionNames.delete(params.sessionName),
+      noServerAfterTrustDismiss: this.nextNoServerAfterTrustDismiss,
+      failWithNoServerOnNextCapture: false,
     });
     this.nextTrustPromptCaptureCount = null;
     this.nextTrustPromptVariant = "codex";
+    this.nextNoServerAfterTrustDismiss = false;
     this.serverRunning = true;
   }
 
@@ -162,6 +175,10 @@ class FakeTmuxClient {
       session.snapshot = `READY ${session.sessionId}`;
       session.cursorX = session.snapshot.length;
       session.cursorY = 0;
+      if (session.noServerAfterTrustDismiss) {
+        session.noServerAfterTrustDismiss = false;
+        session.failWithNoServerOnNextCapture = true;
+      }
       return;
     }
     if (session.ignoreNextEnter) {
@@ -198,6 +215,12 @@ class FakeTmuxClient {
     }
     if (this.noServerOnCaptureSessionIds.has(session.sessionId)) {
       this.noServerOnCaptureSessionIds.delete(session.sessionId);
+      this.sessions.clear();
+      this.serverRunning = false;
+      throw new Error("no server running on /tmp/clisbot.sock");
+    }
+    if (session.failWithNoServerOnNextCapture) {
+      session.failWithNoServerOnNextCapture = false;
       this.sessions.clear();
       this.serverRunning = false;
       throw new Error("no server running on /tmp/clisbot.sock");
@@ -586,7 +609,7 @@ describe("AgentService session identity", () => {
     }
   });
 
-  test("applies tmux server defaults before reusing an existing session", async () => {
+  test("reuses an existing tmux session without forcing another server-defaults preflight", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
@@ -647,7 +670,7 @@ describe("AgentService session identity", () => {
       }).result;
 
       expect(run.snapshot).toContain("PONG");
-      expect(fakeTmux.serverDefaultsEnsured).toBeGreaterThan(0);
+      expect(fakeTmux.serverDefaultsEnsured).toBe(0);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -1058,6 +1081,76 @@ describe("AgentService session identity", () => {
       expect(result.snapshot).not.toContain("Do you trust the files in this folder?");
       expect(result.snapshot).toContain(`PONG ${RUNNER_GENERATED_ID}`);
       expect(readSessionId(storePath, target.sessionKey)).toBe(RUNNER_GENERATED_ID);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("recreates the runner session when tmux dies while dismissing a trust prompt", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "gemini",
+            runnerArgs: ["--approval-mode=yolo", "--sandbox=false"],
+            trustWorkspace: true,
+            startupDelayMs: 100,
+            startupReadyPattern: "READY",
+            sessionId: {
+              create: {
+                mode: "explicit",
+                args: ["--session-id", "{sessionId}"],
+              },
+              capture: {
+                mode: "off",
+                statusCommand: "/status",
+                pattern: "[0-9a-fA-F-]{36}",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "off",
+                args: ["--resume", "{sessionId}", "--approval-mode=yolo", "--sandbox=false"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.setTrustPromptOnNextSessionCapture(0, "gemini");
+      fakeTmux.setNoServerAfterTrustDismissOnNextSession();
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:telegram:dm:99",
+      };
+
+      const result = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+
+      const storedSessionId = readSessionId(storePath, target.sessionKey);
+      expect(typeof storedSessionId).toBe("string");
+      expect(result.snapshot).toContain(`PONG ${storedSessionId ?? ""}`);
+      expect(fakeTmux.sessionCommands).toHaveLength(2);
+      expect(fakeTmux.sessionCommands[0]).toContain("--session-id");
+      expect(fakeTmux.sessionCommands[1]).toContain(`--session-id ${storedSessionId ?? ""}`);
+      expect(fakeTmux.sessionCommands[0]).not.toContain(`--session-id ${storedSessionId ?? ""}`);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
