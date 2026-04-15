@@ -892,7 +892,7 @@ async function executePromptDelivery<TChunk>(params: {
         observerId: params.observerId,
         timingContext: params.timingContext,
         onUpdate: async (update) => {
-          if (!paneManagedDelivery && !messageToolPreview) {
+          if (!update.forceVisible && !paneManagedDelivery && !messageToolPreview) {
             return;
           }
           if (update.status === "running" && !loggedFirstRunningUpdate) {
@@ -904,14 +904,18 @@ async function executePromptDelivery<TChunk>(params: {
           }
 
           await (renderChain = renderChain.then(async () => {
-            if (messageToolPreviewHandedOff && !paneManagedDelivery) {
+            if (messageToolPreviewHandedOff && !paneManagedDelivery && !update.forceVisible) {
               return;
             }
             let renderedQueueStart = false;
             if (update.status === "running") {
               renderedQueueStart = await maybeRenderQueueStartNotification();
             }
-            if (params.route.streaming === "off" && update.status === "running") {
+            if (
+              params.route.streaming === "off" &&
+              update.status === "running" &&
+              !update.forceVisible
+            ) {
               return;
             }
             if (renderedQueueStart) {

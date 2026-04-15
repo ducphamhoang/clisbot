@@ -27,6 +27,7 @@ type FakeSession = {
   ignoreNextEnter?: boolean;
   noServerAfterTrustDismiss?: boolean;
   failWithNoServerOnNextCapture?: boolean;
+  scriptedCaptureOutputs?: string[];
 };
 
 class FakeTmuxClient {
@@ -37,6 +38,7 @@ class FakeTmuxClient {
   private readonly disappearingOnCaptureSessionIds = new Set<string>();
   private readonly noServerOnCaptureSessionIds = new Set<string>();
   private readonly duplicateOnNewSession = new Set<string>();
+  private readonly resumeCaptureScripts = new Map<string, string[]>();
   private serverRunning = true;
   private nextTrustPromptCaptureCount: number | null = null;
   private nextTrustPromptVariant: "codex" | "claude" | "gemini" = "codex";
@@ -57,6 +59,10 @@ class FakeTmuxClient {
 
   markDuplicateOnNewSession(sessionName: string) {
     this.duplicateOnNewSession.add(sessionName);
+  }
+
+  setResumeCaptureScript(sessionId: string, outputs: string[]) {
+    this.resumeCaptureScripts.set(sessionId, [...outputs]);
   }
 
   setServerRunning(value: boolean) {
@@ -102,6 +108,13 @@ class FakeTmuxClient {
     command: string;
   }) {
     const sessionId = this.extractSessionId(params.command);
+    const resumedWithScript = params.command.includes("resume ") && this.resumeCaptureScripts.has(sessionId);
+    const scriptedCaptureOutputs = params.command.includes("resume ")
+      ? [...(this.resumeCaptureScripts.get(sessionId) ?? [])]
+      : undefined;
+    const initialSnapshot = resumedWithScript
+      ? `READY ${sessionId}\nRECOVER ${sessionId}`
+      : `READY ${sessionId}`;
     this.sessionCommands.push(params.command);
     if (this.duplicateOnNewSession.has(params.sessionName)) {
       this.duplicateOnNewSession.delete(params.sessionName);
@@ -109,8 +122,8 @@ class FakeTmuxClient {
         command: params.command,
         pendingInput: "",
         sessionId,
-        snapshot: `READY ${sessionId}`,
-        cursorX: `READY ${sessionId}`.length,
+        snapshot: initialSnapshot,
+        cursorX: initialSnapshot.length,
         cursorY: 0,
         historySize: 0,
         longRunning: false,
@@ -120,6 +133,7 @@ class FakeTmuxClient {
         ignoreNextEnter: this.ignoreNextEnterSessionNames.delete(params.sessionName),
         noServerAfterTrustDismiss: this.nextNoServerAfterTrustDismiss,
         failWithNoServerOnNextCapture: false,
+        scriptedCaptureOutputs,
       });
       this.nextTrustPromptCaptureCount = null;
       this.nextTrustPromptVariant = "codex";
@@ -136,8 +150,8 @@ class FakeTmuxClient {
       command: params.command,
       pendingInput: "",
       sessionId,
-      snapshot: `READY ${sessionId}`,
-      cursorX: `READY ${sessionId}`.length,
+      snapshot: initialSnapshot,
+      cursorX: initialSnapshot.length,
       cursorY: 0,
       historySize: 0,
       longRunning: false,
@@ -147,6 +161,7 @@ class FakeTmuxClient {
       ignoreNextEnter: this.ignoreNextEnterSessionNames.delete(params.sessionName),
       noServerAfterTrustDismiss: this.nextNoServerAfterTrustDismiss,
       failWithNoServerOnNextCapture: false,
+      scriptedCaptureOutputs,
     });
     this.nextTrustPromptCaptureCount = null;
     this.nextTrustPromptVariant = "codex";
@@ -197,6 +212,9 @@ class FakeTmuxClient {
       session.longRunning = true;
       session.longRunningStep = 0;
       session.snapshot = `${session.snapshot}\nSTEP 0 ${session.sessionId}`;
+    } else if (session.pendingInput === "recover-mid-run") {
+      this.disappearingOnCaptureSessionIds.add(session.sessionId);
+      session.snapshot = `${session.snapshot}\nRECOVER ${session.sessionId}`;
     } else if (session.pendingInput) {
       session.snapshot = `${session.snapshot}\nECHO ${session.pendingInput}`;
     }
@@ -256,6 +274,9 @@ class FakeTmuxClient {
     if (session.longRunning) {
       session.longRunningStep += 1;
       session.snapshot = `${session.snapshot}\nSTEP ${session.longRunningStep} ${session.sessionId}`;
+    }
+    if ((session.scriptedCaptureOutputs?.length ?? 0) > 0) {
+      session.snapshot = `${session.snapshot}\n${session.scriptedCaptureOutputs?.shift()}`;
     }
     return session.snapshot;
   }
@@ -470,6 +491,9 @@ describe("AgentService session identity", () => {
             workspaceTemplate: join(tempDir, "{agentId}"),
             runnerCommand: "fake-cli",
             runnerArgs: ["-C", "{workspace}"],
+            streamOverrides: {
+              noOutputTimeoutMs: 10_000,
+            },
             sessionId: {
               create: {
                 mode: "runner",
@@ -549,6 +573,9 @@ describe("AgentService session identity", () => {
             workspaceTemplate: join(tempDir, "{agentId}"),
             runnerCommand: "fake-cli",
             runnerArgs: ["-C", "{workspace}"],
+            streamOverrides: {
+              noOutputTimeoutMs: 10_000,
+            },
             sessionId: {
               create: {
                 mode: "explicit",
@@ -2290,7 +2317,7 @@ describe("AgentService session identity", () => {
     }
   });
 
-  test("surfaces a clean error when the tmux session disappears mid-prompt", async () => {
+  test("opens a fresh session when mid-prompt loss has no resumable context", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
     try {
@@ -2345,8 +2372,172 @@ describe("AgentService session identity", () => {
 
       expect(receivedError).toBeInstanceOf(Error);
       expect((receivedError as Error).message).toBe(
-        'Runner session "agent-default-telegram-group-1001-topic-4" disappeared while the prompt was running.',
+        "The previous runner session could not be resumed. clisbot opened a new fresh session, but did not replay your prompt because the prior conversation context is no longer guaranteed. Please resend the full prompt/context to continue.",
       );
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("reopens the same conversation context and preserves resumed output after mid-prompt loss", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: ["-C", "{workspace}"],
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.setResumeCaptureScript(RUNNER_GENERATED_ID, [
+        `RESUME BOOT ${RUNNER_GENERATED_ID}`,
+        `RESUME READY ${RUNNER_GENERATED_ID}`,
+        `RESUME SYNC ${RUNNER_GENERATED_ID}`,
+        `RESUMED ANSWER 1 ${RUNNER_GENERATED_ID}`,
+        `RESUMED ANSWER ${RUNNER_GENERATED_ID}`,
+      ]);
+      const updates: Array<{ note?: string; forceVisible?: boolean; snapshot: string }> = [];
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:telegram:group:-1001:topic:4",
+      };
+
+      const result = await service.enqueuePrompt(target, "recover-mid-run", {
+        onUpdate: (update) => {
+          updates.push({
+            note: update.note,
+            forceVisible: update.forceVisible,
+            snapshot: update.snapshot,
+          });
+        },
+      }).result;
+
+      expect(["completed", "timeout"]).toContain(result.status);
+      expect(result.snapshot).toContain(`RESUMED ANSWER 1 ${RUNNER_GENERATED_ID}`);
+      expect(fakeTmux.sessionCommands[1]).toContain(`resume ${RUNNER_GENERATED_ID}`);
+      expect(updates.some((update) => update.note?.includes("Attempting recovery 1/2"))).toBe(true);
+      expect(updates.some((update) => update.note?.includes("Recovery succeeded"))).toBe(true);
+      expect(
+        updates.some((update) =>
+          update.snapshot.includes(`RESUMED ANSWER 1 ${RUNNER_GENERATED_ID}`),
+        ),
+      ).toBe(true);
+      expect(updates.filter((update) => update.forceVisible).length).toBeGreaterThanOrEqual(2);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("opens a fresh session without replay when same-context recovery is unavailable", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: ["-C", "{workspace}"],
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.markInvalidResumeSessionId(RUNNER_GENERATED_ID);
+      const updates: Array<{ note?: string; forceVisible?: boolean }> = [];
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:telegram:group:-1001:topic:4",
+      };
+
+      const receivedError = await service.enqueuePrompt(target, "recover-mid-run", {
+        onUpdate: (update) => {
+          updates.push({
+            note: update.note,
+            forceVisible: update.forceVisible,
+          });
+        },
+      }).result.catch((error) => error);
+
+      expect(receivedError).toBeInstanceOf(Error);
+      expect((receivedError as Error).message).toBe(
+        "The previous runner session could not be resumed. clisbot opened a new fresh session, but did not replay your prompt because the prior conversation context is no longer guaranteed. Please resend the full prompt/context to continue.",
+      );
+      expect(fakeTmux.sessionCommands[1]).toContain(`resume ${RUNNER_GENERATED_ID}`);
+      expect(fakeTmux.sessionCommands[2]).not.toContain("resume");
+      expect(updates.some((update) => update.note?.includes("Opening a fresh runner session 2/2"))).toBe(true);
+      expect(updates.filter((update) => update.forceVisible).length).toBeGreaterThanOrEqual(2);
+
+      const nextRun = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+      expect(nextRun.status).toBe("completed");
+      expect(nextRun.snapshot).toContain(`PONG ${RUNNER_GENERATED_ID}`);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

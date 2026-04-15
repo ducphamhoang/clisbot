@@ -123,24 +123,25 @@ Relevant code:
 - `src/agents/session-store.ts`
 - `src/shared/fs.ts`
 
-### 6. In-flight runner-session loss still recovers too weakly and degrades too abruptly
+### 6. In-flight runner-session loss now has bounded recovery, but terminal rendering still needs cleanup
 
-Current request-time recovery is asymmetric.
+The mid-prompt recovery gap is no longer the old asymmetric failure path.
 
-- startup and pre-prompt session loss already have recovery helpers in `RunnerService`
-- but once a prompt is already running, `SessionService.startRunMonitor()` maps the error and terminally fails the run immediately
-- there is no bounded retry budget for:
-  - reopening the runner with the same stored `sessionId`
-  - replaying the same prompt text
-  - continuing the same runner conversation when the backend supports resume
-- channel-facing error rendering also adds noise today:
+- startup and pre-prompt session loss still recover in `RunnerService`
+- mid-prompt tmux session loss now follows a bounded two-step flow:
+  - first try reopening the same conversation context with the stored `sessionId`
+  - if same-context recovery is unavailable or fails, open a fresh session without replaying the old prompt
+  - fail the current run truthfully and tell the user to resend the full prompt or context
+- recovery notes are now forced visible in-channel even when route `streaming` is `off`
+- channel-facing error rendering still adds noise today:
   - Slack appends `_Error._`
   - Telegram appends `Error.`
   even when the real error message is already complete
 
 Practical consequence:
 
-- a transient tmux or runner-session drop mid-prompt still looks like a hard user-visible failure instead of a self-healed blip
+- a transient tmux or runner-session drop mid-prompt can now self-heal when same-context reopen succeeds
+- if only a fresh session can be opened, the current run still fails truthfully instead of pretending the old context survived
 - the final message is noisier than it should be and can look sloppy or misleading
 
 Resilience requirement:
@@ -219,16 +220,110 @@ The current P0 slice is now implemented:
 - periodic session cleanup no longer leaves an unhandled rejection path behind
 - channel runtime services now have a supervisor-owned lifecycle callback for post-start health updates
 - Telegram polling conflict after startup now reports a failed channel state instead of silently stopping while the pid stays alive
+- mid-prompt runner-session loss now attempts same-context recovery first, then opens a fresh session without prompt replay if context continuity is gone
+- recovery-step notes for that path now render even when channel `streaming` is `off`
 
 Still open after this slice:
 
 - service-grade hardening for runtime-owned state files such as atomic writes and corruption-tolerant reads
 - broader post-start lifecycle reporting beyond the Telegram failure path
-- bounded recovery for runner session loss while a prompt is already running
 - cleaner terminal rendering for already-complete error bodies
 - startup containment at channel or account boundary instead of runtime-wide abort
 - account- or service-granular runtime health instead of channel-only health
 - a clearer process-level resilience strategy beyond mark-failed-and-exit
+
+## Current Restart And Backoff Behavior
+
+Current restart and retry behavior exists in multiple layers, but it is still fragmented rather than governed by one explicit resilience policy.
+
+### 1. Process-level restart
+
+- `serveForeground()` handles `uncaughtException` and `unhandledRejection`
+- the current fatal path marks health as failed, stops the supervisor, and exits
+- there is no in-app process auto-restart policy today
+
+Practical consequence:
+
+- without an external supervisor, a fatal process exit still needs operator restart
+- any stronger process restart behavior today must come from external supervision such as systemd, launchd, or a future app-owned monitor
+
+That means process restart is still outside the current app-owned resilience contract.
+
+### 2. Telegram polling retry and backoff
+
+Telegram currently has two distinct retry paths plus one request-level rate-limit retry path.
+
+Startup handoff conflict:
+
+- `retryTelegramPollingConflict(...)` retries Telegram `getUpdates` conflict `409` during startup handoff
+- it uses fixed delay from `channels.telegram.polling.retryDelayMs`
+- the default config value is `1000ms`
+- it stops retrying after `TELEGRAM_STARTUP_CONFLICT_MAX_WAIT_MS = 6000`
+
+Runtime polling loop:
+
+- normal polling errors in `TelegramPollingService.pollLoop()` use fixed-delay retry with `retryDelayMs`
+- this is not exponential backoff
+- post-start `409` polling conflict still marks the Telegram channel failed and stops polling instead of self-restarting the Telegram service in place
+
+Telegram API request rate limits:
+
+- `callTelegramApi(...)` reads Telegram `retry_after`
+- it retries request-level `429` failures up to `2` times
+- this is per-request retry behavior, not process restart or service restart
+
+### 3. Runner and session retry
+
+Runner recovery exists, but it is intentionally narrow and bounded.
+
+Startup and pre-prompt recovery:
+
+- `RunnerService` can retry a recoverable startup session loss by clearing the stored session id and opening a fresh runner session
+- this is a bounded retry, not an open-ended loop
+
+Ready-state verification:
+
+- `SESSION_READY_CAPTURE_RETRY_COUNT = 5`
+- this retries short tmux readiness races while a session is being verified
+
+Mid-prompt recovery:
+
+- current recovery first tries reopening the same conversation context using the stored `sessionId`
+- if same-context reopen is unavailable or fails, it opens a fresh session without replaying the old prompt
+- this is bounded recovery, but it is not yet governed by a broader runtime-wide restart or backoff strategy
+
+### 4. Observer-delivery retry
+
+Channel observer delivery has its own bounded retry rule.
+
+- `OBSERVER_RETRYABLE_FAILURE_LIMIT = 3`
+- retryable observer delivery errors keep the observer attached for later updates
+- non-retryable errors or exhausted retry budget detach that observer
+
+This protects run supervision from one flaky observer, but it is observer retry only, not run restart or process restart.
+
+### 5. Current gap summary
+
+The current system therefore has retry logic, but mostly as local point fixes:
+
+- external supervision provides the strongest process restart behavior today
+- Telegram uses fixed-delay retry rather than an explicit exponential backoff policy
+- runners use bounded recovery for specific startup and mid-run session-loss cases
+- observers use a separate retry budget for delivery failures
+
+What is still missing:
+
+- one explicit restart and backoff policy across process, channel, account, runner, request, and observer boundaries
+- account- or service-level restart ownership after post-start channel failure
+- a documented rule for when fixed delay is acceptable vs when exponential backoff or jitter is required
+- separate budgets and telemetry for process restart, channel restart, request retry, and observer retry
+- a self-heal path for post-start Telegram polling conflict instead of fail-and-stop
+
+Current conclusion:
+
+- `clisbot` now has several bounded retry mechanisms
+- but it still does not have one mature, unified restart or backoff orchestration model
+- that gap should be called out explicitly as a remaining resilience issue, not treated as solved because isolated retries already exist
 
 ## Subtasks
 
@@ -245,6 +340,9 @@ Still open after this slice:
 - [ ] clean up terminal error rendering so completed error bodies do not get a trailing generic `Error.` or `_Error._`
 - [ ] contain startup failures at the smallest owner boundary that can be isolated, so one broken account does not abort healthy channel services by default
 - [ ] split runtime health truth to the real runtime ownership level, at least account-level for multi-account channels
+- [ ] define one explicit restart and backoff policy across process, channel, account, runner, request, and observer layers
+- [ ] decide where fixed delay is acceptable and where exponential backoff or jitter is required
+- [ ] add account- or service-level restart ownership for post-start channel failures instead of only fail-and-stop
 - [ ] define process-level fatal handling policy as an explicit resilience contract:
   - when in-place recovery is allowed
   - when runtime should quarantine one owner boundary
@@ -337,22 +435,20 @@ Use this as the current fix-order checklist.
 ### 3. In-flight runner-session recovery
 
 - Issue:
-  a mid-prompt runner-session drop still becomes a terminal failure too quickly
+  terminal copy and follow-up cleanup for the new mid-prompt recovery path are still incomplete
 - Root cause:
-  monitor failure path maps the error and settles the run without bounded same-session recovery
+  the recovery flow is now present, but the final renderer and remaining status copy still lag behind the newer contract
 - Desired behavior:
-  bounded retry, same stored `sessionId`, same prompt replay, explicit failure only after retries are exhausted
+  keep the new bounded recovery flow, but clean up the terminal error copy and any remaining wording drift
 - Owner:
   `SessionService` plus `RunnerService`
 - Affected files:
   - `src/agents/session-service.ts`
   - `src/agents/runner-service.ts`
   - `src/shared/transcript-rendering.ts`
-  - `src/config/schema.ts`
-  - `src/config/template.ts`
 - Tests needed:
-  - successful retry after one disappearance
-  - exhaustion after configured retry budget
+  - successful same-context recovery after one disappearance
+  - fresh-session fallback without prompt replay
   - clean error rendering
 
 ### 4. Startup containment by account or service boundary

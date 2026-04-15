@@ -30,6 +30,7 @@ export type RunUpdate = {
   fullSnapshot: string;
   initialSnapshot: string;
   note?: string;
+  forceVisible?: boolean;
 };
 
 export type RunObserver = {

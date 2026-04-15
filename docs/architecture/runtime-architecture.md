@@ -14,6 +14,22 @@ This document covers:
 - runners
 - configuration as the runtime control plane
 
+## Current Runtime Owner Map
+
+The current runtime naming should stay explicit:
+
+- `AgentService` is the thin facade that wires the runtime together
+- `SessionService` is the session-owned runtime owner inside `agents`
+- `RunnerService` is the backend-owned runtime owner behind that session owner
+
+Ownership intent:
+
+- `AgentService` coordinates entrypoints and shared dependencies, but should not grow into a second orchestration owner
+- `SessionService` owns session continuity, admission, active-run truth, persisted run recovery, and observer-facing execution state
+- `RunnerService` owns backend readiness, backend session bootstrap or resume, input submission, snapshot capture, normalized streaming, and backend-specific recovery
+
+The old names `ActiveRunManager` and `RunnerSessionService` are no longer part of the architecture vocabulary.
+
 ## Agents Rule
 
 The agents layer is backend-agnostic.
@@ -33,6 +49,8 @@ It owns:
 
 The agents layer must not depend on tmux-specific terms such as panes, send-keys, or socket-level commands.
 
+In the current codebase, `SessionService` is the main runtime owner that enforces this boundary for active session execution.
+
 ## Runner Rule
 
 Runners are backend-specific.
@@ -50,6 +68,8 @@ Runners also own backend-specific session-id mechanics:
 - create a tool-native session id when the backend requires runner-side creation
 - capture a tool-native session id from backend output when the backend creates it
 - resume or relaunch using that stored session id when supported
+
+In the current codebase, `RunnerService` is the concrete owner of that backend-specific runtime boundary.
 
 ## Standard Runner Contract
 
@@ -128,3 +148,7 @@ Runtime tests should verify:
 - runner contract behavior
 - backend-specific quirks staying inside runners
 - configuration selecting the correct runtime behavior
+- current owner boundaries staying truthful:
+  - `AgentService` remains a thin facade
+  - `SessionService` remains the session-owned runtime owner
+  - `RunnerService` remains the backend-owned runtime owner

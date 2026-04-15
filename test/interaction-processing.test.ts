@@ -78,6 +78,152 @@ function createTelegramTopicTarget(): AgentSessionTarget {
 }
 
 describe("processChannelInteraction sensitive command gating", () => {
+  test("renders force-visible running updates even when message-tool streaming is off", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        enqueuePrompt: (_target: AgentSessionTarget, _promptText: string, params: any) => {
+          const updatePromise = params.onUpdate({
+            status: "running",
+            agentId: "default",
+            sessionKey: createTarget().sessionKey,
+            sessionName: "session",
+            workspacePath: "/tmp/workspace",
+            snapshot: "",
+            fullSnapshot: "",
+            initialSnapshot: "",
+            note: "Recovery succeeded. Continuing the current run.",
+            forceVisible: true,
+          });
+          return {
+            positionAhead: 0,
+            result: Promise.resolve(updatePromise).then(() => ({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "",
+              fullSnapshot: "",
+              initialSnapshot: "",
+            })),
+          };
+        },
+        recordConversationReply: async () => undefined,
+        getConversationFollowUpState: async () => ({}),
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "continue",
+      route: createRoute({
+        responseMode: "message-tool",
+        streaming: "off",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toContain("Recovery succeeded. Continuing the current run.");
+  });
+
+  test("renders force-visible running updates even after message-tool preview handoff", async () => {
+    const posted: string[] = [];
+    const reconciled: string[] = [];
+    let runtimeChecks = 0;
+
+    await processChannelInteraction({
+      agentService: {
+        enqueuePrompt: (_target: AgentSessionTarget, _promptText: string, params: any) => {
+          const result = (async () => {
+            await params.onUpdate({
+              status: "running",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "preview output",
+              fullSnapshot: "preview output",
+              initialSnapshot: "",
+            });
+            await params.onUpdate({
+              status: "running",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "post-boundary output",
+              fullSnapshot: "post-boundary output",
+              initialSnapshot: "",
+            });
+            await params.onUpdate({
+              status: "running",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "",
+              fullSnapshot: "post-boundary output",
+              initialSnapshot: "",
+              note: "Recovery succeeded. Continuing the current run.",
+              forceVisible: true,
+            });
+            return {
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "",
+              fullSnapshot: "post-boundary output",
+              initialSnapshot: "",
+            };
+          })();
+          return {
+            positionAhead: 0,
+            result,
+          };
+        },
+        getSessionRuntime: async () => {
+          runtimeChecks += 1;
+          return runtimeChecks >= 2
+            ? { lastMessageToolReplyAt: Date.now(), messageToolFinalReplyAt: undefined }
+            : {};
+        },
+        recordConversationReply: async () => undefined,
+        getConversationFollowUpState: async () => ({}),
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "continue",
+      route: createRoute({
+        responseMode: "message-tool",
+        streaming: "all",
+      }),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => {
+        reconciled.push(text);
+        return [text];
+      },
+    });
+
+    expect(posted[0]).toContain("Working");
+    expect(reconciled.some((text) => text.includes("preview output"))).toBe(true);
+    expect(reconciled).toContain("");
+    expect(reconciled[reconciled.length - 1]).toContain("Recovery succeeded. Continuing the current run.");
+  });
+
   test("blocks transcript requests when route verbose is off", async () => {
     const posted: string[] = [];
     let transcriptCalls = 0;

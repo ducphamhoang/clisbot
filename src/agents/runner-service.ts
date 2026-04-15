@@ -542,6 +542,26 @@ export class RunnerService {
     }
   }
 
+  canRecoverMidRun(error: unknown) {
+    return isRecoverableStartupSessionLoss(error);
+  }
+
+  async reopenRunContext(target: AgentSessionTarget, timingContext?: LatencyDebugContext) {
+    const resolved = this.resolveTarget(target);
+    const existing = await this.sessionState.getEntry(resolved.sessionKey);
+    if (!existing?.sessionId || resolved.runner.sessionId.resume.mode !== "command") {
+      throw new Error(`Runner session "${resolved.sessionName}" cannot reopen the same conversation context.`);
+    }
+    return this.ensureRunnerReady(target, { allowFreshRetryBeforePrompt: false, timingContext });
+  }
+
+  async startFreshSession(target: AgentSessionTarget, timingContext?: LatencyDebugContext) {
+    const resolved = this.resolveTarget(target);
+    await this.tmux.killSession(resolved.sessionName).catch(() => undefined);
+    await this.sessionState.clearSessionIdEntry(resolved, { runnerCommand: resolved.runner.command });
+    return this.ensureSessionReady(target, { allowFreshRetry: false, timingContext });
+  }
+
   async captureTranscript(target: AgentSessionTarget) {
     const resolved = this.resolveTarget(target);
     if (!(await this.tmux.hasSession(resolved.sessionName))) {
