@@ -263,7 +263,7 @@ async function addSlackRoute(kind: "channel" | "group", args: string[]) {
 
   const { config, configPath } = await readEditableConfig(getEditableConfigPath());
   const agentId = getAgentId(args);
-  const requireMention = parseBooleanOption(args, "--require-mention", false);
+  const requireMention = parseBooleanOption(args, "--require-mention", true);
   const target = kind === "channel"
     ? config.channels.slack.channels
     : config.channels.slack.groups;

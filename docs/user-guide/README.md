@@ -264,7 +264,7 @@ Important behavior:
 - `set-token` and `clear-token` update the existing channel token fields in config without changing env names elsewhere
 - `enable` and `disable` do not inject routes, group mappings, or topic mappings
 - `add telegram-group` defaults to `requireMention: true`
-- `add slack-channel` and `add slack-group` default to `requireMention: false`
+- `add slack-channel` and `add slack-group` default to `requireMention: true`
 - `channels response-mode` uses message-style addressing:
   - Slack targets: `channel:<id>`, `group:<id>`, `dm:<id>`
   - Telegram direct messages: positive chat id

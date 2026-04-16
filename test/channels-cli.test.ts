@@ -94,7 +94,7 @@ describe("channels cli", () => {
     });
   });
 
-  test("adds slack channel routes with requireMention disabled by default", async () => {
+  test("adds slack channel routes with requireMention enabled by default", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
     process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
@@ -106,6 +106,38 @@ describe("channels cli", () => {
       "C1234567890",
       "--agent",
       "default",
+    ]);
+
+    const rawConfig = JSON.parse(
+      readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"),
+    ) as {
+      channels: {
+        slack: {
+          channels: Record<string, { agentId?: string; requireMention?: boolean }>;
+        };
+      };
+    };
+
+    expect(rawConfig.channels.slack.channels.C1234567890).toEqual({
+      agentId: "default",
+      requireMention: true,
+    });
+  });
+
+  test("allows slack channel routes to explicitly disable requireMention", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channels-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    console.log = (() => {}) as typeof console.log;
+
+    await runChannelsCli([
+      "add",
+      "slack-channel",
+      "C1234567890",
+      "--agent",
+      "default",
+      "--require-mention",
+      "false",
     ]);
 
     const rawConfig = JSON.parse(
