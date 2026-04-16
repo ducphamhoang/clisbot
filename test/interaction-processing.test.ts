@@ -473,6 +473,11 @@ describe("processChannelInteraction sensitive command gating", () => {
 
     await processChannelInteraction({
       agentService: {
+        getSessionDiagnostics: async () => ({
+          sessionId: "11111111-1111-1111-1111-111111111111",
+          resumeCommand:
+            "codex resume 11111111-1111-1111-1111-111111111111 --dangerously-bypass-approvals-and-sandbox --no-alt-screen",
+        }),
         recordConversationReply: async () => {
           replyCalls += 1;
         },
@@ -496,6 +501,10 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("senderId: `U123`");
     expect(posted[0]).toContain("channelId: `C123`");
     expect(posted[0]).toContain("threadTs: `1.2`");
+    expect(posted[0]).toContain("storedSessionId: `11111111-1111-1111-1111-111111111111`");
+    expect(posted[0]).toContain(
+      "resumeCommand: `codex resume 11111111-1111-1111-1111-111111111111 --dangerously-bypass-approvals-and-sandbox --no-alt-screen`",
+    );
     expect(posted[0]).toContain("principal: `slack:U123`");
     expect(posted[0]).toContain("principalFormat: `slack:<nativeUserId>`");
     expect(posted[0]).toContain("principalExample: `slack:U123`");
@@ -510,6 +519,11 @@ describe("processChannelInteraction sensitive command gating", () => {
 
     await processChannelInteraction({
       agentService: {
+        getSessionDiagnostics: async () => ({
+          sessionId: "22222222-2222-2222-2222-222222222222",
+          resumeCommand:
+            "codex resume 22222222-2222-2222-2222-222222222222 --dangerously-bypass-approvals-and-sandbox --no-alt-screen",
+        }),
         recordConversationReply: async () => undefined,
       } as any,
       sessionTarget: {
@@ -539,6 +553,10 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("conversationKind: `topic`");
     expect(posted[0]).toContain("chatId: `-1001`");
     expect(posted[0]).toContain("topicId: `4`");
+    expect(posted[0]).toContain("storedSessionId: `22222222-2222-2222-2222-222222222222`");
+    expect(posted[0]).toContain(
+      "resumeCommand: `codex resume 22222222-2222-2222-2222-222222222222 --dangerously-bypass-approvals-and-sandbox --no-alt-screen`",
+    );
     expect(posted[0]).toContain("principal: `telegram:123`");
     expect(posted[0]).toContain("principalFormat: `telegram:<nativeUserId>`");
     expect(posted[0]).toContain("principalExample: `telegram:123`");
@@ -556,6 +574,11 @@ describe("processChannelInteraction sensitive command gating", () => {
       agentService: {
         getConversationFollowUpState: async () => ({
           lastBotReplyAt: Date.now(),
+        }),
+        getSessionDiagnostics: async () => ({
+          sessionId: "33333333-3333-3333-3333-333333333333",
+          resumeCommand:
+            "codex resume 33333333-3333-3333-3333-333333333333 --dangerously-bypass-approvals-and-sandbox --no-alt-screen",
         }),
         getSessionRuntime: async () => ({
           state: "detached",
@@ -579,6 +602,10 @@ describe("processChannelInteraction sensitive command gating", () => {
 
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("clisbot status");
+    expect(posted[0]).toContain("storedSessionId: `33333333-3333-3333-3333-333333333333`");
+    expect(posted[0]).toContain(
+      "resumeCommand: `codex resume 33333333-3333-3333-3333-333333333333 --dangerously-bypass-approvals-and-sandbox --no-alt-screen`",
+    );
     expect(posted[0]).toContain("responseMode: `capture-pane`");
     expect(posted[0]).toContain("additionalMessageMode: `steer`");
     expect(posted[0]).toContain("verbose: `minimal`");

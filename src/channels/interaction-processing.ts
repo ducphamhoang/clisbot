@@ -2,6 +2,7 @@ import {
   ActiveRunInProgressError,
   AgentService,
   type AgentSessionTarget,
+  type SessionDiagnostics,
 } from "../agents/agent-service.ts";
 import { ClearedQueuedTaskError } from "../agents/job-queue.ts";
 import {
@@ -132,6 +133,7 @@ function renderWhoAmIMessage(params: {
   route: ChannelInteractionRoute;
   auth: ResolvedChannelAuth;
   sessionTarget: AgentSessionTarget;
+  sessionDiagnostics: SessionDiagnostics;
 }) {
   const lines = [
     "Who am I",
@@ -140,6 +142,7 @@ function renderWhoAmIMessage(params: {
     `conversationKind: \`${params.identity.conversationKind}\``,
     `agentId: \`${params.route.agentId}\``,
     `sessionKey: \`${params.sessionTarget.sessionKey}\``,
+    `storedSessionId: \`${params.sessionDiagnostics.sessionId ?? "(not captured yet)"}\``,
   ];
 
   if (params.identity.senderId) {
@@ -163,6 +166,7 @@ function renderWhoAmIMessage(params: {
   }
 
   lines.push(
+    `resumeCommand: \`${params.sessionDiagnostics.resumeCommand ?? "(not available yet)"}\``,
     `principal: \`${params.auth.principal ?? "(none)"}\``,
     `principalFormat: \`${renderPrincipalFormat(params.identity)}\``,
     `principalExample: \`${renderPrincipalExample(params.identity)}\``,
@@ -182,6 +186,7 @@ function renderRouteStatusMessage(params: {
   route: ChannelInteractionRoute;
   auth: ResolvedChannelAuth;
   sessionTarget: AgentSessionTarget;
+  sessionDiagnostics: SessionDiagnostics;
   followUpState: {
     overrideMode?: "auto" | "mention-only" | "paused";
     lastBotReplyAt?: number;
@@ -203,6 +208,7 @@ function renderRouteStatusMessage(params: {
     `conversationKind: \`${params.identity.conversationKind}\``,
     `agentId: \`${params.route.agentId}\``,
     `sessionKey: \`${params.sessionTarget.sessionKey}\``,
+    `storedSessionId: \`${params.sessionDiagnostics.sessionId ?? "(not captured yet)"}\``,
   ];
 
   if (params.identity.senderId) {
@@ -222,6 +228,7 @@ function renderRouteStatusMessage(params: {
   }
 
   lines.push(
+    `resumeCommand: \`${params.sessionDiagnostics.resumeCommand ?? "(not available yet)"}\``,
     `principal: \`${params.auth.principal ?? "(none)"}\``,
     `principalFormat: \`${renderPrincipalFormat(params.identity)}\``,
     `principalExample: \`${renderPrincipalExample(params.identity)}\``,
@@ -1169,6 +1176,8 @@ export async function processChannelInteraction<TChunk>(params: {
   };
   let replyRecorded = false;
   let renderChain = Promise.resolve();
+  const sessionDiagnostics =
+    await params.agentService.getSessionDiagnostics?.(params.sessionTarget) ?? {};
 
   async function recordReplyIfNeeded() {
     if (replyRecorded) {
@@ -1274,6 +1283,7 @@ export async function processChannelInteraction<TChunk>(params: {
           route: params.route,
           auth,
           sessionTarget: params.sessionTarget,
+          sessionDiagnostics,
           followUpState,
           runtimeState,
           loopState: {
@@ -1299,6 +1309,7 @@ export async function processChannelInteraction<TChunk>(params: {
           route: params.route,
           auth,
           sessionTarget: params.sessionTarget,
+          sessionDiagnostics,
         }),
       );
       await params.agentService.recordConversationReply(params.sessionTarget);

@@ -30,6 +30,7 @@ type FakeSession = {
   failWithNoServerOnNextCapture?: boolean;
   scriptedCaptureOutputs?: string[];
   waitForRecoveryContinue?: boolean;
+  statusResponseMode?: "session-id" | "no-session-id";
 };
 
 class FakeTmuxClient {
@@ -46,6 +47,7 @@ class FakeTmuxClient {
   private nextTrustPromptVariant: "codex" | "claude" | "gemini" = "codex";
   private nextNoServerAfterTrustDismiss = false;
   private ignoreNextEnterSessionNames = new Set<string>();
+  private nextStatusResponseMode: "session-id" | "no-session-id" = "session-id";
 
   markInvalidResumeSessionId(sessionId: string) {
     this.invalidResumeSessionIds.add(sessionId);
@@ -85,6 +87,10 @@ class FakeTmuxClient {
 
   ignoreNextEnter(sessionName: string) {
     this.ignoreNextEnterSessionNames.add(sessionName);
+  }
+
+  setStatusResponseModeOnNextSession(mode: "session-id" | "no-session-id") {
+    this.nextStatusResponseMode = mode;
   }
 
   async isServerRunning() {
@@ -137,10 +143,12 @@ class FakeTmuxClient {
         failWithNoServerOnNextCapture: false,
         scriptedCaptureOutputs,
         waitForRecoveryContinue: resumedWithScript,
+        statusResponseMode: this.nextStatusResponseMode,
       });
       this.nextTrustPromptCaptureCount = null;
       this.nextTrustPromptVariant = "codex";
       this.nextNoServerAfterTrustDismiss = false;
+      this.nextStatusResponseMode = "session-id";
       throw new Error(`duplicate session: ${params.sessionName}`);
     }
     if (
@@ -166,10 +174,12 @@ class FakeTmuxClient {
       failWithNoServerOnNextCapture: false,
       scriptedCaptureOutputs,
       waitForRecoveryContinue: resumedWithScript,
+      statusResponseMode: this.nextStatusResponseMode,
     });
     this.nextTrustPromptCaptureCount = null;
     this.nextTrustPromptVariant = "codex";
     this.nextNoServerAfterTrustDismiss = false;
+    this.nextStatusResponseMode = "session-id";
     this.serverRunning = true;
   }
 
@@ -205,7 +215,10 @@ class FakeTmuxClient {
       return;
     }
     if (session.pendingInput === "/status") {
-      session.snapshot = `${session.snapshot}\nSTATUS session id: ${session.sessionId}`;
+      session.snapshot =
+        session.statusResponseMode === "no-session-id"
+          ? `${session.snapshot}\nSTATUS pending`
+          : `${session.snapshot}\nSTATUS session id: ${session.sessionId}`;
     } else if (session.pendingInput === "crash") {
       session.snapshot = `${session.snapshot}\nCRASH`;
       this.sessions.delete(sessionName);
@@ -1331,6 +1344,71 @@ describe("AgentService session identity", () => {
         "did not reach the configured ready state",
       );
       expect(await tmux.hasSession("default-main")).toBe(false);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("does not spam status-command recapture immediately after a null session-id capture", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: ["-C", "{workspace}"],
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 5,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const loaded = await loadConfig(configPath);
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.setStatusResponseModeOnNextSession("no-session-id");
+      const runnerSessions = new RunnerService(
+        loaded,
+        fakeTmux as unknown as TmuxClient,
+        new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded))),
+        (target) => resolveAgentTarget(loaded, target),
+      );
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:slack:dm:U123",
+      };
+
+      await runnerSessions.ensureSessionReady(target);
+      await runnerSessions.ensureSessionReady(target);
+      const transcript = await runnerSessions.captureTranscript(target);
+
+      expect(transcript.snapshot.match(/STATUS pending/g)?.length ?? 0).toBe(1);
+      expect(readSessionId(storePath, target.sessionKey)).toBeNull();
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

@@ -47,6 +47,7 @@ const TMUX_DUPLICATE_SESSION_PATTERN = /duplicate session:/i;
 const TMUX_TRANSIENT_TARGET_PATTERN = /(?:no current target|can't find pane|can't find window)/i;
 const SESSION_READY_CAPTURE_RETRY_COUNT = 5;
 const SESSION_READY_CAPTURE_RETRY_DELAY_MS = 100;
+const SESSION_ID_CAPTURE_FAILURE_COOLDOWN_MS = 15_000;
 
 type SessionErrorAction =
   | "during startup"
@@ -94,6 +95,7 @@ function isRecoverableStartupSessionLoss(error: unknown) {
 
 export class RunnerService {
   private cleanupInFlight = false;
+  private readonly sessionIdentityCaptureRetryAt = new Map<string, number>();
 
   constructor(
     private readonly loadedConfig: LoadedConfig,
@@ -164,13 +166,29 @@ export class RunnerService {
   private async syncSessionIdentity(resolved: ResolvedAgentTarget) {
     const existing = await this.sessionState.getEntry(resolved.sessionKey);
     if (existing?.sessionId) {
+      this.sessionIdentityCaptureRetryAt.delete(resolved.sessionKey);
       return this.sessionState.touchSessionEntry(resolved, {
         sessionId: existing.sessionId,
         runnerCommand: resolved.runner.command,
       });
     }
 
+    const retryAt = this.sessionIdentityCaptureRetryAt.get(resolved.sessionKey) ?? 0;
+    if (retryAt > Date.now()) {
+      return this.sessionState.touchSessionEntry(resolved, {
+        runnerCommand: resolved.runner.command,
+      });
+    }
+
     const sessionId = await this.captureSessionIdentity(resolved);
+    if (sessionId) {
+      this.sessionIdentityCaptureRetryAt.delete(resolved.sessionKey);
+    } else {
+      this.sessionIdentityCaptureRetryAt.set(
+        resolved.sessionKey,
+        Date.now() + SESSION_ID_CAPTURE_FAILURE_COOLDOWN_MS,
+      );
+    }
     return this.sessionState.touchSessionEntry(resolved, {
       sessionId,
       runnerCommand: resolved.runner.command,
@@ -378,6 +396,7 @@ export class RunnerService {
       sessionName: resolved.sessionName,
       stateDir: this.loadedConfig.stateDir,
     });
+    this.sessionIdentityCaptureRetryAt.delete(resolved.sessionKey);
 
     try {
       await this.tmux.newSession({
