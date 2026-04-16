@@ -27,7 +27,7 @@ type AllowFromStore = {
 const PAIRING_CODE_LENGTH = 8;
 const PAIRING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const PAIRING_PENDING_TTL_MS = 60 * 60 * 1000;
-const PAIRING_PENDING_MAX = 3;
+const PAIRING_PENDING_MAX = 20;
 const PAIRING_STORE_LOCK_OPTIONS = {
   retries: {
     retries: 10,
@@ -403,6 +403,74 @@ export async function approveChannelPairingCode(params: {
         baseDir: params.baseDir,
       });
       return { id: entry.id, entry };
+    },
+  );
+}
+
+export async function rejectChannelPairingCode(params: {
+  channel: PairingChannel;
+  code: string;
+  baseDir?: string;
+}) {
+  const code = params.code.trim().toUpperCase();
+  if (!code) {
+    return null;
+  }
+
+  const filePath = resolvePairingPath(params.channel, params.baseDir);
+  return withFileLock(
+    filePath,
+    { version: 1, requests: [] } satisfies PairingStore,
+    async () => {
+      const { value } = await readJsonFile<PairingStore>(filePath, {
+        version: 1,
+        requests: [],
+      });
+      const requests = Array.isArray(value.requests) ? value.requests : [];
+      const { requests: pruned, removed } = pruneExpiredRequests(requests, Date.now());
+      const matchIndex = pruned.findIndex(
+        (request) => String(request.code ?? "").trim().toUpperCase() === code,
+      );
+      if (matchIndex < 0) {
+        if (removed) {
+          await writeJsonFile(filePath, {
+            version: 1,
+            requests: pruned,
+          } satisfies PairingStore);
+        }
+        return null;
+      }
+
+      const [rejected] = pruned.splice(matchIndex, 1);
+      await writeJsonFile(filePath, {
+        version: 1,
+        requests: pruned,
+      } satisfies PairingStore);
+      return rejected ?? null;
+    },
+  );
+}
+
+export async function clearChannelPairingRequests(params: {
+  channel: PairingChannel;
+  baseDir?: string;
+}) {
+  const filePath = resolvePairingPath(params.channel, params.baseDir);
+  return withFileLock(
+    filePath,
+    { version: 1, requests: [] } satisfies PairingStore,
+    async () => {
+      const { value } = await readJsonFile<PairingStore>(filePath, {
+        version: 1,
+        requests: [],
+      });
+      const requests = Array.isArray(value.requests) ? value.requests : [];
+      const { requests: pruned } = pruneExpiredRequests(requests, Date.now());
+      await writeJsonFile(filePath, {
+        version: 1,
+        requests: [],
+      } satisfies PairingStore);
+      return { cleared: pruned.length };
     },
   );
 }

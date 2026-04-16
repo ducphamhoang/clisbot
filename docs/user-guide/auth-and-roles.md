@@ -25,7 +25,7 @@ Current runtime guide
 Today:
 
 - `app.auth` and `agents.<id>.auth` exist in config shape
-- explicit app `owner` and app `admin` principals do bypass pairing
+- explicit app `owner` and app `admin` principals bypass pairing
 - operators can add and remove users and permissions through `clisbot auth ...`
 - automatic first-owner claim from the first DM is implemented
 - config remains the source of truth, and `clisbot auth ...` is the mutation surface for it
@@ -430,7 +430,7 @@ Current rollout checklist:
 3. Confirm that first DM principal is auto-added as app `owner` and auto-paired.
 4. If an owner already exists, use `/whoami` and `clisbot auth add-user ...` instead.
 5. Add any extra app admins or agent admins.
-6. Confirm owner/admin principals bypass pairing.
+6. Confirm only owner/admin principals bypass pairing.
 7. Confirm unlisted routed users still fall back to agent `member`.
 8. Confirm `member` has the intended default controls.
 9. Confirm `/bash` is denied until `shellExecute` is granted.

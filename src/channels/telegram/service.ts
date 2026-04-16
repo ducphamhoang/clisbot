@@ -8,7 +8,7 @@ import { prependAttachmentMentions } from "../../agents/attachments/prompt.ts";
 import { processChannelInteraction } from "../interaction-processing.ts";
 import { getAgentEntry, type LoadedConfig } from "../../config/load-config.ts";
 import { isTelegramSenderAllowed } from "../pairing/access.ts";
-import { buildPairingReply } from "../pairing/messages.ts";
+import { buildPairingReplyFromRequest } from "../pairing/messages.ts";
 import {
   readChannelAllowFromStore,
   upsertChannelPairingRequest,
@@ -495,7 +495,7 @@ export class TelegramPollingService {
         });
         if (!allowed) {
           if (directMessages.policy === "pairing") {
-            const { code, created } = await upsertChannelPairingRequest({
+            const pairingRequest = await upsertChannelPairingRequest({
               channel: "telegram",
               id: senderId,
               meta: {
@@ -504,18 +504,19 @@ export class TelegramPollingService {
                 lastName: message.from?.last_name,
               },
             });
-            if (created && code) {
+            const pairingReply = buildPairingReplyFromRequest({
+              channel: "telegram",
+              idLine: `Your Telegram user id: ${senderId}`,
+              pairingRequest,
+            });
+            if (pairingReply) {
               try {
                 await callTelegramApi(
                   this.accountConfig.botToken,
                   "sendMessage",
                   {
                     chat_id: message.chat.id,
-                    text: buildPairingReply({
-                      channel: "telegram",
-                      idLine: `Your Telegram user id: ${senderId}`,
-                      code,
-                    }),
+                    text: pairingReply,
                   },
                 );
               } catch (error) {

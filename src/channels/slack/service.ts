@@ -7,7 +7,7 @@ import { prependAttachmentMentions } from "../../agents/attachments/prompt.ts";
 import { processChannelInteraction } from "../interaction-processing.ts";
 import { getAgentEntry, type LoadedConfig } from "../../config/load-config.ts";
 import { isSlackSenderAllowed } from "../pairing/access.ts";
-import { buildPairingReply } from "../pairing/messages.ts";
+import { buildPairingReplyFromRequest } from "../pairing/messages.ts";
 import {
   readChannelAllowFromStore,
   upsertChannelPairingRequest,
@@ -355,20 +355,21 @@ export class SlackSocketService {
         });
         if (!allowed) {
           if (dmConfig.policy === "pairing") {
-            const { code, created } = await upsertChannelPairingRequest({
+            const pairingRequest = await upsertChannelPairingRequest({
               channel: "slack",
               id: directUserId,
             });
-            if (created && code) {
+            const pairingReply = buildPairingReplyFromRequest({
+              channel: "slack",
+              idLine: `Your Slack user id: ${directUserId}`,
+              pairingRequest,
+            });
+            if (pairingReply) {
               try {
                 await postSlackText(this.app.client, {
                   channel: channelId,
                   threadTs: directReplyThreadTs,
-                  text: buildPairingReply({
-                    channel: "slack",
-                    idLine: `Your Slack user id: ${directUserId}`,
-                    code,
-                  }),
+                  text: pairingReply,
                 });
               } catch (error) {
                 console.error("slack pairing reply failed", error);

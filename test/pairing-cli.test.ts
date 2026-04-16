@@ -3,7 +3,26 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runPairingCli } from "../src/channels/pairing/cli.ts";
-import { upsertChannelPairingRequest } from "../src/channels/pairing/store.ts";
+import {
+  listChannelPairingRequests,
+  readChannelAllowFromStore,
+  upsertChannelPairingRequest,
+} from "../src/channels/pairing/store.ts";
+
+function withPairingDir(
+  tempDir: string,
+  callback: () => Promise<void>,
+) {
+  const previousDir = process.env.CLISBOT_PAIRING_DIR;
+  process.env.CLISBOT_PAIRING_DIR = tempDir;
+  return callback().finally(() => {
+    if (previousDir == null) {
+      delete process.env.CLISBOT_PAIRING_DIR;
+    } else {
+      process.env.CLISBOT_PAIRING_DIR = previousDir;
+    }
+  });
+}
 
 describe("pairing cli", () => {
   test("lists pending requests as text", async () => {
@@ -16,19 +35,12 @@ describe("pairing cli", () => {
       });
 
       const lines: string[] = [];
-      const previousDir = process.env.TMUX_TALK_PAIRING_DIR;
-      process.env.TMUX_TALK_PAIRING_DIR = tempDir;
-      try {
+      await withPairingDir(tempDir, async () => {
         await runPairingCli(["list", "slack"], {
           log: (line) => lines.push(line),
         });
-      } finally {
-        if (previousDir == null) {
-          delete process.env.TMUX_TALK_PAIRING_DIR;
-        } else {
-          process.env.TMUX_TALK_PAIRING_DIR = previousDir;
-        }
-      }
+      });
+
       expect(lines.join("\n")).toContain("Pending slack pairing requests:");
       expect(lines.join("\n")).toContain("id=U123");
     } finally {
@@ -46,21 +58,102 @@ describe("pairing cli", () => {
       });
 
       const lines: string[] = [];
-      const previousDir = process.env.TMUX_TALK_PAIRING_DIR;
-      process.env.TMUX_TALK_PAIRING_DIR = tempDir;
-      try {
+      await withPairingDir(tempDir, async () => {
         await runPairingCli(["approve", "telegram", created.code], {
           log: (line) => lines.push(line),
         });
+      });
+
+      expect(lines.join("\n")).toContain("Approved telegram sender 123456.");
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects a pending code", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
+    try {
+      const created = await upsertChannelPairingRequest({
+        channel: "slack",
+        id: "U123",
+        baseDir: tempDir,
+      });
+
+      const lines: string[] = [];
+      await withPairingDir(tempDir, async () => {
+        await runPairingCli(["reject", "slack", created.code], {
+          log: (line) => lines.push(line),
+        });
+      });
+
+      expect(lines.join("\n")).toContain("Rejected slack sender U123.");
+      expect(await listChannelPairingRequests("slack", tempDir)).toEqual([]);
+      expect(await readChannelAllowFromStore("slack", tempDir)).toEqual([]);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("clears all pending requests for one channel", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
+    try {
+      await upsertChannelPairingRequest({
+        channel: "telegram",
+        id: "123456",
+        baseDir: tempDir,
+      });
+      await upsertChannelPairingRequest({
+        channel: "telegram",
+        id: "789012",
+        baseDir: tempDir,
+      });
+
+      const lines: string[] = [];
+      await withPairingDir(tempDir, async () => {
+        await runPairingCli(["clear", "telegram"], {
+          log: (line) => lines.push(line),
+        });
+      });
+
+      expect(lines.join("\n")).toContain("Cleared 2 pending telegram pairing request(s).");
+      expect(await listChannelPairingRequests("telegram", tempDir)).toEqual([]);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("still accepts the legacy pairing dir env as a fallback", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
+    try {
+      await upsertChannelPairingRequest({
+        channel: "slack",
+        id: "U123",
+        baseDir: tempDir,
+      });
+
+      const lines: string[] = [];
+      const previousClisbotDir = process.env.CLISBOT_PAIRING_DIR;
+      const previousLegacyDir = process.env.TMUX_TALK_PAIRING_DIR;
+      delete process.env.CLISBOT_PAIRING_DIR;
+      process.env.TMUX_TALK_PAIRING_DIR = tempDir;
+      try {
+        await runPairingCli(["list", "slack"], {
+          log: (line) => lines.push(line),
+        });
       } finally {
-        if (previousDir == null) {
+        if (previousClisbotDir == null) {
+          delete process.env.CLISBOT_PAIRING_DIR;
+        } else {
+          process.env.CLISBOT_PAIRING_DIR = previousClisbotDir;
+        }
+        if (previousLegacyDir == null) {
           delete process.env.TMUX_TALK_PAIRING_DIR;
         } else {
-          process.env.TMUX_TALK_PAIRING_DIR = previousDir;
+          process.env.TMUX_TALK_PAIRING_DIR = previousLegacyDir;
         }
       }
 
-      expect(lines.join("\n")).toContain("Approved telegram sender 123456.");
+      expect(lines.join("\n")).toContain("id=U123");
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

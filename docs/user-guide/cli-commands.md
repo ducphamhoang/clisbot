@@ -135,6 +135,8 @@ Important behavior:
 
 - `clisbot pairing list <slack|telegram> [--json]`
 - `clisbot pairing approve <slack|telegram> <code>`
+- `clisbot pairing reject <slack|telegram> <code>`
+- `clisbot pairing clear <slack|telegram>`
 
 ## Notes
 

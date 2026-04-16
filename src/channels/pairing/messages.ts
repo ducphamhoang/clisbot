@@ -17,6 +17,47 @@ export function buildPairingReply(params: {
   ].join("\n");
 }
 
+export function buildPairingQueueFullReply(params: {
+  channel: PairingChannel;
+  idLine: string;
+}) {
+  return [
+    "clisbot: access not configured.",
+    "",
+    params.idLine,
+    "",
+    "Pairing queue is full right now.",
+    "",
+    "Ask the bot owner to inspect or clear pending requests with:",
+    `clisbot pairing list ${params.channel}`,
+    `clisbot pairing reject ${params.channel} <code>`,
+    `clisbot pairing clear ${params.channel}`,
+  ].join("\n");
+}
+
+export function buildPairingReplyFromRequest(params: {
+  channel: PairingChannel;
+  idLine: string;
+  pairingRequest: {
+    code: string;
+    created: boolean;
+  };
+}) {
+  const code = params.pairingRequest.code.trim();
+  if (!code) {
+    return buildPairingQueueFullReply({
+      channel: params.channel,
+      idLine: params.idLine,
+    });
+  }
+
+  return buildPairingReply({
+    channel: params.channel,
+    idLine: params.idLine,
+    code,
+  });
+}
+
 export function renderPairingRequests(params: {
   channel: PairingChannel;
   requests: PairingRequest[];

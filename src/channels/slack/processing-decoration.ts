@@ -1,14 +1,18 @@
 export type SlackProcessingDecorationPhase =
   | "add-reaction"
   | "set-status"
+  | "refresh-status"
   | "remove-reaction"
   | "clear-status";
+
+const DEFAULT_STATUS_REFRESH_INTERVAL_MS = 2_000;
 
 export async function activateSlackProcessingDecoration(params: {
   addReaction: () => Promise<boolean>;
   removeReaction: () => Promise<boolean>;
   setStatus: () => Promise<boolean>;
   clearStatus: () => Promise<boolean>;
+  statusRefreshIntervalMs?: number;
   onUnexpectedError?: (phase: SlackProcessingDecorationPhase, error: unknown) => void;
 }) {
   const [reactionResult, statusResult] = await Promise.allSettled([
@@ -37,7 +41,44 @@ export async function activateSlackProcessingDecoration(params: {
     }
   }
 
+  let statusRefreshTimer: ReturnType<typeof setInterval> | undefined;
+  let closed = false;
+  let refreshInFlight = false;
+  let refreshPromise: Promise<void> | undefined;
+  if (statusApplied) {
+    const refreshIntervalMs = Math.max(
+      0,
+      params.statusRefreshIntervalMs ?? DEFAULT_STATUS_REFRESH_INTERVAL_MS,
+    );
+    if (refreshIntervalMs > 0) {
+      statusRefreshTimer = setInterval(() => {
+        if (closed || refreshInFlight) {
+          return;
+        }
+        refreshInFlight = true;
+        refreshPromise = params.setStatus()
+          .then(() => undefined)
+          .catch((error) => {
+            if (!closed) {
+              params.onUnexpectedError?.("refresh-status", error);
+            }
+          })
+          .finally(() => {
+            refreshInFlight = false;
+            refreshPromise = undefined;
+          });
+      }, refreshIntervalMs);
+    }
+  }
+
   return async () => {
+    closed = true;
+    if (statusRefreshTimer) {
+      clearInterval(statusRefreshTimer);
+      statusRefreshTimer = undefined;
+    }
+    await refreshPromise;
+
     if (reactionApplied) {
       try {
         await params.removeReaction();

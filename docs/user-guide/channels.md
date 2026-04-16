@@ -383,6 +383,14 @@ bun run pairing -- approve slack <CODE>
 ```
 
 ```bash
+bun run pairing -- reject slack <CODE>
+```
+
+```bash
+bun run pairing -- clear slack
+```
+
+```bash
 bun run pairing -- list telegram
 ```
 
@@ -390,11 +398,23 @@ bun run pairing -- list telegram
 bun run pairing -- approve telegram <CODE>
 ```
 
+```bash
+bun run pairing -- reject telegram <CODE>
+```
+
+```bash
+bun run pairing -- clear telegram
+```
+
 Important rules:
 
 - pairing is checked before session routing and before a runner starts
 - approving a code adds the sender to the channel allowlist store
+- rejecting a code removes that pending request without allowlisting the sender
+- clearing removes every pending request for that channel
 - the pairing store is channel-scoped
+- each channel keeps up to 20 pending pairing requests at a time
+- if the pending queue is full, the bot replies with queue-full guidance instead of staying silent
 - `allowFrom` in config and approved senders in the pairing store are merged for access checks
 
 Safe Slack verification flow:

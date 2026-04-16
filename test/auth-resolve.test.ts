@@ -206,6 +206,24 @@ describe("resolveChannelAuth", () => {
     });
 
     expect(auth.agentRole).toBe("member");
+    expect(auth.mayBypassPairing).toBe(false);
     expect(auth.canUseShell).toBe(false);
+  });
+
+  test("requires pairing for non-owner principals even when agent send permissions exist", () => {
+    const auth = resolveChannelAuth({
+      config: createConfig(),
+      agentId: "default",
+      identity: {
+        platform: "slack",
+        conversationKind: "dm",
+        senderId: "UOPS",
+      },
+    });
+
+    expect(auth.appRole).toBe("member");
+    expect(auth.agentRole).toBe("admin");
+    expect(auth.mayBypassPairing).toBe(false);
+    expect(auth.canUseShell).toBe(true);
   });
 });
