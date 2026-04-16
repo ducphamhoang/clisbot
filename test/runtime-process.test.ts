@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   getProcessLiveness,
@@ -316,6 +316,63 @@ describe("stopDetachedRuntime", () => {
       runtimeCredentialsPath: join(dir, "state", "runtime-credentials.json"),
     });
 
+    const updated = JSON.parse(await Bun.file(configPath).text());
+    expect(updated.channels.telegram.enabled).toBe(false);
+    expect(updated.channels.telegram.accounts.default.enabled).toBe(false);
+  });
+
+  test("scopes stop cleanup to the explicit configPath instead of shell-level runtime env paths", async () => {
+    const dir = createTempDir();
+    const externalDir = createTempDir();
+    const configPath = join(dir, "clisbot.json");
+    const siblingRuntimeCredentialsPath = join(dir, "state", "runtime-credentials.json");
+    const externalRuntimeCredentialsPath = join(
+      externalDir,
+      "state",
+      "runtime-credentials.json",
+    );
+    const externalMonitorStatePath = join(externalDir, "state", "clisbot-monitor.json");
+
+    writeFileSync(configPath, `${JSON.stringify(createConfig(), null, 2)}\n`);
+    mkdirSync(dirname(siblingRuntimeCredentialsPath), { recursive: true });
+    mkdirSync(dirname(externalRuntimeCredentialsPath), { recursive: true });
+    writeFileSync(siblingRuntimeCredentialsPath, "{\n  \"telegram\": \"local\"\n}\n");
+    writeFileSync(externalRuntimeCredentialsPath, "{\n  \"telegram\": \"external\"\n}\n");
+    writeFileSync(
+      externalMonitorStatePath,
+      `${JSON.stringify({
+        monitorPid: 424242,
+        phase: "active",
+        runtimePid: 434343,
+        startedAt: "2026-04-15T00:00:00.000Z",
+        updatedAt: "2026-04-15T00:00:00.000Z",
+      }, null, 2)}\n`,
+    );
+
+    process.env.CLISBOT_RUNTIME_MONITOR_STATE_PATH = externalMonitorStatePath;
+    process.env.CLISBOT_RUNTIME_CREDENTIALS_PATH = externalRuntimeCredentialsPath;
+
+    const signals: Array<{ pid: number; signal: NodeJS.Signals }> = [];
+
+    const result = await stopDetachedRuntime(
+      {
+        configPath,
+        pidPath: join(dir, "missing.pid"),
+      },
+      {
+        processLiveness: () => "running",
+        sendSignal: ((pid: number, signal: NodeJS.Signals) => {
+          signals.push({ pid, signal });
+          return true;
+        }) as typeof process.kill,
+        sleep: async () => undefined,
+      },
+    );
+
+    expect(result.stopped).toBe(false);
+    expect(signals).toEqual([]);
+    expect(existsSync(siblingRuntimeCredentialsPath)).toBe(false);
+    expect(existsSync(externalRuntimeCredentialsPath)).toBe(true);
     const updated = JSON.parse(await Bun.file(configPath).text());
     expect(updated.channels.telegram.enabled).toBe(false);
     expect(updated.channels.telegram.accounts.default.enabled).toBe(false);

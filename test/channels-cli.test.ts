@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChannelsCli } from "../src/control/channels-cli.ts";
+import { collapseHomePath, getDefaultTmuxSocketPath } from "../src/shared/paths.ts";
 
 describe("channels cli", () => {
   let tempDir = "";
@@ -195,8 +196,9 @@ describe("channels cli", () => {
     expect(output).toContain("Approve the returned Telegram code with: `clisbot pairing approve telegram <code>`");
     expect(output).toContain("clisbot pairing approve telegram <code>");
     expect(output).toContain("additional-message-mode");
-    expect(output).toContain("tmux -S ~/.clisbot/state/clisbot.sock list-sessions");
-    expect(output).toContain("tmux -S ~/.clisbot/state/clisbot.sock attach -t <session-name>");
+    const tmuxSocketPath = collapseHomePath(getDefaultTmuxSocketPath());
+    expect(output).toContain(`tmux -S ${tmuxSocketPath} list-sessions`);
+    expect(output).toContain(`tmux -S ${tmuxSocketPath} attach -t <session-name>`);
   });
 
   test("prints the same help for channels --help", async () => {
