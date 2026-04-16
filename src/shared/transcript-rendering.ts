@@ -180,6 +180,44 @@ function renderInteractionBody(params: {
   return truncateTail(completedBody, params.maxChars);
 }
 
+function normalizeLeadingStatusLine(line: string) {
+  return line.trim().replace(/^[_*`\s]+|[_*`\s]+$/g, "");
+}
+
+function startsWithExplicitErrorLabel(body: string) {
+  const firstLine = body
+    .split("\n")
+    .map((line) => normalizeLeadingStatusLine(line))
+    .find((line) => line.length > 0);
+
+  if (!firstLine) {
+    return false;
+  }
+
+  return /^(error|failed|failure|denied|forbidden)(?::|\.)/i.test(firstLine);
+}
+
+function shouldInlineErrorPrefix(body: string) {
+  return !body.includes("\n") && !body.includes("```");
+}
+
+function renderErrorInteractionBody(body: string, footer: string) {
+  const trimmedBody = body.trim();
+  if (!trimmedBody) {
+    return footer;
+  }
+
+  if (startsWithExplicitErrorLabel(trimmedBody)) {
+    return trimmedBody;
+  }
+
+  if (shouldInlineErrorPrefix(trimmedBody)) {
+    return `Error: ${trimmedBody}`;
+  }
+
+  return `${trimmedBody}\n\n${footer}`;
+}
+
 export function renderSlackInteraction(params: {
   status: "queued" | "running" | "completed" | "timeout" | "detached" | "error";
   content: string;
@@ -217,7 +255,7 @@ export function renderSlackInteraction(params: {
   }
 
   if (params.status === "error") {
-    return body ? `${body}\n\n_Error._` : "_Error._";
+    return renderErrorInteractionBody(body, "_Error._");
   }
 
   return body || "_Completed with no new visible output._";
@@ -260,7 +298,7 @@ export function renderTelegramInteraction(params: {
   }
 
   if (params.status === "error") {
-    return body ? `${body}\n\nError.` : "Error.";
+    return renderErrorInteractionBody(body, "Error.");
   }
 
   return body || "Completed with no new visible output.";

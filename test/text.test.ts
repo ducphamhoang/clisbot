@@ -10,6 +10,7 @@ import {
   mergeSlackStreamBodies,
   renderSlackInteraction,
   renderSlackSnapshot,
+  renderTelegramInteraction,
   selectSlackCompletionBody,
   selectSlackSnapshotBody,
   truncateHead,
@@ -598,6 +599,42 @@ Finagling
     ).toBe(
       "Still working through the repository.\n\n_This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it. You can also use `/transcript` to inspect the current session snapshot._",
     );
+  });
+
+  test("does not append a second generic error footer when the body already starts with Error", () => {
+    expect(
+      renderSlackInteraction({
+        status: "error",
+        content: "Error: Runtime stopped before the active run finished startup.",
+        maxChars: 200,
+      }),
+    ).toBe("Error: Runtime stopped before the active run finished startup.");
+
+    expect(
+      renderTelegramInteraction({
+        status: "error",
+        content: "Error: Runtime stopped before the active run finished startup.",
+        maxChars: 200,
+      }),
+    ).toBe("Error: Runtime stopped before the active run finished startup.");
+  });
+
+  test("renders concise unlabeled errors as a single Error line", () => {
+    expect(
+      renderSlackInteraction({
+        status: "error",
+        content: "Runtime stopped before the active run finished startup.",
+        maxChars: 200,
+      }),
+    ).toBe("Error: Runtime stopped before the active run finished startup.");
+
+    expect(
+      renderTelegramInteraction({
+        status: "error",
+        content: "Runtime stopped before the active run finished startup.",
+        maxChars: 200,
+      }),
+    ).toBe("Error: Runtime stopped before the active run finished startup.");
   });
 
   test("keeps detached note transcript-free when transcript inspection is disabled", () => {

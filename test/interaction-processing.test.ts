@@ -1845,6 +1845,7 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(posted).toHaveLength(1);
     expect(posted[0]).toContain("Working");
     expect(reconciled.at(-1)).toContain("runner crashed");
+    expect(reconciled.at(-1)).not.toContain("\n\n_Error._");
   });
 
   test("steers additional user messages into the active run by default", async () => {
