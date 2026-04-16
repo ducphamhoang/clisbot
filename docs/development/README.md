@@ -51,10 +51,17 @@ npm login
 npm publish --access public
 ```
 
+Remote operator flow:
+
+- if the assistant is operating the repo remotely for the operator, the assistant should run `npm login` or `npm publish --access public` directly in an attached session
+- if npm returns a browser approval URL such as `https://www.npmjs.com/auth/cli/...`, the assistant should send that exact link to the operator and wait for approval
+- after the operator approves in the browser, the assistant should continue the same attached session instead of switching to a separate manual flow
+- do not rewrite the documented command into a special OTP-only variant unless the operator explicitly asks for that path
+
 Notes:
 
 - do not skip the explicit `npm login` step if auth might be stale
-- keep the publish process attached so the operator can complete npm approval or browser confirmation if npm asks for it
+- keep the login or publish process attached so the operator can complete npm approval or browser confirmation if npm asks for it
 - after publish, verify the live version with:
 
 ```bash
