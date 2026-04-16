@@ -97,6 +97,15 @@ function createLoadedConfig(): LoadedConfig {
           maxRunsPerLoop: 20,
           maxActiveLoops: 10,
         },
+        runtimeMonitor: {
+          restartBackoff: {
+            stages: [
+              { delayMinutes: 15, maxRestarts: 4 },
+              { delayMinutes: 30, maxRestarts: 4 },
+            ],
+          },
+          ownerAlerts: { enabled: true, minIntervalMinutes: 30 },
+        },
       },
       channels: {
         slack: {

@@ -7,6 +7,7 @@ import {
   stopDetachedRuntime,
   writeRuntimePid,
 } from "./runtime-process.ts";
+import { serveMonitor } from "./runtime-monitor.ts";
 import {
   getRuntimeOperatorSummary,
   renderRuntimeDiagnosticsSummary,
@@ -51,6 +52,7 @@ function createShutdown(
   runtimeSupervisor: RuntimeSupervisor,
   pidPath: string,
   runtimeCredentialsPath: string,
+  shutdownConfig: { supervised?: boolean } = {},
 ) {
   let shuttingDown = false;
 
@@ -65,8 +67,10 @@ function createShutdown(
         markChannelsStopped: options.markChannelsStopped,
       });
     } finally {
-      removeRuntimeCredentials(runtimeCredentialsPath);
-      removeRuntimePid(pidPath);
+      if (!shutdownConfig.supervised) {
+        removeRuntimeCredentials(runtimeCredentialsPath);
+        removeRuntimePid(pidPath);
+      }
       process.exit(exitCode);
     }
   };
@@ -126,6 +130,25 @@ async function printStatusSummary() {
   if (runtimeStatus.pid) {
     console.log(`pid: ${runtimeStatus.pid}`);
   }
+  console.log(`service mode: ${runtimeStatus.serviceMode}`);
+  if (runtimeStatus.serviceState) {
+    console.log(`service state: ${runtimeStatus.serviceState}`);
+  }
+  if (runtimeStatus.runtimePid) {
+    console.log(`runtime pid: ${runtimeStatus.runtimePid}`);
+  }
+  if (runtimeStatus.restartNumber) {
+    console.log(`restart attempt: ${runtimeStatus.restartNumber}`);
+  }
+  if (runtimeStatus.restartStageIndex != null && runtimeStatus.restartStageIndex >= 0) {
+    console.log(`restart stage: ${runtimeStatus.restartStageIndex + 1}`);
+  }
+  if (runtimeStatus.nextRestartAt) {
+    console.log(`next restart: ${runtimeStatus.nextRestartAt}`);
+  }
+  if (runtimeStatus.stopReason) {
+    console.log(`last stop reason: ${runtimeStatus.stopReason}`);
+  }
   try {
     const summary = await getRuntimeOperatorSummary({
       configPath: runtimeStatus.configPath,
@@ -137,6 +160,7 @@ async function printStatusSummary() {
     }
     console.log(`config: ${runtimeStatus.configPath}`);
     console.log(`pid file: ${runtimeStatus.pidPath}`);
+    console.log(`monitor state: ${runtimeStatus.monitorStatePath}`);
     console.log(`log: ${runtimeStatus.logPath}`);
     console.log(`tmux socket: ${runtimeStatus.tmuxSocketPath}`);
     for (const line of renderConfiguredChannelTokenStatusLines(summary.loadedConfig.raw)) {
@@ -146,6 +170,7 @@ async function printStatusSummary() {
   } catch (error) {
     console.log(`config: ${runtimeStatus.configPath}`);
     console.log(`pid file: ${runtimeStatus.pidPath}`);
+    console.log(`monitor state: ${runtimeStatus.monitorStatePath}`);
     console.log(`log: ${runtimeStatus.logPath}`);
     console.log(`tmux socket: ${runtimeStatus.tmuxSocketPath}`);
     for (const line of renderRuntimeErrorLines("failed to render runtime summary", error)) {
@@ -193,26 +218,53 @@ export async function serveForeground() {
     process.env.CLISBOT_PID_PATH || DEFAULT_RUNTIME_PID_PATH,
   );
   const runtimeCredentialsPath = getDefaultRuntimeCredentialsPath();
+  const supervised = process.env.CLISBOT_RUNTIME_MONITORED === "1";
   const runtimeSupervisor = new RuntimeSupervisor(configPath);
-  const shutdown = createShutdown(runtimeSupervisor, pidPath, runtimeCredentialsPath);
+  const shutdown = createShutdown(runtimeSupervisor, pidPath, runtimeCredentialsPath, {
+    supervised,
+  });
 
   registerProcessHandlers(runtimeSupervisor, shutdown);
 
   try {
     await runtimeSupervisor.start();
-    await writeRuntimePid(pidPath, process.pid);
+    if (!supervised) {
+      await writeRuntimePid(pidPath, process.pid);
+    }
   } catch (error) {
-    removeRuntimeCredentials(runtimeCredentialsPath);
-    removeRuntimePid(pidPath);
+    if (!supervised) {
+      removeRuntimeCredentials(runtimeCredentialsPath);
+      removeRuntimePid(pidPath);
+    }
     throw error;
   }
 
-  process.once("exit", () => {
-    removeRuntimeCredentials(runtimeCredentialsPath);
-    removeRuntimePid(pidPath);
-  });
+  if (!supervised) {
+    process.once("exit", () => {
+      removeRuntimeCredentials(runtimeCredentialsPath);
+      removeRuntimePid(pidPath);
+    });
+  }
 
   await new Promise(() => {});
+}
+
+export async function serveRuntimeMonitor() {
+  const configPath = expandHomePath(
+    process.env.CLISBOT_CONFIG_PATH || DEFAULT_CONFIG_PATH,
+  );
+  const pidPath = expandHomePath(
+    process.env.CLISBOT_PID_PATH || DEFAULT_RUNTIME_PID_PATH,
+  );
+  const runtimeCredentialsPath = expandHomePath(
+    process.env.CLISBOT_RUNTIME_CREDENTIALS_PATH || getDefaultRuntimeCredentialsPath(),
+  );
+  await serveMonitor({
+    scriptPath: process.argv[1]!,
+    configPath,
+    pidPath,
+    runtimeCredentialsPath,
+  });
 }
 
 export async function printCliError(error: unknown) {

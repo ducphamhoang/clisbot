@@ -14,6 +14,7 @@ import {
   expandHomePath,
   getDefaultConfigPath,
   getDefaultRuntimeLogPath,
+  getDefaultRuntimeMonitorStatePath,
   getDefaultRuntimeCredentialsPath,
   getDefaultRuntimePidPath,
   getDefaultTmuxSocketPath,
@@ -21,6 +22,11 @@ import {
 import { sleep } from "../shared/process.ts";
 import type { ConfigBootstrapOptions } from "../config/config-file.ts";
 import { removeRuntimeCredentials } from "../config/channel-credentials.ts";
+import {
+  readRuntimeMonitorState,
+  writeRuntimeMonitorState,
+  type RuntimeMonitorState,
+} from "./runtime-monitor.ts";
 
 const START_WAIT_TIMEOUT_MS = 10_000;
 const STOP_WAIT_TIMEOUT_MS = 10_000;
@@ -36,6 +42,14 @@ function resolvePidPath(pidPath?: string) {
 
 function resolveLogPath(logPath?: string) {
   return expandHomePath(logPath ?? process.env.CLISBOT_LOG_PATH ?? getDefaultRuntimeLogPath());
+}
+
+function resolveMonitorStatePath(monitorStatePath?: string) {
+  return expandHomePath(
+    monitorStatePath ??
+      process.env.CLISBOT_RUNTIME_MONITOR_STATE_PATH ??
+      getDefaultRuntimeMonitorStatePath(),
+  );
 }
 
 function resolveRuntimeCredentialsPath(runtimeCredentialsPath?: string) {
@@ -61,6 +75,14 @@ export type RuntimeStatus = {
   pidPath: string;
   logPath: string;
   tmuxSocketPath: string;
+  monitorStatePath: string;
+  serviceMode: "monitor";
+  serviceState?: RuntimeMonitorState["phase"];
+  runtimePid?: number;
+  nextRestartAt?: string;
+  restartNumber?: number;
+  restartStageIndex?: number;
+  stopReason?: RuntimeMonitorState["stopReason"];
 };
 
 export class StartDetachedRuntimeError extends Error {
@@ -186,11 +208,14 @@ export async function startDetachedRuntime(params: {
   logPath?: string;
   extraEnv?: NodeJS.ProcessEnv;
   runtimeCredentialsPath?: string;
+  monitorStatePath?: string;
 }) {
   const pidPath = resolvePidPath(params.pidPath);
   const logPath = resolveLogPath(params.logPath);
+  const monitorStatePath = resolveMonitorStatePath(params.monitorStatePath);
   const runtimeCredentialsPath = resolveRuntimeCredentialsPath(params.runtimeCredentialsPath);
   const existingPid = await readRuntimePid(pidPath);
+  const existingMonitorState = await readRuntimeMonitorState(monitorStatePath);
   if (existingPid && isProcessRunning(existingPid)) {
     return {
       alreadyRunning: true,
@@ -205,13 +230,30 @@ export async function startDetachedRuntime(params: {
     rmSync(pidPath, { force: true });
   }
 
+  if (existingMonitorState?.runtimePid && isProcessRunning(existingMonitorState.runtimePid)) {
+    kill(existingMonitorState.runtimePid, "SIGTERM");
+    const exited = await waitForProcessExit(existingMonitorState.runtimePid, STOP_WAIT_TIMEOUT_MS);
+    if (!exited) {
+      throw new Error(
+        `A stale clisbot runtime worker (${existingMonitorState.runtimePid}) is still running without its monitor; stop it before starting a new service.`,
+      );
+    }
+    await writeRuntimeMonitorState(monitorStatePath, {
+      ...existingMonitorState,
+      phase: "stopped",
+      runtimePid: undefined,
+      stopReason: "operator-stop",
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   const configResult = await ensureConfigFile(params.configPath);
   await ensureDir(dirname(pidPath));
   await ensureDir(dirname(logPath));
   const logStartOffset = getLogSize(logPath);
 
   const logFd = openSync(logPath, "a");
-  const child = spawn(process.execPath, [params.scriptPath, "serve-foreground"], {
+  const child = spawn(process.execPath, [params.scriptPath, "serve-monitor"], {
     stdio: ["ignore", logFd, logFd],
     detached: true,
     env: {
@@ -220,6 +262,7 @@ export async function startDetachedRuntime(params: {
       CLISBOT_CONFIG_PATH: configResult.configPath,
       CLISBOT_PID_PATH: pidPath,
       CLISBOT_LOG_PATH: logPath,
+      CLISBOT_RUNTIME_MONITOR_STATE_PATH: monitorStatePath,
       CLISBOT_RUNTIME_CREDENTIALS_PATH: runtimeCredentialsPath,
     },
   });
@@ -261,14 +304,17 @@ export async function stopDetachedRuntime(params: {
   hard?: boolean;
   configPath?: string;
   runtimeCredentialsPath?: string;
+  monitorStatePath?: string;
 }, dependencies: {
   processLiveness?: (pid: number) => ProcessLiveness;
   sendSignal?: typeof kill;
   sleep?: typeof sleep;
 } = {}) {
   const pidPath = resolvePidPath(params.pidPath);
+  const monitorStatePath = resolveMonitorStatePath(params.monitorStatePath);
   const runtimeCredentialsPath = resolveRuntimeCredentialsPath(params.runtimeCredentialsPath);
   const existingPid = await readRuntimePid(pidPath);
+  const monitorState = await readRuntimeMonitorState(monitorStatePath);
   let stopped = false;
   const processLiveness = dependencies.processLiveness ?? getProcessLiveness;
   const sendSignal = dependencies.sendSignal ?? kill;
@@ -289,9 +335,37 @@ export async function stopDetachedRuntime(params: {
     stopped = true;
   }
 
+  const runtimePid = monitorState?.runtimePid;
+  if (runtimePid && processLiveness(runtimePid) === "running") {
+    try {
+      sendSignal(runtimePid, "SIGTERM");
+      const exited = await waitForProcessExit(runtimePid, STOP_WAIT_TIMEOUT_MS, {
+        processLiveness,
+        sleep: sleepFn,
+      });
+      if (!exited) {
+        throw new Error(`clisbot runtime worker did not stop within ${STOP_WAIT_TIMEOUT_MS}ms`);
+      }
+      stopped = true;
+    } catch (error) {
+      if (!(existingPid && existingLiveness === "running")) {
+        throw error;
+      }
+    }
+  }
+
   rmSync(pidPath, { force: true });
   removeRuntimeCredentials(runtimeCredentialsPath);
   await disableExpiredMemAccountsInConfig(params.configPath);
+  if (monitorState) {
+    await writeRuntimeMonitorState(monitorStatePath, {
+      ...monitorState,
+      phase: "stopped",
+      runtimePid: undefined,
+      stopReason: "operator-stop",
+      updatedAt: new Date().toISOString(),
+    });
+  }
 
   if (params.hard) {
     const socketPath = await resolveTmuxSocketPath(params.configPath);
@@ -337,12 +411,15 @@ export async function getRuntimeStatus(params: {
   configPath?: string;
   pidPath?: string;
   logPath?: string;
+  monitorStatePath?: string;
 } = {}): Promise<RuntimeStatus> {
   const configPath = resolveConfigPath(params.configPath);
   const pidPath = resolvePidPath(params.pidPath);
   const logPath = resolveLogPath(params.logPath);
+  const monitorStatePath = resolveMonitorStatePath(params.monitorStatePath);
   const pid = await readRuntimePid(pidPath);
   const liveness = pid ? getProcessLiveness(pid) : "missing";
+  const monitorState = await readRuntimeMonitorState(monitorStatePath);
 
   return {
     running: liveness === "running",
@@ -351,6 +428,17 @@ export async function getRuntimeStatus(params: {
     pidPath,
     logPath,
     tmuxSocketPath: await resolveTmuxSocketPath(configPath),
+    monitorStatePath,
+    serviceMode: "monitor",
+    serviceState: monitorState?.phase,
+    runtimePid:
+      monitorState?.runtimePid && getProcessLiveness(monitorState.runtimePid) === "running"
+        ? monitorState.runtimePid
+        : undefined,
+    nextRestartAt: monitorState?.restart?.nextRestartAt,
+    restartNumber: monitorState?.restart?.restartNumber,
+    restartStageIndex: monitorState?.restart?.stageIndex,
+    stopReason: monitorState?.stopReason,
   };
 }
 
@@ -481,14 +569,14 @@ function renderStartFailureReason(
     : "";
 
   if (result.reason === "child-exited-before-pid") {
-    return `runtime exited before writing pid file ${pidPath}`;
+    return `service monitor exited before writing pid file ${pidPath}`;
   }
 
   if (result.reason === "child-running-without-pid") {
-    return `runtime is still running but did not write pid file ${pidPath}${cleanupSuffix}`;
+    return `service monitor is still running but did not write pid file ${pidPath}${cleanupSuffix}`;
   }
 
-  return `runtime did not become ready and no pid file was written to ${pidPath}${cleanupSuffix}`;
+  return `service monitor did not become ready and no pid file was written to ${pidPath}${cleanupSuffix}`;
 }
 
 async function resolveTmuxSocketPath(configPath?: string) {

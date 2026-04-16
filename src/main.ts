@@ -12,6 +12,7 @@ import {
   printCliError,
   restart,
   serveForeground,
+  serveRuntimeMonitor,
   status,
   stop,
 } from "./control/runtime-management-cli.ts";
@@ -36,6 +37,11 @@ async function runBuiltinCommand(command: ReturnType<typeof parseCliArgs>) {
 
   if (command.name === "serve-foreground") {
     await serveForeground();
+    return true;
+  }
+
+  if (command.name === "serve-monitor") {
+    await serveRuntimeMonitor();
     return true;
   }
 

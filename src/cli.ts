@@ -18,7 +18,8 @@ export type ParsedCliCommand =
   | { name: "auth"; args: string[] }
   | { name: "pairing"; args: string[] }
   | { name: "init"; args: string[] }
-  | { name: "serve-foreground" };
+  | { name: "serve-foreground" }
+  | { name: "serve-monitor" };
 
 export function parseCliArgs(argv: string[]): ParsedCliCommand {
   const args = argv.slice(2);
@@ -119,6 +120,10 @@ export function parseCliArgs(argv: string[]): ParsedCliCommand {
 
   if (command === "serve-foreground") {
     return { name: "serve-foreground" };
+  }
+
+  if (command === "serve-monitor") {
+    return { name: "serve-monitor" };
   }
 
   throw new Error(`Unknown command: ${command}`);

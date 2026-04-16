@@ -474,6 +474,48 @@ const controlLoopSchema = z.object({
   maxTimes: z.number().int().positive().optional(),
 });
 
+const controlRuntimeMonitorRestartStageSchema = z.object({
+  delayMinutes: z.number().int().positive().default(15),
+  maxRestarts: z.number().int().positive().default(4),
+});
+
+const controlRuntimeMonitorRestartBackoffSchema = z.object({
+  stages: z.array(controlRuntimeMonitorRestartStageSchema).min(1).default([
+    {
+      delayMinutes: 15,
+      maxRestarts: 4,
+    },
+    {
+      delayMinutes: 30,
+      maxRestarts: 4,
+    },
+  ]),
+});
+
+const controlRuntimeMonitorOwnerAlertsSchema = z.object({
+  enabled: z.boolean().default(true),
+  minIntervalMinutes: z.number().int().positive().default(30),
+});
+
+const controlRuntimeMonitorSchema = z.object({
+  restartBackoff: controlRuntimeMonitorRestartBackoffSchema.default({
+    stages: [
+      {
+        delayMinutes: 15,
+        maxRestarts: 4,
+      },
+      {
+        delayMinutes: 30,
+        maxRestarts: 4,
+      },
+    ],
+  }),
+  ownerAlerts: controlRuntimeMonitorOwnerAlertsSchema.default({
+    enabled: true,
+    minIntervalMinutes: 30,
+  }),
+});
+
 const controlSchema = z.object({
   configReload: controlConfigReloadSchema.default({
     watch: false,
@@ -486,6 +528,24 @@ const controlSchema = z.object({
   loop: controlLoopSchema.default({
     maxRunsPerLoop: 20,
     maxActiveLoops: 10,
+  }),
+  runtimeMonitor: controlRuntimeMonitorSchema.default({
+    restartBackoff: {
+      stages: [
+        {
+          delayMinutes: 15,
+          maxRestarts: 4,
+        },
+        {
+          delayMinutes: 30,
+          maxRestarts: 4,
+        },
+      ],
+    },
+    ownerAlerts: {
+      enabled: true,
+      minIntervalMinutes: 30,
+    },
   }),
 });
 
@@ -543,6 +603,24 @@ export const clisbotConfigSchema = z.object({
     loop: {
       maxRunsPerLoop: 20,
       maxActiveLoops: 10,
+    },
+    runtimeMonitor: {
+      restartBackoff: {
+        stages: [
+          {
+            delayMinutes: 15,
+            maxRestarts: 4,
+          },
+          {
+            delayMinutes: 30,
+            maxRestarts: 4,
+          },
+        ],
+      },
+      ownerAlerts: {
+        enabled: true,
+        minIntervalMinutes: 30,
+      },
     },
   }),
   channels: z.object({

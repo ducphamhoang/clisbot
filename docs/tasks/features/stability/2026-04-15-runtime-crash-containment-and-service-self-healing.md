@@ -238,16 +238,24 @@ Current restart and retry behavior exists in multiple layers, but it is still fr
 
 ### 1. Process-level restart
 
-- `serveForeground()` handles `uncaughtException` and `unhandledRejection`
-- the current fatal path marks health as failed, stops the supervisor, and exits
-- there is no in-app process auto-restart policy today
+- detached `clisbot start` now runs through an app-owned runtime monitor process
+- the monitor keeps one foreground runtime worker as its child and owns bounded restart backoff
+- default restart policy is:
+  - 15 minutes for the first 4 restart attempts
+  - 30 minutes for the next 4 restart attempts
+  - stop after that until an operator starts the service again
+- all those numbers are now configurable through `control.runtimeMonitor.restartBackoff.stages`
+- `serveForeground()` still handles `uncaughtException` and `unhandledRejection` inside the worker process
+- the worker fatal path still marks health as failed, stops the in-process supervisor, and exits
+- the monitor is what turns that worker exit into bounded service-level recovery
 
 Practical consequence:
 
-- without an external supervisor, a fatal process exit still needs operator restart
-- any stronger process restart behavior today must come from external supervision such as systemd, launchd, or a future app-owned monitor
+- one fatal worker exit no longer requires an immediate human restart as long as the monitor still has restart budget left
+- once the configured restart budget is exhausted, operator restart is still required after fixing the root cause
+- external supervision such as systemd or launchd can still be layered on top later, but the detached app path now owns its own bounded recovery contract
 
-That means process restart is still outside the current app-owned resilience contract.
+That means process restart is no longer entirely outside the app-owned resilience contract, but the contract is still bounded rather than unbounded self-heal.
 
 ### 2. Telegram polling retry and backoff
 
@@ -318,6 +326,7 @@ What is still missing:
 - a documented rule for when fixed delay is acceptable vs when exponential backoff or jitter is required
 - separate budgets and telemetry for process restart, channel restart, request retry, and observer retry
 - a self-heal path for post-start Telegram polling conflict instead of fail-and-stop
+- wider operator-visible telemetry for monitor decisions such as alert delivery outcomes, restart history, and child-exit classification
 
 Current conclusion:
 

@@ -110,7 +110,8 @@ Important runtime paths:
 
 - config: `~/.clisbot/clisbot.json`
 - tmux socket: `~/.clisbot/state/clisbot.sock`
-- runtime pid: `~/.clisbot/state/clisbot.pid`
+- monitor pid: `~/.clisbot/state/clisbot.pid`
+- monitor state: `~/.clisbot/state/clisbot-monitor.json`
 - runtime log: `~/.clisbot/state/clisbot.log`
 - session store: `~/.clisbot/state/sessions.json`
 - activity store: `~/.clisbot/state/activity.json`
@@ -141,6 +142,36 @@ ls -la ~/.clisbot/state/pairing
 ```bash
 tail -f ~/.clisbot/state/clisbot.log
 ```
+
+## Runtime Monitor
+
+Detached `clisbot start` now runs under an app-owned runtime monitor.
+
+Current behavior:
+
+- `clisbot.pid` belongs to the monitor process
+- `clisbot status` shows monitor state, current runtime pid when one is active, and `next restart` when the service is in backoff
+- if the runtime worker crashes repeatedly, the monitor retries with bounded backoff instead of requiring an immediate manual restart
+- if the monitor finds a stale worker without a live monitor, `stop` and the next `start` clean that worker up before continuing
+
+Current config points:
+
+- `control.runtimeMonitor.restartBackoff.stages[].delayMinutes`
+- `control.runtimeMonitor.restartBackoff.stages[].maxRestarts`
+- `control.runtimeMonitor.ownerAlerts.enabled`
+- `control.runtimeMonitor.ownerAlerts.minIntervalMinutes`
+
+Current default policy:
+
+- restart every 15 minutes for the first 4 retries
+- then every 30 minutes for the next 4 retries
+- then stop and require an operator restart after the root cause is fixed
+
+Current owner alert rule:
+
+- if `app.auth.roles.owner.users` contains reachable principals, the monitor sends a direct alert when the service first enters restart backoff
+- it sends another direct alert when the configured restart budget is exhausted
+- same-kind alerts are rate-limited by `control.runtimeMonitor.ownerAlerts.minIntervalMinutes`
 
 Codex trust prompt troubleshooting:
 

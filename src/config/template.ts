@@ -160,6 +160,24 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           maxActiveLoops: 10,
           defaultTimezone,
         },
+        runtimeMonitor: {
+          restartBackoff: {
+            stages: [
+              {
+                delayMinutes: 15,
+                maxRestarts: 4,
+              },
+              {
+                delayMinutes: 30,
+                maxRestarts: 4,
+              },
+            ],
+          },
+          ownerAlerts: {
+            enabled: true,
+            minIntervalMinutes: 30,
+          },
+        },
       },
       channels: {
         slack: {
