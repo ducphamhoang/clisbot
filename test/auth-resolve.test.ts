@@ -66,6 +66,15 @@ function createConfig(): ClisbotConfig {
       configReload: { watch: false, watchDebounceMs: 250 },
       sessionCleanup: { enabled: true, intervalMinutes: 5 },
       loop: { maxRunsPerLoop: 20, maxActiveLoops: 10 },
+      runtimeMonitor: {
+        restartBackoff: {
+          stages: [
+            { delayMinutes: 15, maxRestarts: 4 },
+            { delayMinutes: 30, maxRestarts: 4 },
+          ],
+        },
+        ownerAlerts: { enabled: true, minIntervalMinutes: 30 },
+      },
     },
     channels: {
       slack: {
@@ -84,7 +93,6 @@ function createConfig(): ClisbotConfig {
         channelPolicy: "allowlist",
         groupPolicy: "allowlist",
         defaultAgentId: "default",
-        privilegeCommands: { enabled: false, allowUsers: [] },
         commandPrefixes: { slash: ["::", "\\"], bash: ["!"] },
         streaming: "all",
         response: "final",
@@ -112,7 +120,6 @@ function createConfig(): ClisbotConfig {
         allowBots: false,
         groupPolicy: "allowlist",
         defaultAgentId: "default",
-        privilegeCommands: { enabled: false, allowUsers: [] },
         commandPrefixes: { slash: ["::", "\\"], bash: ["!"] },
         streaming: "all",
         response: "final",

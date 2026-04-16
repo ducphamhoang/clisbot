@@ -171,6 +171,12 @@ Do not treat tmux pane ids, tmux window ids, or other transient runner artifacts
 - The agents layer owns backend-agnostic agent, session, and workspace behavior.
 - Runners own backend-specific execution behavior and normalize quirks behind one contract.
 
+Current runtime naming should reflect that split clearly:
+
+- `AgentService` is a thin facade at the runtime entrypoint
+- `SessionService` is the session-owned runtime owner in `agents`
+- `RunnerService` is the backend-owned runtime owner in `runners`
+
 ## Why This Split Matters
 
 If these systems blur together:

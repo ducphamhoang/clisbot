@@ -77,6 +77,10 @@ export function getDefaultRuntimePidPath(env: NodeJS.ProcessEnv = process.env) {
   return join(getDefaultStateDir(env), "clisbot.pid");
 }
 
+export function getDefaultRuntimeMonitorStatePath(env: NodeJS.ProcessEnv = process.env) {
+  return join(getDefaultStateDir(env), "clisbot-monitor.json");
+}
+
 export function getDefaultRuntimeLogPath(env: NodeJS.ProcessEnv = process.env) {
   return join(getDefaultStateDir(env), "clisbot.log");
 }
@@ -101,6 +105,7 @@ export const DEFAULT_PAIRING_DIR = getDefaultPairingDir();
 export const DEFAULT_ACTIVITY_STORE_PATH = getDefaultActivityStorePath();
 export const DEFAULT_RUNTIME_HEALTH_PATH = getDefaultRuntimeHealthPath();
 export const DEFAULT_RUNTIME_PID_PATH = getDefaultRuntimePidPath();
+export const DEFAULT_RUNTIME_MONITOR_STATE_PATH = getDefaultRuntimeMonitorStatePath();
 export const DEFAULT_RUNTIME_LOG_PATH = getDefaultRuntimeLogPath();
 export const DEFAULT_RUNTIME_CREDENTIALS_PATH = getDefaultRuntimeCredentialsPath();
 

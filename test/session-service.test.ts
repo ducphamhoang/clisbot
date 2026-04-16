@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
-import { ActiveRunManager } from "../src/agents/active-run-manager.ts";
+import { SessionService } from "../src/agents/session-service.ts";
 import type { AgentSessionState } from "../src/agents/session-state.ts";
 import type { ResolvedAgentTarget } from "../src/agents/resolved-target.ts";
-import type { RunnerSessionService } from "../src/agents/runner-session.ts";
+import type { RunnerService } from "../src/agents/runner-service.ts";
 import type { RunUpdate } from "../src/agents/run-observation.ts";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
 
@@ -69,10 +69,10 @@ function createUpdate(
 }
 
 function createManager(resolved: ResolvedAgentTarget) {
-  return new ActiveRunManager(
+  return new SessionService(
     {} as TmuxClient,
     {} as AgentSessionState,
-    {} as RunnerSessionService,
+    {} as RunnerService,
     () => resolved,
   );
 }
@@ -90,10 +90,12 @@ function createRun(resolved: ResolvedAgentTarget, observers: Map<string, any>) {
       settled: false,
     },
     latestUpdate: update,
+    steeringReady: true,
+    startedAt: 123,
   };
 }
 
-describe("ActiveRunManager observer delivery", () => {
+describe("SessionService observer delivery", () => {
   afterEach(() => {
     mock.restore();
   });
@@ -198,5 +200,48 @@ describe("ActiveRunManager observer delivery", () => {
     expect(failingCalls).toBe(1);
     expect(run.observers.has("broken-observer")).toBe(false);
     expect(consoleSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("mid-run recovery preserves the original startedAt and old pane baseline", async () => {
+    const resolved = createResolvedTarget();
+    const reopenRunContext = mock(async () => ({
+      resolved,
+      initialSnapshot: "new pane snapshot",
+    }));
+    const manager = new SessionService(
+      {} as TmuxClient,
+      {} as AgentSessionState,
+      {
+        canRecoverMidRun: () => true,
+        reopenRunContext,
+      } as unknown as RunnerService,
+      () => resolved,
+    ) as any;
+    const run = createRun(resolved, new Map());
+    run.latestUpdate = createUpdate(resolved, {
+      status: "running",
+      snapshot: "streamed output",
+      fullSnapshot: "old pane snapshot",
+      initialSnapshot: "first pane snapshot",
+    });
+
+    let restartParams: any;
+    manager.activeRuns.set(resolved.sessionKey, run);
+    manager.startRunMonitor = (_sessionKey: string, params: unknown) => {
+      restartParams = params;
+    };
+
+    await expect(
+      manager.recoverLostMidRun(
+        resolved.sessionKey,
+        { timingContext: undefined },
+        new Error("can't find session"),
+      ),
+    ).resolves.toBe(true);
+
+    expect(reopenRunContext).toHaveBeenCalledTimes(1);
+    expect(restartParams.startedAt).toBe(123);
+    expect(restartParams.initialSnapshot).toBe("old pane snapshot");
+    expect(restartParams.snapshotPrefix).toBe("streamed output");
   });
 });

@@ -160,21 +160,31 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           maxActiveLoops: 10,
           defaultTimezone,
         },
+        runtimeMonitor: {
+          restartBackoff: {
+            stages: [
+              {
+                delayMinutes: 15,
+                maxRestarts: 4,
+              },
+              {
+                delayMinutes: 30,
+                maxRestarts: 4,
+              },
+            ],
+          },
+          ownerAlerts: {
+            enabled: true,
+            minIntervalMinutes: 30,
+          },
+        },
       },
       channels: {
         slack: {
           enabled: slackEnabled,
           mode: "socket",
-          appToken: renderEnvReference(
-            "SLACK_APP_TOKEN",
-            slackEnabled,
-            options.slackAppTokenRef,
-          ),
-          botToken: renderEnvReference(
-            "SLACK_BOT_TOKEN",
-            slackEnabled,
-            options.slackBotTokenRef,
-          ),
+          appToken: "",
+          botToken: "",
           defaultAccount: "default",
           accounts: {
             default: {
@@ -237,11 +247,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
         telegram: {
           enabled: telegramEnabled,
           mode: "polling",
-          botToken: renderEnvReference(
-            "TELEGRAM_BOT_TOKEN",
-            telegramEnabled,
-            options.telegramBotTokenRef,
-          ),
+          botToken: "",
           defaultAccount: "default",
           accounts: {
             default: {

@@ -7,9 +7,10 @@ import {
 import type { AgentSessionState } from "./session-state.ts";
 import type { AgentSessionTarget, ResolvedAgentTarget } from "./resolved-target.ts";
 import { deriveInteractionText, normalizePaneText } from "../shared/transcript.ts";
+import { buildRunRecoveryNote, mergeRunSnapshot } from "./run-recovery.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { monitorTmuxRun } from "../runners/tmux/run-monitor.ts";
-import { RunnerSessionService } from "./runner-session.ts";
+import { RunnerService } from "./runner-service.ts";
 import { logLatencyDebug } from "../control/latency-debug.ts";
 
 export type AgentExecutionResult = {
@@ -38,6 +39,7 @@ type ActiveRun = {
   initialResult: Deferred<AgentExecutionResult>;
   latestUpdate: RunUpdate;
   steeringReady: boolean;
+  startedAt: number;
 };
 
 const OBSERVER_RETRYABLE_FAILURE_LIMIT = 3;
@@ -134,30 +136,27 @@ function createDeferred<T>(): Deferred<T> {
   return deferred;
 }
 
-export class ActiveRunManager {
+export class SessionService {
   private readonly activeRuns = new Map<string, ActiveRun>();
   private stopping = false;
 
   constructor(
     private readonly tmux: TmuxClient,
     private readonly sessionState: AgentSessionState,
-    private readonly runnerSessions: RunnerSessionService,
+    private readonly runnerSessions: RunnerService,
     private readonly resolveTarget: (target: AgentSessionTarget) => ResolvedAgentTarget,
   ) {}
 
-  async reconcileActiveRuns() {
+  async recoverPersistedRuns() {
     const entries = await this.sessionState.listEntries();
-
     for (const entry of entries) {
       if (!entry.runtime || entry.runtime.state === "idle") {
         continue;
       }
-
       const resolved = this.resolveTarget({
         agentId: entry.agentId,
         sessionKey: entry.sessionKey,
       });
-
       if (!(await this.tmux.hasSession(resolved.sessionName))) {
         await this.sessionState.setSessionRuntime(resolved, {
           state: "idle",
@@ -185,10 +184,11 @@ export class ActiveRunManager {
         initialResult,
         latestUpdate: update,
         steeringReady: true,
+        startedAt: entry.runtime.startedAt ?? Date.now(),
       });
       this.startRunMonitor(resolved.sessionKey, {
         prompt: undefined,
-        initialSnapshot: "",
+        initialSnapshot: fullSnapshot,
         startedAt: entry.runtime.startedAt ?? Date.now(),
         detachedAlready: entry.runtime.state === "detached",
         timingContext: undefined,
@@ -231,7 +231,6 @@ export class ActiveRunManager {
 
     const initialResult = createDeferred<AgentExecutionResult>();
     const provisionalResolved = this.resolveTarget(target);
-
     this.activeRuns.set(provisionalResolved.sessionKey, {
       resolved: provisionalResolved,
       observers: new Map([[observer.id, { ...observer }]]),
@@ -246,9 +245,10 @@ export class ActiveRunManager {
         note: "Starting runner session...",
       }),
       steeringReady: false,
+      startedAt: Date.now(),
     });
     try {
-      const { resolved, initialSnapshot } = await this.runnerSessions.preparePromptSession(
+      const { resolved, initialSnapshot } = await this.runnerSessions.ensureRunnerReady(
         target,
         {
           ...options,
@@ -270,6 +270,7 @@ export class ActiveRunManager {
       }
 
       run.resolved = resolved;
+      run.startedAt = startedAt;
       run.latestUpdate = this.createRunUpdate({
         resolved,
         status: "running",
@@ -277,7 +278,6 @@ export class ActiveRunManager {
         fullSnapshot: initialSnapshot,
         initialSnapshot,
       });
-
       await this.sessionState.setSessionRuntime(resolved, {
         state: "running",
         startedAt,
@@ -381,6 +381,7 @@ export class ActiveRunManager {
     fullSnapshot: string;
     initialSnapshot: string;
     note?: string;
+    forceVisible?: boolean;
   }): TStatus extends "running" ? RunUpdate : AgentExecutionResult {
     return {
       status: params.status,
@@ -392,7 +393,20 @@ export class ActiveRunManager {
       fullSnapshot: params.fullSnapshot,
       initialSnapshot: params.initialSnapshot,
       note: params.note,
+      forceVisible: params.forceVisible,
     } as TStatus extends "running" ? RunUpdate : AgentExecutionResult;
+  }
+
+  private async notifyRecoveryStep(run: ActiveRun, note: string) {
+    await this.notifyRunObservers(run, this.createRunUpdate({
+      resolved: run.resolved,
+      status: run.latestUpdate.status === "detached" ? "detached" : "running",
+      snapshot: "",
+      fullSnapshot: run.latestUpdate.fullSnapshot,
+      initialSnapshot: run.latestUpdate.initialSnapshot,
+      note,
+      forceVisible: true,
+    }));
   }
 
   private async notifyRunObservers(run: ActiveRun, update: RunUpdate) {
@@ -488,6 +502,78 @@ export class ActiveRunManager {
     }
     this.activeRuns.delete(run.resolved.sessionKey);
   }
+  private async recoverLostMidRun(
+    sessionKey: string,
+    params: {
+      timingContext?: RunObserver["timingContext"];
+    },
+    error: unknown,
+  ) {
+    if (!this.runnerSessions.canRecoverMidRun(error)) {
+      return false;
+    }
+
+    const run = this.activeRuns.get(sessionKey);
+    if (!run) {
+      return true;
+    }
+    const target = {
+      agentId: run.resolved.agentId,
+      sessionKey: run.resolved.sessionKey,
+    };
+    const snapshotPrefix = run.latestUpdate.snapshot;
+    const previousFullSnapshot = run.latestUpdate.fullSnapshot;
+    const detachedAlready = run.latestUpdate.status === "detached";
+    await this.notifyRecoveryStep(run, buildRunRecoveryNote("resume-attempt"));
+    try {
+      const recovered = await this.runnerSessions.reopenRunContext(target, params.timingContext);
+      const currentRun = this.activeRuns.get(sessionKey);
+      if (!currentRun) {
+        return true;
+      }
+      currentRun.resolved = recovered.resolved;
+      currentRun.latestUpdate = this.createRunUpdate({
+        resolved: currentRun.resolved,
+        status: currentRun.latestUpdate.status === "detached" ? "detached" : "running",
+        snapshot: "",
+        fullSnapshot: recovered.initialSnapshot,
+        initialSnapshot: recovered.initialSnapshot,
+        note: buildRunRecoveryNote("resume-success"),
+        forceVisible: true,
+      });
+      await this.notifyRunObservers(currentRun, currentRun.latestUpdate);
+      this.startRunMonitor(sessionKey, {
+        prompt: undefined,
+        initialSnapshot: previousFullSnapshot,
+        startedAt: currentRun.startedAt,
+        detachedAlready,
+        timingContext: params.timingContext,
+        snapshotPrefix,
+      });
+      return true;
+    } catch {
+      const currentRun = this.activeRuns.get(sessionKey);
+      if (!currentRun) {
+        return true;
+      }
+      await this.notifyRecoveryStep(currentRun, buildRunRecoveryNote("fresh-attempt"));
+      try {
+        await this.runnerSessions.startFreshSession(target, params.timingContext);
+      } catch (freshError) {
+        await this.failActiveRun(
+          sessionKey,
+          await this.runnerSessions.mapRunError(
+            freshError,
+            currentRun.resolved.sessionName,
+            currentRun.latestUpdate.fullSnapshot,
+          ),
+        );
+        return true;
+      }
+      await this.failActiveRun(sessionKey, new Error(buildRunRecoveryNote("fresh-required")));
+      return true;
+    }
+  }
 
   private startRunMonitor(
     sessionKey: string,
@@ -497,6 +583,7 @@ export class ActiveRunManager {
       startedAt: number;
       detachedAlready: boolean;
       timingContext?: RunObserver["timingContext"];
+      snapshotPrefix?: string;
     },
   ) {
     const run = this.activeRuns.get(sessionKey);
@@ -536,13 +623,14 @@ export class ActiveRunManager {
               return;
             }
 
+            const snapshot = mergeRunSnapshot(params.snapshotPrefix ?? "", update.snapshot);
             const keepDetached = currentRun.latestUpdate.status === "detached";
             await this.notifyRunObservers(
               currentRun,
               this.createRunUpdate({
                 resolved: currentRun.resolved,
                 status: keepDetached ? "detached" : "running",
-                snapshot: update.snapshot,
+                snapshot,
                 fullSnapshot: update.fullSnapshot,
                 initialSnapshot: update.initialSnapshot,
                 note: keepDetached ? this.buildDetachedNote(currentRun.resolved) : undefined,
@@ -558,7 +646,7 @@ export class ActiveRunManager {
             const detachedUpdate = this.createRunUpdate({
               resolved: currentRun.resolved,
               status: "detached",
-              snapshot: update.snapshot,
+              snapshot: mergeRunSnapshot(params.snapshotPrefix ?? "", update.snapshot),
               fullSnapshot: update.fullSnapshot,
               initialSnapshot: update.initialSnapshot,
               note: this.buildDetachedNote(currentRun.resolved),
@@ -575,7 +663,7 @@ export class ActiveRunManager {
             const runUpdate = this.createRunUpdate({
               resolved: run.resolved,
               status: "completed",
-              snapshot: update.snapshot,
+              snapshot: mergeRunSnapshot(params.snapshotPrefix ?? "", update.snapshot),
               fullSnapshot: update.fullSnapshot,
               initialSnapshot: update.initialSnapshot,
             });
@@ -585,7 +673,7 @@ export class ActiveRunManager {
             const runUpdate = this.createRunUpdate({
               resolved: run.resolved,
               status: "timeout",
-              snapshot: update.snapshot,
+              snapshot: mergeRunSnapshot(params.snapshotPrefix ?? "", update.snapshot),
               fullSnapshot: update.fullSnapshot,
               initialSnapshot: update.initialSnapshot,
             });
@@ -593,6 +681,11 @@ export class ActiveRunManager {
           },
         });
       } catch (error) {
+        if (
+          await this.recoverLostMidRun(sessionKey, { timingContext: params.timingContext }, error)
+        ) {
+          return;
+        }
         await this.failActiveRun(
           sessionKey,
           await this.runnerSessions.mapRunError(

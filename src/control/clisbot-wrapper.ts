@@ -23,7 +23,7 @@ function shellQuote(value: string) {
 }
 
 function getClisbotMainScriptPath() {
-  return fileURLToPath(new URL("../main.ts", import.meta.url));
+  return fileURLToPath(new URL(isPackagedRuntime() ? "../main.js" : "../main.ts", import.meta.url));
 }
 
 function isPackagedRuntime() {
