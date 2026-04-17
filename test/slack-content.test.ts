@@ -146,6 +146,90 @@ describe("resolveSlackMessageContent", () => {
     ]);
   });
 
+  test("renders a markdown table as a native Slack table block", () => {
+    const resolved = resolveSlackMessageContent({
+      text: [
+        "## Test Table",
+        "",
+        "| Cột | Giá trị |",
+        "|---|---|",
+        "| App | clisbot |",
+        "| Channel | Slack |",
+      ].join("\n"),
+      inputFormat: "md",
+      renderMode: "blocks",
+    });
+
+    expect(resolved.text).toBe("Test Table");
+    expect(resolved.blocks).toEqual([
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: "Test Table",
+        },
+      },
+      {
+        type: "table",
+        column_settings: [{ is_wrapped: true }, { is_wrapped: false }],
+        rows: [
+          [
+            { type: "raw_text", text: "Cột" },
+            { type: "raw_text", text: "Giá trị" },
+          ],
+          [
+            { type: "raw_text", text: "App" },
+            { type: "raw_text", text: "clisbot" },
+          ],
+          [
+            { type: "raw_text", text: "Channel" },
+            { type: "raw_text", text: "Slack" },
+          ],
+        ],
+      },
+    ]);
+  });
+
+  test("falls back after the first native table block to avoid invalid multiple Slack tables", () => {
+    const resolved = resolveSlackMessageContent({
+      text: [
+        "| Key | Value |",
+        "|---|---|",
+        "| A | one |",
+        "",
+        "| Key | Value |",
+        "|---|---|",
+        "| B | two |",
+      ].join("\n"),
+      inputFormat: "md",
+      renderMode: "blocks",
+    });
+
+    expect(resolved.blocks).toEqual([
+      {
+        type: "table",
+        column_settings: [{ is_wrapped: true }, { is_wrapped: false }],
+        rows: [
+          [
+            { type: "raw_text", text: "Key" },
+            { type: "raw_text", text: "Value" },
+          ],
+          [
+            { type: "raw_text", text: "A" },
+            { type: "raw_text", text: "one" },
+          ],
+        ],
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "*B*: two",
+        },
+      },
+    ]);
+  });
+
   test("passes raw Slack blocks through and derives fallback text", () => {
     const resolved = resolveSlackMessageContent({
       text: JSON.stringify([

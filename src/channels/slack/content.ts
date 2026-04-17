@@ -1,6 +1,7 @@
 import type { MessageInputFormat, MessageRenderMode } from "../message-command.ts";
 
 export type SlackBlock = Record<string, unknown>;
+type SlackTableCell = Record<string, unknown>;
 
 const SLACK_MAX_BLOCKS = 50;
 
@@ -55,6 +56,28 @@ function buildSlackBlocksFallbackText(blocks: SlackBlock[]): string {
       if (typeof element?.text === "string" && element.text.trim()) {
         return stripMarkdownInline(element.text).replace(/\s+/g, " ").trim();
       }
+    }
+    const rows = (block as { rows?: unknown[] }).rows;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      continue;
+    }
+    const firstRow = rows[0];
+    if (!Array.isArray(firstRow)) {
+      continue;
+    }
+    const rowText = firstRow
+      .map((cell) => {
+        if (!cell || typeof cell !== "object") {
+          return "";
+        }
+        const rawText = (cell as { text?: string }).text;
+        return typeof rawText === "string" ? stripMarkdownInline(rawText) : "";
+      })
+      .filter(Boolean)
+      .join(" | ")
+      .trim();
+    if (rowText) {
+      return rowText;
     }
   }
   return "Shared a Block Kit message";
@@ -126,6 +149,88 @@ function renderMarkdownToSlackMrkdwn(markdown: string) {
     .join("\n");
 }
 
+function splitMarkdownTableCells(line: string) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isMarkdownTableSeparator(line: string) {
+  const cells = splitMarkdownTableCells(line);
+  return (
+    cells.length > 0 &&
+    cells.every((cell) => /^:?-{3,}:?$/.test(cell))
+  );
+}
+
+function isMarkdownTableLine(line: string) {
+  const trimmed = line.trim();
+  return trimmed.includes("|") && splitMarkdownTableCells(trimmed).length >= 2;
+}
+
+function renderSlackTableRow(headers: string[], row: string[]) {
+  if (headers.length === 2 && row.length >= 2) {
+    return `*${renderInlineMarkdownToSlackMrkdwn(row[0] ?? "")}*: ${renderInlineMarkdownToSlackMrkdwn(row[1] ?? "")}`;
+  }
+
+  return headers
+    .map((header, index) => {
+      const value = row[index] ?? "";
+      return `*${renderInlineMarkdownToSlackMrkdwn(header)}:* ${renderInlineMarkdownToSlackMrkdwn(value)}`;
+    })
+    .join(" • ");
+}
+
+function normalizeSlackTableCellText(text: string) {
+  return stripMarkdownInline(text).slice(0, 3000);
+}
+
+function buildSlackTableCell(text: string): SlackTableCell {
+  return {
+    type: "raw_text",
+    text: normalizeSlackTableCellText(text),
+  };
+}
+
+function renderMarkdownTableToNativeSlackBlock(headers: string[], rows: string[][]): SlackBlock | null {
+  if (headers.length === 0 || rows.length === 0) {
+    return null;
+  }
+
+  return {
+    type: "table",
+    column_settings: headers.map((_header, index) => ({
+      is_wrapped: index === 0,
+    })),
+    rows: [headers, ...rows].map((row) => row.map((cell) => buildSlackTableCell(cell))),
+  };
+}
+
+function renderMarkdownTableToFallbackSlackBlock(headers: string[], rows: string[][]): SlackBlock | null {
+  if (headers.length === 0 || rows.length === 0) {
+    return null;
+  }
+
+  const text = rows
+    .map((row) => renderSlackTableRow(headers, row))
+    .filter(Boolean)
+    .join("\n");
+  if (!text.trim()) {
+    return null;
+  }
+
+  return {
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text,
+    },
+  };
+}
+
 function renderMarkdownToSlackBlocks(markdown: string) {
   const normalized = markdown.replaceAll("\r\n", "\n").replaceAll("\r", "\n").trim();
   if (!normalized) {
@@ -141,6 +246,7 @@ function renderMarkdownToSlackBlocks(markdown: string) {
   let hasVisibleContent = false;
   let hasSeenHeading = false;
   let majorHeadingCount = 0;
+  let hasNativeTableBlock = false;
 
   const pushBlock = (block: SlackBlock) => {
     blocks.push(block);
@@ -203,7 +309,8 @@ function renderMarkdownToSlackBlocks(markdown: string) {
     codeLines.length = 0;
   };
 
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex] ?? "";
     const fenceMatch = line.match(/^```([^\n`]*)$/);
     if (fenceMatch) {
       if (inCodeFence) {
@@ -223,6 +330,33 @@ function renderMarkdownToSlackBlocks(markdown: string) {
 
     if (line.trim().length === 0) {
       flushParagraph();
+      continue;
+    }
+
+    const nextLine = lines[lineIndex + 1] ?? "";
+    if (isMarkdownTableLine(line) && isMarkdownTableSeparator(nextLine)) {
+      flushParagraph();
+      const headers = splitMarkdownTableCells(line);
+      const rows: string[][] = [];
+      lineIndex += 2;
+      while (lineIndex < lines.length) {
+        const tableLine = lines[lineIndex] ?? "";
+        if (!tableLine.trim() || !isMarkdownTableLine(tableLine)) {
+          lineIndex -= 1;
+          break;
+        }
+        rows.push(splitMarkdownTableCells(tableLine));
+        lineIndex += 1;
+      }
+      const tableBlock = !hasNativeTableBlock
+        ? renderMarkdownTableToNativeSlackBlock(headers, rows)
+        : renderMarkdownTableToFallbackSlackBlock(headers, rows);
+      if (tableBlock) {
+        pushBlock(tableBlock);
+        if ((tableBlock as { type?: string }).type === "table") {
+          hasNativeTableBlock = true;
+        }
+      }
       continue;
     }
 
