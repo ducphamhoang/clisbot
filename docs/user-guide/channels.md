@@ -70,6 +70,8 @@ Practical notes:
 - Telegram topics land in `channels.telegram.groups.<chatId>.topics.<topicId>`
 - Slack public channels land in `channels.slack.channels.<channelId>`
 - Slack private groups land in `channels.slack.groups.<groupId>`
+- new Slack channel/group routes and Telegram group/topic routes default to `requireMention: true`
+- pass `--require-mention false` only when that routed surface should accept plain non-mention messages
 - token commands only change the existing token fields; they do not fetch or validate secrets for you
 
 Current default Slack config is:

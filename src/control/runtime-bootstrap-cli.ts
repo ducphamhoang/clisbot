@@ -51,6 +51,48 @@ type PreparedBootstrapState = {
   persistenceLines: string[];
 };
 
+function hasHelpFlag(args: string[]) {
+  return args.includes("--help") || args.includes("-h") || args.includes("help");
+}
+
+function renderBootstrapCommandHelp(commandName: "init" | "start") {
+  const behavior =
+    commandName === "start"
+      ? "seed config if needed and start the detached runtime"
+      : "seed config and optionally bootstrap the first agent without starting runtime";
+
+  return [
+    `clisbot ${commandName}`,
+    "",
+    "Usage:",
+    `  clisbot ${commandName} --help`,
+    `  clisbot ${commandName} [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]`,
+    "                   [--slack-account <id> --slack-app-token <ENV_NAME|${ENV_NAME}|literal> --slack-bot-token <ENV_NAME|${ENV_NAME}|literal>]...",
+    "                   [--telegram-account <id> --telegram-bot-token <ENV_NAME|${ENV_NAME}|literal>]...",
+    "",
+    "Behavior:",
+    `  - ${behavior}`,
+    "  - first-run agent bootstrap needs both `--cli` and `--bot-type`",
+    "  - `--bot-type personal` maps to `personal-assistant`; `--bot-type team` maps to `team-assistant`",
+    "  - explicit credential flags only enable the channels and accounts you named in this command",
+    "  - env-style values such as `SLACK_APP_TOKEN` or `${SLACK_APP_TOKEN}` stay env-backed in config",
+    commandName === "start"
+      ? "  - literal token values without `--persist` stay runtime-only for this start invocation"
+      : "  - literal token values on `init` require `--persist` because no runtime exists yet",
+    "  - `--persist` writes canonical credential files so later plain `clisbot start` can reuse them",
+    "",
+    "Examples:",
+    `  clisbot ${commandName} --cli codex --bot-type personal --telegram-bot-token TELEGRAM_BOT_TOKEN`,
+    `  clisbot ${commandName} --cli codex --bot-type team --slack-app-token SLACK_APP_TOKEN --slack-bot-token SLACK_BOT_TOKEN`,
+    `  clisbot ${commandName} --cli gemini --bot-type personal --telegram-bot-token \"$TELEGRAM_BOT_TOKEN\" --persist`,
+    "",
+    "Related help:",
+    "  - `clisbot agents --help` for lower-level agent bootstrap and binding control",
+    "  - `clisbot accounts --help` for account persistence after first run",
+    "  - `clisbot channels --help` for route setup after bootstrap",
+  ].join("\n");
+}
+
 function getPrimaryWorkspacePath(
   summary: Awaited<ReturnType<typeof getRuntimeOperatorSummary>>,
 ) {
@@ -347,6 +389,11 @@ async function printStartedRuntimeSummary(pid: number, configPath: string, logPa
 }
 
 export async function initConfig(args: string[] = []) {
+  if (hasHelpFlag(args)) {
+    console.log(renderBootstrapCommandHelp("init"));
+    return;
+  }
+
   const state = await prepareBootstrapState(args, "init");
   if (!state) {
     return;
@@ -369,6 +416,11 @@ export async function initConfig(args: string[] = []) {
 }
 
 export async function start(args: string[] = []) {
+  if (hasHelpFlag(args)) {
+    console.log(renderBootstrapCommandHelp("start"));
+    return;
+  }
+
   const runtimeStatus = await getRuntimeStatus();
   const bootstrapFlags = parseBootstrapFlags(args);
   const restartForLiteralBootstrap =

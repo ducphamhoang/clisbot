@@ -54,6 +54,7 @@ Mutation rule:
 - user changes write `roles.<role>.users`
 - permission changes write `roles.<role>.allow`
 - the first agent-specific write clones the inherited default role into that agent override before mutating it
+- once a principal is granted app `owner` or app `admin`, that principal no longer needs DM pairing on that same platform identity
 
 ## After `clisbot start`
 

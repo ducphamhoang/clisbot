@@ -76,6 +76,21 @@ describe("agents cli", () => {
     expect(output.join("\n")).toContain("Added agent default with tool codex.");
   });
 
+  test("prints focused help", async () => {
+    const output: string[] = [];
+    console.log = ((value: string) => {
+      output.push(value);
+    }) as typeof console.log;
+
+    await runAgentsCli(["help"]);
+
+    const text = output.join("\n");
+    expect(text).toContain("clisbot agents");
+    expect(text).toContain("clisbot agents help");
+    expect(text).toContain("clisbot agents add <id> --cli <codex|claude|gemini>");
+    expect(text).toContain("explicit route `agentId` on Slack or Telegram still wins");
+  });
+
   test("team-assistant bootstrap overrides base USER.md with the team template", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;

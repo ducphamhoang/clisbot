@@ -29,9 +29,34 @@ function parseChannel(raw: string | undefined): PairingChannel {
   throw new Error("Channel required: slack | telegram");
 }
 
+function renderPairingCliHelp() {
+  return [
+    "clisbot pairing",
+    "",
+    "Usage:",
+    "  clisbot pairing --help",
+    "  clisbot pairing help",
+    "  clisbot pairing list <slack|telegram> [--json]",
+    "  clisbot pairing approve <slack|telegram> <code>",
+    "  clisbot pairing reject <slack|telegram> <code>",
+    "  clisbot pairing clear <slack|telegram>",
+    "",
+    "Notes:",
+    "  - `list` shows pending pairing requests for one channel only",
+    "  - `approve` moves that sender into the channel allowlist",
+    "  - `reject` removes one pending request without allowlisting the sender",
+    "  - `clear` drops every pending request for that channel when the queue needs a reset",
+  ].join("\n");
+}
+
 export async function runPairingCli(args: string[], writer: PairingCliWriter = console) {
   const [command, ...rest] = args;
   const baseDir = resolvePairingBaseDir();
+
+  if (!command || command === "--help" || command === "-h" || command === "help") {
+    writer.log(renderPairingCliHelp());
+    return;
+  }
 
   if (command === "list") {
     const wantsJson = rest.includes("--json");
@@ -94,7 +119,5 @@ export async function runPairingCli(args: string[], writer: PairingCliWriter = c
     return;
   }
 
-  throw new Error(
-    "Usage: pairing list <channel> [--json] | pairing approve <channel> <code> | pairing reject <channel> <code> | pairing clear <channel>",
-  );
+  throw new Error(renderPairingCliHelp());
 }

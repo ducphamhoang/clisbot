@@ -67,6 +67,20 @@ describe("accounts cli", () => {
     expect(output.join("\n")).toContain("Added telegram/alerts, persisted=tokenFile, runtime=not-running");
   });
 
+  test("prints help for explicit help alias", async () => {
+    const output: string[] = [];
+    console.log = (value?: unknown) => {
+      output.push(String(value ?? ""));
+    };
+
+    await runAccountsCli(["help"]);
+
+    const text = output.join("\n");
+    expect(text).toContain("clisbot accounts");
+    expect(text).toContain("clisbot accounts help");
+    expect(text).toContain("literal token input without `--persist` stays runtime-only");
+  });
+
   test("rejects raw add without --persist when runtime is stopped", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-accounts-cli-"));
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;

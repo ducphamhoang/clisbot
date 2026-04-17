@@ -47,6 +47,11 @@ If this page and runtime ever disagree, runtime wins.
 - `clisbot logs [--lines N]`: print recent logs
 - `clisbot init [bootstrap flags...]`: seed config and optionally first agent without starting runtime
 
+Focused help:
+
+- `clisbot start --help`: bootstrap-first help for first-run flags, token input, and examples
+- `clisbot init --help`: same bootstrap-focused help, but for config-only setup without starting runtime
+
 ## Channels
 
 - `clisbot channels enable <slack|telegram>`
@@ -64,6 +69,11 @@ If this page and runtime ever disagree, runtime wins.
 - `clisbot channels set-token <slack-app|slack-bot|telegram-bot> <value>`
 - `clisbot channels clear-token <slack-app|slack-bot|telegram-bot>`
 
+Important behavior:
+
+- route adds for Slack channels, Slack groups, Telegram groups, and Telegram topics default to `requireMention: true`
+- pass `--require-mention false` only when that surface should accept plain non-mention follow-up immediately
+
 ## Accounts
 
 - `clisbot accounts add telegram --account <id> --token <ENV_NAME|${ENV_NAME}|literal> [--persist]`
@@ -71,12 +81,24 @@ If this page and runtime ever disagree, runtime wins.
 - `clisbot accounts persist --channel <slack|telegram> --account <id>`
 - `clisbot accounts persist --all`
 
+Important behavior:
+
+- `clisbot accounts help` and `clisbot accounts --help` both work
+- env-style values keep the account env-backed
+- literal token values without `--persist` stay runtime-only and require a running clisbot runtime
+- `--persist` writes canonical token files for later plain starts
+
 ## Loops
 
 - `clisbot loops list`
 - `clisbot loops status`
 - `clisbot loops cancel <id>`
 - `clisbot loops cancel --all`
+
+Examples:
+
+- recurring loops are created from chat with `/loop 5m check CI` or `/loop every day at 07:00 check CI`
+- use `clisbot loops ...` only to inspect or cancel persisted loops later from the operator CLI
 
 ## Message Tooling
 
@@ -94,6 +116,7 @@ If this page and runtime ever disagree, runtime wins.
 
 ## Agents
 
+- `clisbot agents help`
 - `clisbot agents list`
 - `clisbot agents list --bindings`
 - `clisbot agents list --json`
@@ -108,6 +131,12 @@ If this page and runtime ever disagree, runtime wins.
 - `clisbot agents additional-message-mode status --agent <id>`
 - `clisbot agents additional-message-mode set <queue|steer> --agent <id>`
 - `clisbot agents additional-message-mode clear --agent <id>`
+
+Important behavior:
+
+- `clisbot agents --help` and `clisbot agents help` both work
+- `agents add` is the lower-level manual surface; first-run `clisbot start` and `clisbot init` can bootstrap the first `default` agent for you
+- explicit route `agentId` still wins before top-level fallback bindings
 
 ## Auth
 
@@ -130,9 +159,11 @@ Important behavior:
 - agent permissions are limited to the agent permission set shown by `clisbot auth --help`
 - this CLI writes config; config remains the source of truth for routed auth
 - `clisbot auth --help` is the detailed operator help surface for scopes, examples, and permission names
+- app `owner` and `admin` principals bypass DM pairing automatically once granted
 
 ## Pairing
 
+- `clisbot pairing help`
 - `clisbot pairing list <slack|telegram> [--json]`
 - `clisbot pairing approve <slack|telegram> <code>`
 - `clisbot pairing reject <slack|telegram> <code>`

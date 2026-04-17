@@ -90,6 +90,7 @@ function renderAuthCliHelp() {
     "  add-user/remove-user mutate roles.<role>.users",
     "  add-permission/remove-permission mutate roles.<role>.allow",
     "  agent role edits clone the inherited agent-defaults role into the target agent override on first write",
+    "  app `owner` and `admin` principals bypass DM pairing automatically once they are granted",
     "",
     "Examples:",
     "  clisbot auth add-user app --role owner --user telegram:1276408333",

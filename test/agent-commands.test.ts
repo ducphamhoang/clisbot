@@ -135,6 +135,11 @@ describe("parseAgentCommand", () => {
       name: "queue-clear",
     });
 
+    expect(parseAgentCommand("/queue help")).toEqual({
+      type: "control",
+      name: "queue-help",
+    });
+
     expect(parseAgentCommand("/queue clear now")).toEqual({
       type: "queue",
       text: "clear now",
@@ -257,6 +262,16 @@ describe("parseAgentCommand", () => {
   });
 
   test("parses loop status and cancel control commands", () => {
+    expect(parseAgentCommand("/loop")).toEqual({
+      type: "control",
+      name: "loop-help",
+    });
+
+    expect(parseAgentCommand("/loop help")).toEqual({
+      type: "control",
+      name: "loop-help",
+    });
+
     expect(parseAgentCommand("/loop status")).toEqual({
       type: "loop-control",
       action: "status",
@@ -288,12 +303,6 @@ describe("parseAgentCommand", () => {
   });
 
   test("rejects invalid loop counts", () => {
-    expect(parseAgentCommand("/loop")).toEqual({
-      type: "loop-error",
-      message:
-        "Loop requires an interval, count, or schedule. Try `/loop 5m check CI`, `/loop 3 check CI`, `/loop every day at 07:00 check CI`, or `/loop 3` for maintenance mode.",
-    });
-
     expect(parseAgentCommand("/loop check CI")).toEqual({
       type: "loop-error",
       message:

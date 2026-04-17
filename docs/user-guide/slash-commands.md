@@ -58,20 +58,30 @@ If this page and runtime ever disagree, runtime wins.
 ## Queue And Steering
 
 - `/queue <message>` or `\q <message>`: enqueue a later message behind the active run
+- `/queue help`: show queue-specific help and examples
 - `/steer <message>` or `\s <message>`: inject a steering message into the active run immediately
 - `/queue list`: show queued messages that have not started yet
 - `/queue clear`: clear queued messages that have not started yet
 
 ## Loops
 
-- `/loop`: show loop help
-- `/loop every <duration> <prompt>`: create an interval loop
-- `/loop every <duration> for <duration> <prompt>`: create an interval loop with a bounded window
-- `/loop at <time> <prompt>`: create a calendar loop
+- `/loop` or `/loop help`: show loop help
+- `/loop 5m <prompt>`: create an interval loop
+- `/loop 1m --force <prompt>`: create a sub-5-minute interval loop when policy allows it
+- `/loop <prompt> every 2h`: create an interval loop with trailing `every ...` syntax
+- `/loop every day at 07:00 <prompt>`: create a daily wall-clock loop
+- `/loop every weekday at 07:00 <prompt>`: create a weekday wall-clock loop
+- `/loop every mon at 09:00 <prompt>`: create a day-of-week wall-clock loop
+- `/loop 3 <prompt>`: run the prompt a fixed number of times
+- `/loop 5m` or `/loop every day at 07:00`: run maintenance mode using `LOOP.md`
 - `/loop status`: show loops visible from the current session
 - `/loop cancel <id>`: cancel one loop
 - `/loop cancel --all`: cancel all loops visible from the current session
 - `/loop cancel --app --all`: cancel all loops across the app
+
+Useful operator note:
+
+- encourage users to try `/queue help` and `/loop help` directly in chat when they need the live syntax summary for the current surface
 
 ## Shell
 

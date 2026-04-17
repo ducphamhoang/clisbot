@@ -8,6 +8,7 @@ import { ClearedQueuedTaskError } from "../agents/job-queue.ts";
 import {
   parseAgentCommand,
   renderAgentControlSlashHelp,
+  renderQueueHelpLines,
   type CommandPrefixes,
 } from "../agents/commands.ts";
 import {
@@ -282,8 +283,8 @@ function renderRouteStatusMessage(params: {
     "- `/streaming status|on|off|latest|all`",
     "- `/responsemode status`",
     "- `/additionalmessagemode status`",
-    "- `/loop status`, `/loop cancel`, `/loop cancel <id>`",
-    "- `/queue <message>`, `/steer <message>`",
+    "- `/loop help`, `/loop status`, `/loop cancel`, `/loop cancel <id>`",
+    "- `/queue help`, `/queue <message>`, `/steer <message>`",
     "- `/queue list`, `/queue clear`",
     params.route.verbose === "off"
       ? "- `/transcript` disabled on this route (`verbose: off`)"
@@ -423,9 +424,22 @@ function renderQueuedMessagesList(
   return lines.join("\n").trimEnd();
 }
 
+function renderQueueUsage() {
+  return [
+    "Queue commands",
+    "",
+    ...renderQueueHelpLines(),
+    "",
+    "Notes:",
+    "- use queue when the current run should finish first and the next user request can wait in order",
+    "- use steer when the active run should be nudged or redirected immediately",
+  ].join("\n");
+}
+
 function renderLoopUsage() {
   return [
     "Usage:",
+    "- `/loop help`",
     "- `/loop 5m check CI`",
     "- `/loop 1m --force check CI`",
     "- `/loop 5m`",
@@ -1526,6 +1540,12 @@ export async function processChannelInteraction<TChunk>(params: {
       return interactionResult;
     }
 
+    if (slashCommand.name === "queue-help") {
+      await params.postText(renderQueueUsage());
+      await params.agentService.recordConversationReply(params.sessionTarget);
+      return interactionResult;
+    }
+
     if (slashCommand.name === "queue-clear") {
       const clearedCount = params.agentService.clearQueuedPrompts?.(params.sessionTarget) ?? 0;
       await params.postText(
@@ -1536,6 +1556,12 @@ export async function processChannelInteraction<TChunk>(params: {
       await params.agentService.recordConversationReply(params.sessionTarget);
       return interactionResult;
     }
+  }
+
+  if (slashCommand?.type === "control" && slashCommand.name === "loop-help") {
+    await params.postText(renderLoopUsage());
+    await params.agentService.recordConversationReply(params.sessionTarget);
+    return interactionResult;
   }
 
   if (slashCommand?.type === "loop-control") {

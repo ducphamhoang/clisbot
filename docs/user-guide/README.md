@@ -53,6 +53,13 @@ Fastest path:
 bun run start --cli codex --bot-type personal --telegram-bot-token <your-telegram-bot-token>
 ```
 
+Focused help exists for first-run bootstrap too:
+
+```bash
+clisbot start --help
+clisbot init --help
+```
+
 After your first successful `clisbot start`:
 
 1. Get your principal from a surface the bot can already see:
@@ -149,6 +156,12 @@ Important distinction:
 ## Agents CLI
 
 Use `clisbot agents ...` to manage configured agents and top-level channel bindings.
+
+For the focused syntax summary, run:
+
+```bash
+clisbot agents --help
+```
 
 Current subcommands:
 

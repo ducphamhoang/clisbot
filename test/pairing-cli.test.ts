@@ -25,6 +25,18 @@ function withPairingDir(
 }
 
 describe("pairing cli", () => {
+  test("prints help for explicit help alias", async () => {
+    const lines: string[] = [];
+    await runPairingCli(["help"], {
+      log: (line) => lines.push(line),
+    });
+
+    const text = lines.join("\n");
+    expect(text).toContain("clisbot pairing");
+    expect(text).toContain("clisbot pairing help");
+    expect(text).toContain("clisbot pairing clear <slack|telegram>");
+  });
+
   test("lists pending requests as text", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
     try {

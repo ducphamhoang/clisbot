@@ -11,6 +11,7 @@ import {
   renderDisabledConfiguredChannelWarningLines,
   renderMissingTokenWarningLines,
 } from "../src/control/startup-bootstrap.ts";
+import { initConfig, start } from "../src/control/runtime-bootstrap-cli.ts";
 import type { ClisbotConfig } from "../src/config/schema.ts";
 
 function createConfig(): ClisbotConfig {
@@ -171,6 +172,44 @@ function createConfig(): ClisbotConfig {
 }
 
 describe("startup bootstrap helpers", () => {
+  test("prints focused init help without touching runtime state", async () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = ((value?: unknown) => {
+      logs.push(String(value ?? ""));
+    }) as typeof console.log;
+
+    try {
+      await initConfig(["--help"]);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const output = logs.join("\n");
+    expect(output).toContain("clisbot init");
+    expect(output).toContain("clisbot init --help");
+    expect(output).toContain("literal token values on `init` require `--persist`");
+  });
+
+  test("prints focused start help without touching runtime state", async () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = ((value?: unknown) => {
+      logs.push(String(value ?? ""));
+    }) as typeof console.log;
+
+    try {
+      await start(["--help"]);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const output = logs.join("\n");
+    expect(output).toContain("clisbot start");
+    expect(output).toContain("clisbot start --help");
+    expect(output).toContain("literal token values without `--persist` stay runtime-only");
+  });
+
   test("detects default channel token availability", () => {
     expect(
       getDefaultChannelAvailability({

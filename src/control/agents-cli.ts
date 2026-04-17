@@ -66,6 +66,32 @@ function hasFlag(args: string[], name: string) {
   return args.includes(name);
 }
 
+function renderAgentsHelp() {
+  return [
+    "clisbot agents",
+    "",
+    "Usage:",
+    "  clisbot agents --help",
+    "  clisbot agents help",
+    "  clisbot agents list [--bindings] [--json]",
+    "  clisbot agents add <id> --cli <codex|claude|gemini> [--workspace <path>] [--startup-option <arg>]... [--bootstrap <personal-assistant|team-assistant>] [--bind <channel[:accountId]>]...",
+    "  clisbot agents bootstrap <id> --mode <personal-assistant|team-assistant> [--force]",
+    "  clisbot agents bindings [--agent <id>] [--json]",
+    "  clisbot agents bind --agent <id> --bind <channel[:accountId]>",
+    "  clisbot agents unbind --agent <id> [--bind <channel[:accountId]> | --all]",
+    "  clisbot agents response-mode <status|set|clear> --agent <id> [capture-pane|message-tool]",
+    "  clisbot agents additional-message-mode <status|set|clear> --agent <id> [queue|steer]",
+    "",
+    "Notes:",
+    "  - `agents add` is the lower-level manual surface; first-run `clisbot start` and `clisbot init` can bootstrap the first `default` agent for you",
+    "  - `--cli` is required on `agents add`; supported tools are `codex`, `claude`, and `gemini`",
+    "  - omit `--startup-option` to inherit the built-in startup args for the selected CLI tool",
+    "  - `--bind slack`, `--bind telegram`, or `--bind <channel>:<accountId>` creates top-level fallback bindings",
+    "  - explicit route `agentId` on Slack or Telegram still wins before these fallback bindings",
+    "  - `response-mode` and `additional-message-mode` mutate per-agent overrides under `agents.list[]`",
+  ].join("\n");
+}
+
 function parseResponseMode(raw: string | undefined): ResponseMode {
   if (raw === "capture-pane" || raw === "message-tool") {
     return raw;
@@ -524,7 +550,12 @@ export async function runAgentsCli(args: string[]) {
   const subcommand = args[0];
   const rest = args.slice(1);
 
-  if (!subcommand || subcommand === "list") {
+  if (!subcommand || subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
+    console.log(renderAgentsHelp());
+    return;
+  }
+
+  if (subcommand === "list") {
     await listAgents(rest);
     return;
   }
@@ -564,5 +595,5 @@ export async function runAgentsCli(args: string[]) {
     return;
   }
 
-  throw new Error(`Unknown agents subcommand: ${subcommand}`);
+  throw new Error(renderAgentsHelp());
 }

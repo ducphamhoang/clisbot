@@ -30,8 +30,10 @@ export type AgentControlSlashCommandName =
   | "streaming"
   | "responsemode"
   | "additionalmessagemode"
+  | "queue-help"
   | "queue-list"
   | "queue-clear"
+  | "loop-help"
   | "loop";
 export type AgentFollowUpSlashAction = "status" | "auto" | "mention-only" | "pause" | "resume";
 export type AgentStreamingSlashAction = "status" | "on" | "off" | "latest" | "all";
@@ -107,11 +109,19 @@ export type AgentControlSlashCommand =
     }
   | {
       type: "control";
+      name: "queue-help";
+    }
+  | {
+      type: "control";
       name: "queue-list";
     }
   | {
       type: "control";
       name: "queue-clear";
+    }
+  | {
+      type: "control";
+      name: "loop-help";
     };
 
 export type AgentSlashCommand =
@@ -421,6 +431,13 @@ export function parseAgentCommand(
   if (lowered === "loop") {
     const loopText = withoutSlash.slice(command.length).trim();
     const loweredLoopText = loopText.toLowerCase();
+    if (!loweredLoopText || loweredLoopText === "help") {
+      return {
+        type: "control",
+        name: "loop-help",
+      };
+    }
+
     if (loweredLoopText === "status") {
       return {
         type: "loop-control",
@@ -474,6 +491,13 @@ export function parseAgentCommand(
     const queueText = withoutSlash.slice(command.length).trim();
     const normalizedQueueText = queueText.toLowerCase();
     if (lowered === "queue") {
+      if (normalizedQueueText === "help") {
+        return {
+          type: "control",
+          name: "queue-help",
+        };
+      }
+
       if (normalizedQueueText === "list") {
         return {
           type: "control",
@@ -570,15 +594,27 @@ export function renderAgentControlSlashHelp() {
     "- `/additionalmessagemode steer`: send later user messages straight into the active session",
     "- `/additionalmessagemode queue`: queue later user messages behind the active run for this surface",
     "- `/queue <message>` or `\\q <message>`: enqueue a later message behind the active run and let clisbot deliver it in order",
+    "- `/queue help`: show queue-specific help and examples",
     "- `/steer <message>` or `\\s <message>`: inject a steering message into the active run immediately",
     "- `/queue list`: show queued messages that have not started yet",
     "- `/queue clear`: clear queued messages that have not started yet",
+    "- `/loop help`: show loop-specific help and syntax examples",
     ...renderLoopHelpLines(),
     "- `/bash` followed by a shell command: requires `shellExecute` on the resolved agent role",
     "- shortcut prefixes such as `!` run bash only when the resolved agent role allows `shellExecute`",
     "",
     "Other slash commands are forwarded to the agent unchanged.",
   ].join("\n");
+}
+
+export function renderQueueHelpLines() {
+  return [
+    "- `/queue <message>` or `\\q <message>`: enqueue one later message behind the active run",
+    "- `/queue list`: show queued messages that have not started yet",
+    "- `/queue clear`: clear queued messages that have not started yet",
+    "- `/queue help`: show this queue help again",
+    "- `/steer <message>` or `\\s <message>`: inject an immediate steering message instead of queueing",
+  ];
 }
 
 function parseWatchCommand(raw: string) {

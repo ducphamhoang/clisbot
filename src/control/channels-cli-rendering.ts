@@ -31,6 +31,7 @@ export function renderChannelsHelp() {
     "  - Slack private groups need channels.slack.groups.<groupId>",
     "  - Telegram groups need channels.telegram.groups.<chatId>",
     "  - Telegram forum topics need channels.telegram.groups.<chatId>.topics.<topicId>",
+    "  - route adds for Slack channels, Slack groups, Telegram groups, and Telegram topics default to `requireMention: true` unless you pass `--require-mention false`",
     "  - Adding a route puts that surface on the allowlist; other channels, groups, or topics still need to be added explicitly",
     "  - Tune route settings such as requireMention and followUp in clisbot.json when a surface should behave differently",
     `  - Manage routed auth and /bash access in ${AUTH_USER_GUIDE_DOC_PATH}`,
@@ -128,6 +129,9 @@ export function renderRouteAddGuidance(params: {
       `  - this ${routeLabel} still follows channels.slack.groupPolicy and route settings such as requireMention and followUp`,
     );
     console.log(
+      "  - new Slack channel/group routes default to `requireMention: true` unless you passed `--require-mention false`",
+    );
+    console.log(
       "  - if you want pairing-style access control for DMs, set channels.slack.directMessages.policy to `pairing`",
     );
     console.log(
@@ -147,6 +151,9 @@ export function renderRouteAddGuidance(params: {
     );
     console.log(
       `  - this ${params.kind} is now on the Telegram allowlist; other groups or topics still need to be added explicitly`,
+    );
+    console.log(
+      "  - new Telegram group/topic routes default to `requireMention: true` unless you passed `--require-mention false`",
     );
     console.log(
       "  - if you want pairing-style access control for DMs, set channels.telegram.directMessages.policy to `pairing`",

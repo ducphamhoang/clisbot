@@ -83,10 +83,17 @@ function renderAccountsHelp() {
     "",
     "Usage:",
     "  clisbot accounts --help",
+    "  clisbot accounts help",
     "  clisbot accounts add telegram --account <id> --token <ENV_NAME|${ENV_NAME}|literal> [--persist]",
     "  clisbot accounts add slack --account <id> --app-token <ENV_NAME|${ENV_NAME}|literal> --bot-token <ENV_NAME|${ENV_NAME}|literal> [--persist]",
     "  clisbot accounts persist --channel <slack|telegram> --account <id>",
     "  clisbot accounts persist --all",
+    "",
+    "Notes:",
+    "  - env-style input such as `TELEGRAM_BOT_TOKEN` or `${TELEGRAM_BOT_TOKEN}` keeps the account env-backed in config",
+    "  - literal token input without `--persist` stays runtime-only and requires a running clisbot runtime",
+    "  - `--persist` writes canonical token files so later plain `clisbot start` can reuse the account safely",
+    "  - `persist --all` converts every configured `credentialType=mem` account into canonical token files",
   ].join("\n");
 }
 
@@ -322,7 +329,7 @@ export async function runAccountsCli(
   };
   const action = args[0];
 
-  if (!action || action === "--help" || action === "-h") {
+  if (!action || action === "--help" || action === "-h" || action === "help") {
     console.log(renderAccountsHelp());
     return;
   }

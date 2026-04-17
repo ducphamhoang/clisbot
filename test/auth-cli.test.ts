@@ -205,6 +205,7 @@ describe("auth cli", () => {
     expect(output).toContain("roles.<role>.allow");
     expect(output).toContain("configManage");
     expect(output).toContain("shellExecute");
+    expect(output).toContain("bypass DM pairing automatically");
   });
 
   test("rejects unknown permissions with the allowed set in the error", async () => {
