@@ -36,16 +36,18 @@ Suggested structure:
       README.md
     agents/
       README.md
-  runners/
-    README.md
-  control/
-    README.md
-  configuration/
-    README.md
-  non-functionals/
-    README.md
-    architecture-conformance/
+    runners/
       README.md
+    control/
+      README.md
+    configuration/
+      README.md
+    dx/
+      README.md
+    non-functionals/
+      README.md
+      architecture-conformance/
+        README.md
 ```
 
 ## Core Rules

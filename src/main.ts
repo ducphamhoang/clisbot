@@ -6,6 +6,7 @@ import { runAuthCli } from "./control/auth-cli.ts";
 import { runChannelsCli } from "./control/channels-cli.ts";
 import { runLoopsCli } from "./control/loops-cli.ts";
 import { runMessageCli } from "./control/message-cli.ts";
+import { runRunnerCli } from "./control/runner-cli.ts";
 import { initConfig, start } from "./control/runtime-bootstrap-cli.ts";
 import {
   logs,
@@ -16,7 +17,11 @@ import {
   status,
   stop,
 } from "./control/runtime-management-cli.ts";
-import { assertSupportedPlatform, printCommandOutcomeBanner } from "./control/runtime-cli-shared.ts";
+import {
+  assertSupportedPlatform,
+  getCliErrorExitCode,
+  printCommandOutcomeBanner,
+} from "./control/runtime-cli-shared.ts";
 import { getClisbotVersion } from "./version.ts";
 
 async function runBuiltinCommand(command: ReturnType<typeof parseCliArgs>) {
@@ -105,6 +110,11 @@ async function runControlCommand(command: ReturnType<typeof parseCliArgs>) {
     return true;
   }
 
+  if (command.name === "runner") {
+    await runRunnerCli(command.args);
+    return true;
+  }
+
   if (command.name === "pairing") {
     await runPairingCli(command.args);
     return true;
@@ -132,5 +142,5 @@ try {
     printCommandOutcomeBanner("failure");
   }
   await printCliError(error);
-  process.exit(1);
+  process.exit(getCliErrorExitCode(error));
 }

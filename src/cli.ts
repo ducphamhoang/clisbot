@@ -16,6 +16,7 @@ export type ParsedCliCommand =
   | { name: "message"; args: string[] }
   | { name: "agents"; args: string[] }
   | { name: "auth"; args: string[] }
+  | { name: "runner"; args: string[] }
   | { name: "pairing"; args: string[] }
   | { name: "init"; args: string[] }
   | { name: "serve-foreground" }
@@ -104,6 +105,13 @@ export function parseCliArgs(argv: string[]): ParsedCliCommand {
     };
   }
 
+  if (command === "runner") {
+    return {
+      name: "runner",
+      args: args.slice(1),
+    };
+  }
+
   if (command === "pairing") {
     return {
       name: "pairing",
@@ -171,6 +179,7 @@ export function renderCliHelp() {
     "  clisbot message <subcommand>",
     "  clisbot agents <subcommand>",
     "  clisbot auth <subcommand>",
+    "  clisbot runner <subcommand>",
     "  clisbot pairing <subcommand>",
     "  clisbot init [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]",
     "              [--slack-account <id> --slack-app-token <ENV_NAME|${ENV_NAME}|literal> --slack-bot-token <ENV_NAME|${ENV_NAME}|literal>]...",
@@ -214,6 +223,8 @@ export function renderCliHelp() {
     "  agents             Manage configured agents and top-level bindings.",
     "                     See `clisbot agents --help` for focused add/bootstrap/binding help.",
     "  auth               Manage app and agent auth roles, principals, and permissions in config. See `clisbot auth --help`.",
+    "  runner             Validate and inspect runner-facing operator contracts such as `runner smoke`.",
+    "                     See `clisbot runner --help` for the current smoke surface.",
     "  pairing            Run the pairing control CLI. See `clisbot pairing --help`.",
     `  init               Seed ${configPath} and optionally create the first agent without starting clisbot.`,
     "                     See `clisbot init --help` for bootstrap-focused flags and examples.",

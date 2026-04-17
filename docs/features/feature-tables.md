@@ -34,6 +34,7 @@ Execution detail belongs in `docs/tasks/`.
 | Active | core | runners | [runners](runners/README.md) | [runner tasks](../tasks/features/runners) | 2026-04-08 | Runners now need to keep monitoring long-running sessions after request-level detachment so channels can re-attach and still receive final settlement. |
 | Planned | ops | control | [control](control/README.md) | [control tasks](../tasks/features/control) | 2026-04-14 | Operator inspect, attach, restart, stop, health, and other intervention surfaces belong to control, while permission semantics now live in auth. |
 | Active | platform | configuration | [configuration](configuration/README.md) | [configuration tasks](../tasks/features/configuration) | 2026-04-14 | Configuration remains the local control plane for channels, agents, runners, and policy storage, with persisted auth policy shape staying here while auth semantics live in the auth feature area. |
+| Planned | developer-experience | dx | [dx](dx/README.md) | [dx tasks](../tasks/features/dx) | 2026-04-17 | DX now has a first-class front door for machine-readable operator surfaces, upstream CLI compatibility contracts, and future fake-vs-real compatibility validation. |
 
 ## Non-Functional Areas
 

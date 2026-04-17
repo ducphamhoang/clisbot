@@ -78,6 +78,15 @@ describe("parseCliArgs", () => {
     });
   });
 
+  test("parses runner subcommands", () => {
+    expect(
+      parseCliArgs(["bun", "src/main.ts", "runner", "smoke", "--backend", "codex"]),
+    ).toEqual({
+      name: "runner",
+      args: ["smoke", "--backend", "codex"],
+    });
+  });
+
   test("parses init", () => {
     expect(parseCliArgs(["bun", "src/main.ts", "init"])).toEqual({
       name: "init",
@@ -188,6 +197,8 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clisbot agents --help");
     expect(help).toContain("clisbot auth <subcommand>");
     expect(help).toContain("clisbot auth --help");
+    expect(help).toContain("clisbot runner <subcommand>");
+    expect(help).toContain("clisbot runner --help");
     expect(help).toContain("clisbot pairing --help");
     expect(help).toContain("clisbot init [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]");
     expect(help).not.toContain("print-config-path");
