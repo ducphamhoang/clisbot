@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
-import { SessionService } from "../src/agents/session-service.ts";
+import {
+  ActiveRunInProgressError,
+  SessionService,
+} from "../src/agents/session-service.ts";
 import {
   MID_RUN_RECOVERY_CONTINUE_PROMPT,
   MID_RUN_RECOVERY_MAX_ATTEMPTS,
@@ -403,6 +406,158 @@ describe("SessionService observer delivery", () => {
     expect(setSessionRuntime).toHaveBeenCalledWith(resolved, {
       state: "running",
       startedAt: run.startedAt,
+    });
+  });
+
+  test("observeRun rehydrates a persisted active run before attach falls back to transcript", async () => {
+    const resolved = createResolvedTarget();
+    const capturePane = mock(async () => "Still working through the repository.");
+    const manager = new SessionService(
+      {
+        hasSession: async () => true,
+        capturePane,
+      } as unknown as TmuxClient,
+      {
+        getEntry: async () => ({
+          agentId: resolved.agentId,
+          sessionKey: resolved.sessionKey,
+          workspacePath: resolved.workspacePath,
+          updatedAt: Date.now(),
+          runtime: {
+            state: "running" as const,
+            startedAt: 456,
+          },
+        }),
+      } as unknown as AgentSessionState,
+      {} as RunnerService,
+      () => resolved,
+    ) as any;
+    manager.startRunMonitor = mock(() => undefined);
+
+    const observation = await manager.observeRun(
+      {
+        agentId: resolved.agentId,
+        sessionKey: resolved.sessionKey,
+      },
+      {
+        id: "attach-thread",
+        mode: "live",
+        onUpdate: async () => undefined,
+      },
+    );
+
+    expect(observation.active).toBe(true);
+    expect(observation.update.status).toBe("running");
+    expect(observation.update.snapshot).toContain("Still working through the repository.");
+    expect(capturePane).toHaveBeenCalledTimes(1);
+    expect(manager.startRunMonitor).toHaveBeenCalledTimes(1);
+    expect(manager.activeRuns.get(resolved.sessionKey)?.observers.has("attach-thread")).toBe(true);
+  });
+
+  test("observeRun clears stale persisted runtime before transcript fallback when no tmux session remains", async () => {
+    const resolved = createResolvedTarget();
+    const setSessionRuntime = mock(async () => undefined);
+    const captureTranscript = mock(async () => ({
+      agentId: resolved.agentId,
+      sessionKey: resolved.sessionKey,
+      sessionName: resolved.sessionName,
+      workspacePath: resolved.workspacePath,
+      snapshot: "no active run anymore",
+    }));
+    const manager = new SessionService(
+      {
+        hasSession: async () => false,
+      } as unknown as TmuxClient,
+      {
+        getEntry: async () => ({
+          agentId: resolved.agentId,
+          sessionKey: resolved.sessionKey,
+          workspacePath: resolved.workspacePath,
+          updatedAt: Date.now(),
+          runtime: {
+            state: "running" as const,
+            startedAt: 456,
+          },
+        }),
+        setSessionRuntime,
+      } as unknown as AgentSessionState,
+      {
+        captureTranscript,
+      } as unknown as RunnerService,
+      () => resolved,
+    );
+
+    const observation = await manager.observeRun(
+      {
+        agentId: resolved.agentId,
+        sessionKey: resolved.sessionKey,
+      },
+      {
+        id: "attach-thread",
+        mode: "live",
+        onUpdate: async () => undefined,
+      },
+    );
+
+    expect(setSessionRuntime).toHaveBeenCalledWith(resolved, {
+      state: "idle",
+    });
+    expect(captureTranscript).toHaveBeenCalledTimes(1);
+    expect(observation.active).toBe(false);
+    expect(observation.update.status).toBe("completed");
+    expect(observation.update.snapshot).toBe("no active run anymore");
+  });
+
+  test("executePrompt does not reject with active-run admission when persisted runtime is stale", async () => {
+    const resolved = createResolvedTarget();
+    const setSessionRuntime = mock(async () => undefined);
+    const ensureRunnerReady = mock(async () => {
+      throw new Error("runner startup sentinel");
+    });
+    const manager = new SessionService(
+      {
+        hasSession: async () => false,
+      } as unknown as TmuxClient,
+      {
+        getEntry: async () => ({
+          agentId: resolved.agentId,
+          sessionKey: resolved.sessionKey,
+          workspacePath: resolved.workspacePath,
+          updatedAt: Date.now(),
+          runtime: {
+            state: "running" as const,
+            startedAt: 456,
+          },
+        }),
+        setSessionRuntime,
+      } as unknown as AgentSessionState,
+      {
+        ensureRunnerReady,
+      } as unknown as RunnerService,
+      () => resolved,
+    ) as any;
+    manager.startRunMonitor = mock(() => undefined);
+    manager.failActiveRun = mock(async () => undefined);
+
+    const error = await manager.executePrompt(
+      {
+        agentId: resolved.agentId,
+        sessionKey: resolved.sessionKey,
+      },
+      "new prompt",
+      {
+        id: "thread-observer",
+        mode: "live",
+        onUpdate: async () => undefined,
+      },
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(ActiveRunInProgressError);
+    expect((error as Error).message).toBe("runner startup sentinel");
+    expect(ensureRunnerReady).toHaveBeenCalledTimes(1);
+    expect(setSessionRuntime).toHaveBeenCalledWith(resolved, {
+      state: "idle",
     });
   });
 });

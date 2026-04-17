@@ -50,9 +50,24 @@ type ActiveRun = {
 
 const OBSERVER_RETRYABLE_FAILURE_LIMIT = 3;
 const DETACHED_OBSERVER_INTERVAL_MS = 5 * 60_000;
+const TMUX_MISSING_SESSION_PATTERN = /(?:can't find session:|no server running on )/i;
+const TMUX_SERVER_UNAVAILABLE_PATTERN = /(?:No such file or directory|error connecting to|failed to connect to server)/i;
 
 function formatObserverError(error: unknown) {
   return error instanceof Error ? error.stack ?? error.message : String(error);
+}
+
+function isMissingTmuxSessionError(error: unknown) {
+  return error instanceof Error && TMUX_MISSING_SESSION_PATTERN.test(error.message);
+}
+
+function isTmuxServerUnavailableError(error: unknown) {
+  return error instanceof Error && TMUX_SERVER_UNAVAILABLE_PATTERN.test(error.message);
+}
+
+function isBootstrapSessionLostError(error: unknown) {
+  return error instanceof Error && /tmux session disappeared before startup finished|tmux server became unavailable before startup finished/i
+    .test(error.message);
 }
 
 function listObserverErrorCodes(error: unknown): string[] {
@@ -161,47 +176,9 @@ export class SessionService {
       if (!entry.runtime || entry.runtime.state === "idle") {
         continue;
       }
-      const resolved = this.resolveTarget({
+      await this.reconcilePersistedActiveRun({
         agentId: entry.agentId,
         sessionKey: entry.sessionKey,
-      });
-      if (!(await this.tmux.hasSession(resolved.sessionName))) {
-        await this.sessionState.setSessionRuntime(resolved, {
-          state: "idle",
-        });
-        continue;
-      }
-
-      const fullSnapshot = normalizePaneText(
-        await this.tmux.capturePane(resolved.sessionName, resolved.stream.captureLines),
-      );
-      const initialResult = createDeferred<AgentExecutionResult>();
-      const update = this.createRunUpdate({
-        resolved,
-        status: entry.runtime.state === "detached" ? "detached" : "running",
-        snapshot: deriveInteractionText("", fullSnapshot),
-        fullSnapshot,
-        initialSnapshot: "",
-        note: entry.runtime.state === "detached" ? this.buildDetachedNote(resolved) : undefined,
-      });
-
-      this.activeRuns.set(resolved.sessionKey, {
-        runId: this.allocateRunId(),
-        resolved,
-        observers: new Map(),
-        observerFailures: new Map(),
-        initialResult,
-        latestUpdate: update,
-        steeringReady: true,
-        startedAt: entry.runtime.startedAt ?? Date.now(),
-      });
-      this.startRunMonitor(resolved.sessionKey, {
-        runId: this.activeRuns.get(resolved.sessionKey)?.runId ?? "",
-        prompt: undefined,
-        initialSnapshot: fullSnapshot,
-        startedAt: entry.runtime.startedAt ?? Date.now(),
-        detachedAlready: entry.runtime.state === "detached",
-        timingContext: undefined,
       });
     }
   }
@@ -221,22 +198,9 @@ export class SessionService {
       throw new ActiveRunInProgressError(existingActiveRun.latestUpdate);
     }
 
-    const existingEntry = await this.sessionState.getEntry(target.sessionKey);
-    if (existingEntry?.runtime?.state && existingEntry.runtime.state !== "idle") {
-      const resolvedExisting = this.resolveTarget(target);
-      throw new ActiveRunInProgressError(
-        this.createRunUpdate({
-          resolved: resolvedExisting,
-          status: existingEntry.runtime.state === "detached" ? "detached" : "running",
-          snapshot: "",
-          fullSnapshot: "",
-          initialSnapshot: "",
-          note:
-            existingEntry.runtime.state === "detached"
-              ? this.buildDetachedNote(resolvedExisting)
-              : "This session already has an active run. Use `/attach`, `/watch every 30s`, or `/stop` before sending a new prompt.",
-        }),
-      );
+    const reconciledRun = await this.reconcilePersistedActiveRun(target);
+    if (reconciledRun) {
+      throw new ActiveRunInProgressError(reconciledRun.latestUpdate);
     }
 
     const initialResult = createDeferred<AgentExecutionResult>();
@@ -314,7 +278,9 @@ export class SessionService {
     target: AgentSessionTarget,
     observer: Omit<RunObserver, "lastSentAt">,
   ) {
-    const existingRun = this.activeRuns.get(target.sessionKey);
+    const existingRun =
+      this.activeRuns.get(target.sessionKey) ??
+      (await this.reconcilePersistedActiveRun(target));
     if (existingRun) {
       existingRun.observers.set(observer.id, {
         ...observer,
@@ -789,6 +755,94 @@ export class SessionService {
 
   private allocateRunId() {
     return String(this.nextRunId++);
+  }
+
+  private async reconcilePersistedActiveRun(target: AgentSessionTarget) {
+    const activeRun = this.activeRuns.get(target.sessionKey);
+    if (activeRun) {
+      return activeRun;
+    }
+
+    const entry = await this.sessionState.getEntry(target.sessionKey);
+    if (!entry?.runtime || entry.runtime.state === "idle") {
+      return null;
+    }
+
+    const resolved = this.resolveTarget(target);
+    if (!(await this.tmux.hasSession(resolved.sessionName))) {
+      await this.sessionState.setSessionRuntime(resolved, {
+        state: "idle",
+      });
+      return null;
+    }
+
+    try {
+      return await this.rehydratePersistedActiveRun(resolved, {
+        runtimeState: entry.runtime.state,
+        startedAt: entry.runtime.startedAt,
+      });
+    } catch (error) {
+      if (
+        isMissingTmuxSessionError(error) ||
+        isTmuxServerUnavailableError(error) ||
+        isBootstrapSessionLostError(error)
+      ) {
+        await this.sessionState.setSessionRuntime(resolved, {
+          state: "idle",
+        });
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async rehydratePersistedActiveRun(
+    resolved: ResolvedAgentTarget,
+    params: {
+      runtimeState: "running" | "detached";
+      startedAt?: number;
+    },
+  ) {
+    const existingRun = this.activeRuns.get(resolved.sessionKey);
+    if (existingRun) {
+      return existingRun;
+    }
+
+    const fullSnapshot = normalizePaneText(
+      await this.tmux.capturePane(resolved.sessionName, resolved.stream.captureLines),
+    );
+    const startedAt = params.startedAt ?? Date.now();
+    const runId = this.allocateRunId();
+    const initialResult = createDeferred<AgentExecutionResult>();
+    const update = this.createRunUpdate({
+      resolved,
+      status: params.runtimeState === "detached" ? "detached" : "running",
+      snapshot: deriveInteractionText("", fullSnapshot),
+      fullSnapshot,
+      initialSnapshot: "",
+      note: params.runtimeState === "detached" ? this.buildDetachedNote(resolved) : undefined,
+    });
+
+    const run: ActiveRun = {
+      runId,
+      resolved,
+      observers: new Map(),
+      observerFailures: new Map(),
+      initialResult,
+      latestUpdate: update,
+      steeringReady: true,
+      startedAt,
+    };
+    this.activeRuns.set(resolved.sessionKey, run);
+    this.startRunMonitor(resolved.sessionKey, {
+      runId,
+      prompt: undefined,
+      initialSnapshot: fullSnapshot,
+      startedAt,
+      detachedAlready: params.runtimeState === "detached",
+      timingContext: undefined,
+    });
+    return run;
   }
 
   private getRun(sessionKey: string, runId: string) {
