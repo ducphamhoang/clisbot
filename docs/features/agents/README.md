@@ -64,12 +64,18 @@ That operating model must continue to make sense even if tmux is replaced or sup
 
 ## Current Focus
 
-Make the current `agentId` plus `sessionKey` model reliable now, while leaving truthful room for future memory, tools, skills, and subagent growth.
+Make the current `agentId` plus `sessionKey` model reliable now, while leaving truthful room for future memory, tools, skills, subagents, and richer agent self-management.
 
-The next important growth area is session-scoped runtime policy:
+The next important growth areas are:
 
-- follow-up continuation behavior per conversation
-- temporary quiet mode or mention-only mode per thread
-- runtime control APIs that agents themselves can invoke when the user asks
-- stale runner cleanup that reclaims tmux resources without resetting logical conversation identity
-- inbound attachment placement that turns Slack or Telegram uploads into workspace-local files
+- session-scoped runtime policy:
+  - follow-up continuation behavior per conversation
+  - temporary quiet mode or mention-only mode per thread
+  - runtime control APIs that agents themselves can invoke when the user asks
+  - stale runner cleanup that reclaims tmux resources without resetting logical conversation identity
+- agent self-knowledge and context bootstrap:
+  - truthful identity, capability, and limit awareness from docs, source, and current environment
+- agent runtime introspection:
+  - read and mutate queue, loop, and active-run state through a standard agent-facing bridge
+- agent work-management interface:
+  - normalize task and work-item operations now, then split a dedicated feature area later only if backend adapters grow large enough
