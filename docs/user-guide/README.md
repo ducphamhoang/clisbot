@@ -18,6 +18,7 @@ Related pages:
 
 - [Channel Operations](channels.md)
 - [Bots And Credentials](bots-and-credentials.md)
+- [Release Notes](../releases/README.md)
 - [Telegram Bot Setup](telegram-setup.md)
 - [Slack App Setup](slack-setup.md)
 - [Slash Commands](slash-commands.md)

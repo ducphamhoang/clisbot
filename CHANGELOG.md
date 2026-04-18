@@ -1,0 +1,11 @@
+# Changelog
+
+This file is the short index for `clisbot` release history.
+
+The full release notes live in [`docs/releases/`](docs/releases/README.md).
+GitHub Releases should publish a shorter summary and link back to the matching file here.
+
+## Releases
+
+- [Unreleased](docs/releases/unreleased.md)
+- [v0.1.39](docs/releases/v0.1.39.md) - the first large release note for the current bot-first product shape

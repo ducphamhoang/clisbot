@@ -76,6 +76,7 @@ Need the step-by-step setup docs instead of the shortest path?
 
 - Telegram: [Telegram Bot Setup](docs/user-guide/telegram-setup.md)
 - Slack: [Slack App Setup](docs/user-guide/slack-setup.md)
+- Release notes: [CHANGELOG.md](CHANGELOG.md) and [docs/releases/](docs/releases/README.md)
 - Slack app manifest template: [app-manifest.json](templates/slack/default/app-manifest.json)
 - Slack app manifest guide: [app-manifest-guide.md](templates/slack/default/app-manifest-guide.md)
 
@@ -87,6 +88,20 @@ What happens next:
 - `--persist` promotes the token into the canonical credential file so the next `clisbot start` can reuse it without retyping
 - fresh bootstrap only enables the channels you name explicitly
 - after the persisted first run, later restarts can use plain `clisbot start`
+
+## Big Upgrades In v0.1.39
+
+- Much better native Slack and Telegram rendering, so replies are easier to read and feel far less like pasted terminal output.
+- A much cleaner first-run path, with a clearer bot-first setup story and better setup docs.
+- Stronger pairing, auth, and safer shared-channel behavior by default.
+- More trustworthy long-running work, with better attach, detach, recovery, and operator visibility.
+- Real recurring automation with `/loop`.
+
+Read the full notes here:
+
+- [CHANGELOG.md](CHANGELOG.md)
+- [Release Notes Index](docs/releases/README.md)
+- [v0.1.39 Release Notes](docs/releases/v0.1.39.md)
 
 If you prefer Slack first:
 
@@ -112,6 +127,19 @@ bun run start --cli codex --bot-type personal --telegram-bot-token <your-telegra
 ```
 
 Repo-local `bun run start|stop|restart|status|logs|init|pairing` is pinned by `.env` to `CLISBOT_HOME=~/.clisbot-dev`, so local testing does not accidentally reuse your main `~/.clisbot` runtime.
+
+Upgrade note for existing installs:
+
+- `v0.1.39` includes breaking changes in config shape and in the main CLI command surface.
+- If you already run an older install, ask Codex or Claude in this repo to update your current config before upgrading.
+- The upgrade itself is still simple:
+
+```bash
+clisbot stop
+npm install -g clisbot
+clisbot start
+clisbot --version
+```
 
 First conversation path:
 
