@@ -3,6 +3,7 @@ import {
   appendInteractionText,
   cleanInteractionSnapshot,
   cleanRunningInteractionSnapshot,
+  deriveBoundedRunningRewritePreview,
   deriveMeaningfulPaneSnapshot,
   deriveInteractionText,
   deriveRunningInteractionText,
@@ -219,6 +220,29 @@ This project maps channel messages into tmux-backed agents.
         ["line 2", "line 3"].join("\n"),
       ),
     ).toBe(["line 1", "line 2", "line 3"].join("\n"));
+  });
+
+  test("deriveBoundedRunningRewritePreview keeps only the latest changed lines for a large rewrite", () => {
+    const previous = ["draft 1", "draft 2"].join("\n");
+    const current = [
+      "final 1",
+      "final 2",
+      "final 3",
+      "final 4",
+      "final 5",
+    ].join("\n");
+
+    expect(
+      deriveBoundedRunningRewritePreview({
+        previousSnapshot: previous,
+        snapshot: current,
+        maxLines: 2,
+      }),
+    ).toBe([
+      "...[3 more changed lines]",
+      "final 4",
+      "final 5",
+    ].join("\n"));
   });
 
   test("unwraps soft-wrapped tmux lines into cleaner Slack text", () => {

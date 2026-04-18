@@ -1,5 +1,7 @@
 import { sleep } from "../../shared/process.ts";
 import {
+  appendInteractionText,
+  deriveBoundedRunningRewritePreview,
   deriveInteractionText,
   deriveRunningInteractionText,
   deriveRunningInteractionSnapshot,
@@ -11,6 +13,7 @@ import { submitTmuxSessionInput } from "./session-handshake.ts";
 import { logLatencyDebug, type LatencyDebugContext } from "../../control/latency-debug.ts";
 
 const FIRST_OUTPUT_POLL_INTERVAL_MS = 250;
+const RUNNING_REWRITE_PREVIEW_MAX_LINES = 8;
 
 export type TmuxRunMonitorParams = {
   tmux: TmuxClient;
@@ -87,15 +90,35 @@ export async function monitorTmuxRun(params: TmuxRunMonitorParams) {
       await params.tmux.capturePane(params.sessionName, params.captureLines),
     );
     const now = Date.now();
+    const priorSnapshot = previousSnapshot;
     const paneChanged = snapshot !== previousSnapshot;
     if (paneChanged) {
       lastPaneChangeAt = now;
       sawPaneChange = true;
     }
     const hasActiveTimer = hasActiveTimerStatus(snapshot);
-    const runningSnapshot = params.initialSnapshot
-      ? deriveRunningInteractionText(params.initialSnapshot, snapshot)
-      : deriveRunningInteractionSnapshot(snapshot);
+    const currentRunningSnapshot = deriveRunningInteractionSnapshot(snapshot);
+    const baselineRunningSnapshot =
+      deriveInteractionText(params.initialSnapshot, snapshot) || currentRunningSnapshot;
+    const runningDelta = priorSnapshot
+      ? deriveRunningInteractionText(priorSnapshot, snapshot)
+      : currentRunningSnapshot;
+    const shouldReplaceRunningSnapshot =
+      paneChanged &&
+      !runningDelta &&
+      Boolean(baselineRunningSnapshot) &&
+      baselineRunningSnapshot !== previousRunningSnapshot;
+    const runningSnapshot = runningDelta
+      ? previousRunningSnapshot
+        ? appendInteractionText(previousRunningSnapshot, runningDelta)
+        : runningDelta
+      : shouldReplaceRunningSnapshot
+        ? deriveBoundedRunningRewritePreview({
+            previousSnapshot: previousRunningSnapshot,
+            snapshot: baselineRunningSnapshot,
+            maxLines: RUNNING_REWRITE_PREVIEW_MAX_LINES,
+          })
+        : "";
 
     previousSnapshot = snapshot;
 

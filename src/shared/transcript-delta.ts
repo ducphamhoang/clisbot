@@ -141,6 +141,65 @@ export function appendInteractionText(currentBody: string, nextDelta: string) {
   return [...currentLines, ...deltaLines.slice(overlap)].join("\n").trim();
 }
 
+export function deriveBoundedRunningRewritePreview(params: {
+  previousSnapshot?: string;
+  snapshot: string;
+  maxLines?: number;
+}) {
+  const previous = cleanRunningInteractionSnapshot(params.previousSnapshot ?? "");
+  const current = cleanRunningInteractionSnapshot(params.snapshot);
+  const maxLines = Math.max(1, params.maxLines ?? 8);
+
+  if (!current) {
+    return "";
+  }
+
+  const currentLines = splitNormalizedLines(current);
+  if (!previous) {
+    if (currentLines.length <= maxLines) {
+      return current;
+    }
+    return [
+      `...[${currentLines.length - maxLines} more changed lines]`,
+      ...currentLines.slice(-maxLines),
+    ].join("\n");
+  }
+
+  const previousLines = splitNormalizedLines(previous);
+  let prefix = 0;
+  while (
+    prefix < previousLines.length &&
+    prefix < currentLines.length &&
+    previousLines[prefix] === currentLines[prefix]
+  ) {
+    prefix += 1;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < previousLines.length - prefix &&
+    suffix < currentLines.length - prefix &&
+    previousLines[previousLines.length - 1 - suffix] ===
+      currentLines[currentLines.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  const changedLines = currentLines.slice(prefix, currentLines.length - suffix);
+  if (changedLines.length === 0) {
+    return current;
+  }
+
+  if (changedLines.length <= maxLines) {
+    return changedLines.join("\n");
+  }
+
+  return [
+    `...[${changedLines.length - maxLines} more changed lines]`,
+    ...changedLines.slice(-maxLines),
+  ].join("\n");
+}
+
 function joinExcerpt(lines: string[], params: { trimmedHead: boolean; trimmedTail: boolean }) {
   if (lines.length === 0) {
     return "";

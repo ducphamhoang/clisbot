@@ -501,6 +501,126 @@ describe("tmux runner latency behavior", () => {
     ]);
   });
 
+  test("monitorTmuxRun keeps cumulative running output after the initial snapshot scrolls out", async () => {
+    const initialSnapshot = "READY";
+    const snapshots = [
+      ["line 1", "line 2", "line 3", "line 4"].join("\n"),
+      ["line 3", "line 4", "line 5", "line 6"].join("\n"),
+      ["line 3", "line 4", "line 5", "line 6"].join("\n"),
+    ];
+    let captureIndex = 0;
+    const runningSnapshots: string[] = [];
+
+    const fakeTmux = {
+      async capturePane() {
+        const snapshot = snapshots[Math.min(captureIndex, snapshots.length - 1)] ?? "";
+        captureIndex += 1;
+        return snapshot;
+      },
+    } as unknown as TmuxClient;
+
+    await monitorTmuxRun({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      prompt: undefined,
+      promptSubmitDelayMs: 1,
+      captureLines: 80,
+      updateIntervalMs: 5,
+      idleTimeoutMs: 15,
+      noOutputTimeoutMs: 1_000,
+      maxRuntimeMs: 10_000,
+      startedAt: Date.now(),
+      initialSnapshot,
+      detachedAlready: false,
+      onRunning: async (update) => {
+        runningSnapshots.push(update.snapshot);
+      },
+      onDetached: async () => undefined,
+      onCompleted: async () => undefined,
+    });
+
+    expect(runningSnapshots).toEqual([
+      ["line 1", "line 2", "line 3", "line 4"].join("\n"),
+      ["line 1", "line 2", "line 3", "line 4", "line 5", "line 6"].join("\n"),
+    ]);
+  });
+
+  test("monitorTmuxRun replaces the running preview when the pane rewrites without overlap", async () => {
+    const initialSnapshot = "READY";
+    const snapshots = [
+      ["draft 1", "draft 2"].join("\n"),
+      [
+        "final 1",
+        "final 2",
+        "final 3",
+        "final 4",
+        "final 5",
+        "final 6",
+        "final 7",
+        "final 8",
+        "final 9",
+        "final 10",
+      ].join("\n"),
+      [
+        "final 1",
+        "final 2",
+        "final 3",
+        "final 4",
+        "final 5",
+        "final 6",
+        "final 7",
+        "final 8",
+        "final 9",
+        "final 10",
+      ].join("\n"),
+    ];
+    let captureIndex = 0;
+    const runningSnapshots: string[] = [];
+
+    const fakeTmux = {
+      async capturePane() {
+        const snapshot = snapshots[Math.min(captureIndex, snapshots.length - 1)] ?? "";
+        captureIndex += 1;
+        return snapshot;
+      },
+    } as unknown as TmuxClient;
+
+    await monitorTmuxRun({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      prompt: undefined,
+      promptSubmitDelayMs: 1,
+      captureLines: 80,
+      updateIntervalMs: 5,
+      idleTimeoutMs: 15,
+      noOutputTimeoutMs: 1_000,
+      maxRuntimeMs: 10_000,
+      startedAt: Date.now(),
+      initialSnapshot,
+      detachedAlready: false,
+      onRunning: async (update) => {
+        runningSnapshots.push(update.snapshot);
+      },
+      onDetached: async () => undefined,
+      onCompleted: async () => undefined,
+    });
+
+    expect(runningSnapshots).toEqual([
+      ["draft 1", "draft 2"].join("\n"),
+      [
+        "...[2 more changed lines]",
+        "final 3",
+        "final 4",
+        "final 5",
+        "final 6",
+        "final 7",
+        "final 8",
+        "final 9",
+        "final 10",
+      ].join("\n"),
+    ]);
+  });
+
   test("submitTmuxSessionInput retries Enter once when pane state stays unchanged", async () => {
     let enterCount = 0;
     let state = {
