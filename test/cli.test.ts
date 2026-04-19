@@ -1,6 +1,15 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { parseCliArgs, renderCliHelp } from "../src/cli.ts";
+import { setRenderedCliName } from "../src/shared/cli-name.ts";
 import { getClisbotVersion } from "../src/version.ts";
+
+beforeEach(() => {
+  setRenderedCliName();
+});
+
+afterEach(() => {
+  setRenderedCliName();
+});
 
 describe("parseCliArgs", () => {
   test("parses stop --hard", () => {
@@ -212,5 +221,16 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clone https://github.com/longbkit/clisbot");
     expect(help).toContain("Codex or Claude Code");
     expect(help).toContain("cancel <id>");
+  });
+
+  test("switches operator command examples to clisbot-dev when configured", () => {
+    setRenderedCliName("clisbot-dev");
+
+    const help = renderCliHelp();
+
+    expect(help).toContain(`clisbot-dev v${getClisbotVersion()}`);
+    expect(help).toContain("clisbot-dev start");
+    expect(help).toContain("clisbot-dev status");
+    expect(help).not.toContain("npx clisbot start");
   });
 });

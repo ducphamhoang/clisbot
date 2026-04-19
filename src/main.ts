@@ -24,7 +24,27 @@ import {
   getCliErrorExitCode,
   printCommandOutcomeBanner,
 } from "./control/runtime-cli-shared.ts";
+import { setRenderedCliName } from "./shared/cli-name.ts";
 import { getClisbotVersion } from "./version.ts";
+
+const INTERNAL_CLI_NAME_FLAG = "--internal-cli-name";
+
+export function prepareCliArgv(argv: string[]) {
+  const flagIndex = argv.findIndex((arg) => arg === INTERNAL_CLI_NAME_FLAG);
+  if (flagIndex === -1) {
+    setRenderedCliName();
+    return argv;
+  }
+
+  const cliName = argv[flagIndex + 1];
+  setRenderedCliName(cliName);
+
+  if (cliName == null) {
+    return argv.filter((arg) => arg !== INTERNAL_CLI_NAME_FLAG);
+  }
+
+  return argv.filter((_, index) => index !== flagIndex && index !== flagIndex + 1);
+}
 
 async function runBuiltinCommand(command: ReturnType<typeof parseCliArgs>) {
   if (command.name === "help") {
@@ -135,7 +155,7 @@ async function runControlCommand(command: ReturnType<typeof parseCliArgs>) {
   return false;
 }
 
-async function main(command = parseCliArgs(process.argv)) {
+async function main(command = parseCliArgs(prepareCliArgv(process.argv))) {
   assertSupportedPlatform(command);
 
   if (await runBuiltinCommand(command)) {
@@ -145,7 +165,7 @@ async function main(command = parseCliArgs(process.argv)) {
   await runControlCommand(command);
 }
 
-const command = parseCliArgs(process.argv);
+const command = parseCliArgs(prepareCliArgv(process.argv));
 
 try {
   await main(command);

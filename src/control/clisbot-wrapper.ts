@@ -3,13 +3,17 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, sep } from "node:path";
 import { fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
 import { ensureDir, expandHomePath, resolveAppHomeDir } from "../shared/paths.ts";
+import {
+  DEFAULT_CLISBOT_CLI_NAME,
+  getRenderedCliName,
+} from "../shared/cli-name.ts";
 
 export function getDefaultClisbotBinDir(env: NodeJS.ProcessEnv = process.env) {
   return join(resolveAppHomeDir(env), "bin");
 }
 
 export function getDefaultClisbotWrapperPath(env: NodeJS.ProcessEnv = process.env) {
-  return join(getDefaultClisbotBinDir(env), "clisbot");
+  return join(getDefaultClisbotBinDir(env), DEFAULT_CLISBOT_CLI_NAME);
 }
 
 export const DEFAULT_CLISBOT_BIN_DIR = getDefaultClisbotBinDir();
@@ -40,7 +44,7 @@ export function getClisbotPromptCommand() {
     return process.env.CLISBOT_PROMPT_COMMAND.trim();
   }
 
-  return isPackagedRuntime() ? "clis" : getClisbotWrapperPath();
+  return isPackagedRuntime() ? getRenderedCliName() : getClisbotWrapperPath();
 }
 
 export function getClisbotWrapperDir() {
@@ -50,11 +54,12 @@ export function getClisbotWrapperDir() {
 export function renderClisbotWrapperScript() {
   const execPath = process.execPath;
   const mainScriptPath = getClisbotMainScriptPath();
+  const cliName = getRenderedCliName();
 
   return [
     "#!/usr/bin/env bash",
     "set -euo pipefail",
-    `exec ${shellQuote(execPath)} ${shellQuote(mainScriptPath)} "$@"`,
+    `exec ${shellQuote(execPath)} ${shellQuote(mainScriptPath)} --internal-cli-name ${shellQuote(cliName)} "$@"`,
     "",
   ].join("\n");
 }

@@ -10,6 +10,7 @@ import {
   describeSlackCredentialSource,
   describeTelegramCredentialSource,
 } from "../config/channel-credentials.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 export const BOTS_AND_CREDENTIALS_DOC_PATH = "docs/user-guide/bots-and-credentials.md";
 export const USER_GUIDE_DOC_PATH = "docs/user-guide/README.md";
@@ -78,7 +79,7 @@ export function renderDisabledConfiguredChannelWarningLines(
       "warning default Slack tokens are available in SLACK_APP_TOKEN and SLACK_BOT_TOKEN, but bots.slack.defaults.enabled is false in the existing config.",
     );
     lines.push(
-      `Run \`clisbot bots enable --channel slack --bot default\` to enable Slack quickly, or update ${configPath} manually.`,
+      `Run ${renderCliCommand("bots enable --channel slack --bot default", { inline: true })} to enable Slack quickly, or update ${configPath} manually.`,
     );
   }
 
@@ -87,7 +88,7 @@ export function renderDisabledConfiguredChannelWarningLines(
       "warning default Telegram token is available in TELEGRAM_BOT_TOKEN, but bots.telegram.defaults.enabled is false in the existing config.",
     );
     lines.push(
-      `Run \`clisbot bots enable --channel telegram --bot default\` to enable Telegram quickly, or update ${configPath} manually.`,
+      `Run ${renderCliCommand("bots enable --channel telegram --bot default", { inline: true })} to enable Telegram quickly, or update ${configPath} manually.`,
     );
   }
 
@@ -134,7 +135,7 @@ export function renderMissingTokenWarningLines(
     `Telegram token ref: ${telegramBot.envName} (${telegramBot.hasValue ? "set" : "missing"})`,
     "Pass the channels you want explicitly, for example with --telegram-bot-token or --slack-app-token plus --slack-bot-token.",
     "Use ENV_NAME or ${ENV_NAME} for env-backed setup, or pass a literal token to cold-start with credentialType=mem.",
-    "Example: clisbot start --cli codex --bot-type personal --telegram-bot-token TELEGRAM_BOT_TOKEN",
+    `Example: ${renderCliCommand("start --cli codex --bot-type personal --telegram-bot-token TELEGRAM_BOT_TOKEN")}`,
     `Repo docs path (local or GitHub): ${BOTS_AND_CREDENTIALS_DOC_PATH}`,
     `Slack docs: ${SLACK_TOKEN_DOC_URL}`,
     `Telegram docs: ${TELEGRAM_TOKEN_DOC_URL}`,
@@ -240,7 +241,7 @@ export function renderRepoHelpLines(prefix = "") {
 
 export function renderOperatorHelpLines(prefix = "") {
   return [
-    `${prefix}Help: clisbot --help`,
+    `${prefix}Help: ${renderCliCommand("--help")}`,
     `${prefix}Docs: ${USER_GUIDE_DOC_PATH}`,
     ...renderRepoHelpLines(prefix),
   ];
@@ -287,7 +288,7 @@ export function renderPairingSetupHelpLines(
       );
     }
     lines.push(
-      `${prefix}  - Approve the returned Telegram code with: \`clisbot pairing approve telegram <code>\``,
+      `${prefix}  - Approve the returned Telegram code with: ${renderCliCommand("pairing approve telegram <code>", { inline: true })}`,
     );
   }
 
@@ -298,7 +299,7 @@ export function renderPairingSetupHelpLines(
       );
     }
     lines.push(
-      `${prefix}  - Approve the returned Slack code with: \`clisbot pairing approve slack <code>\``,
+      `${prefix}  - Approve the returned Slack code with: ${renderCliCommand("pairing approve slack <code>", { inline: true })}`,
     );
   }
 

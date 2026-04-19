@@ -1,15 +1,13 @@
 import type { ChannelIdentity } from "./channel-identity.ts";
 import { resolveChannelIdentityBotId } from "./channel-identity.ts";
 import { getClisbotPromptCommand } from "../control/clisbot-wrapper.ts";
+import { getRenderedCliName, renderCliCommand } from "../shared/cli-name.ts";
 
 export type ChannelAgentPromptConfig = {
   enabled: boolean;
   maxProgressMessages: number;
   requireFinalResponse: boolean;
 };
-
-export const CONFIGURATION_GUIDANCE =
-  "When the user asks to change clisbot configuration, use clisbot CLI commands; see `clisbot --help`, `clisbot bots --help`, `clisbot routes --help`, or `clisbot auth --help` for details.";
 
 export const BASE_TEMPLATE = `<system>
 [{{timestamp}}] {{identity_summary}}
@@ -19,7 +17,7 @@ You are operating inside clisbot.
 {{reply_command}}
 {{reply_rules}}
 {{reply_style_hint}}
-${CONFIGURATION_GUIDANCE}{{protected_control_suffix}}
+{{configuration_guidance}}{{protected_control_suffix}}
 </system>
 
 <user>
@@ -37,9 +35,6 @@ Adjust your current work if needed and continue.{{protected_control_suffix}}
 
 export const DELIVERY_INTRO =
   "To send a user-visible {{progress_phrase}}final reply, use the following CLI command:";
-
-export const DELIVERY_INTRO_CAPTURE_PANE =
-  "channel auto-delivery remains enabled for this conversation; do not send user-facing progress updates or the final response with clisbot message send";
 
 export const REPLY_COMMAND = `{{reply_command_base}}
   --final{{progress_flag_suffix}} \\
@@ -167,6 +162,7 @@ function buildChannelPromptText(params: {
     reply_command: promptParts.replyCommand,
     reply_rules: promptParts.replyRules,
     reply_style_hint: promptParts.replyStyleHint,
+    configuration_guidance: renderConfigurationGuidance(),
     protected_control_suffix: renderProtectedControlSuffix(
       params.protectedControlMutationRule,
     ),
@@ -183,7 +179,7 @@ function renderMessagePromptParts(params: {
   const messageToolMode = (params.responseMode ?? "message-tool") === "message-tool";
   if (!messageToolMode) {
     return {
-      deliveryIntro: DELIVERY_INTRO_CAPTURE_PANE,
+      deliveryIntro: renderCapturePaneDeliveryIntro(),
       replyCommand: EMPTY_REPLY_COMMAND,
       replyRules: EMPTY_REPLY_RULES,
       replyStyleHint: EMPTY_REPLY_STYLE_HINT,
@@ -223,6 +219,15 @@ function buildReplyStyleHint(identity: ChannelIdentity) {
   return identity.platform === "slack"
     ? SLACK_REPLY_STYLE_HINT
     : TELEGRAM_REPLY_STYLE_HINT;
+}
+
+function renderConfigurationGuidance() {
+  const cliName = getRenderedCliName();
+  return `When the user asks to change ${cliName} configuration, use ${cliName} CLI commands; see ${renderCliCommand("--help", { inline: true })}, ${renderCliCommand("bots --help", { inline: true })}, ${renderCliCommand("routes --help", { inline: true })}, or ${renderCliCommand("auth --help", { inline: true })} for details.`;
+}
+
+function renderCapturePaneDeliveryIntro() {
+  return `channel auto-delivery remains enabled for this conversation; do not send user-facing progress updates or the final response with ${renderCliCommand("message send", { inline: true })}`;
 }
 
 function renderProtectedControlSuffix(rule?: string) {
