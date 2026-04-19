@@ -14,6 +14,7 @@ import type {
   AdditionalMessageMode,
   ResponseMode,
 } from "../channels/mode-config-shared.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 function getEditableConfigPath() {
   return process.env.CLISBOT_CONFIG_PATH;
@@ -67,19 +68,19 @@ function hasFlag(args: string[], name: string) {
 
 function renderAgentsHelp() {
   return [
-    "clisbot agents",
+    renderCliCommand("agents"),
     "",
     "Usage:",
-    "  clisbot agents --help",
-    "  clisbot agents help",
-    "  clisbot agents list [--json]",
-    "  clisbot agents add <id> --cli <codex|claude|gemini> [--workspace <path>] [--startup-option <arg>]... [--bot-type <personal|team>]",
-    "  clisbot agents bootstrap <id> --bot-type <personal|team> [--force]",
-    "  clisbot agents response-mode <status|set|clear> --agent <id> [capture-pane|message-tool]",
-    "  clisbot agents additional-message-mode <status|set|clear> --agent <id> [queue|steer]",
+    `  ${renderCliCommand("agents --help")}`,
+    `  ${renderCliCommand("agents help")}`,
+    `  ${renderCliCommand("agents list [--json]")}`,
+    `  ${renderCliCommand("agents add <id> --cli <codex|claude|gemini> [--workspace <path>] [--startup-option <arg>]... [--bot-type <personal|team>]")}`,
+    `  ${renderCliCommand("agents bootstrap <id> --bot-type <personal|team> [--force]")}`,
+    `  ${renderCliCommand("agents response-mode <status|set|clear> --agent <id> [capture-pane|message-tool]")}`,
+    `  ${renderCliCommand("agents additional-message-mode <status|set|clear> --agent <id> [queue|steer]")}`,
     "",
     "Notes:",
-    "  - `agents add` is the lower-level manual surface; first-run `clisbot start` and `clisbot init` can bootstrap the first `default` agent for you",
+    `  - \`agents add\` is the lower-level manual surface; first-run ${renderCliCommand("start", { inline: true })} and ${renderCliCommand("init", { inline: true })} can bootstrap the first \`default\` agent for you`,
     "  - `--cli` is required on `agents add`; supported tools are `codex`, `claude`, and `gemini`",
     "  - omit `--startup-option` to inherit the built-in startup args for the selected CLI tool",
     "  - `response-mode` and `additional-message-mode` mutate per-agent overrides under `agents.list[]`",
@@ -348,17 +349,23 @@ async function bootstrapAgent(args: string[]) {
 
 async function listBindings(args: string[]) {
   void args;
-  console.log("Agent bindings are no longer managed here. Use `clisbot bots ...` or `clisbot routes ...`.");
+  console.log(
+    `Agent bindings are no longer managed here. Use ${renderCliCommand("bots ...", { inline: true })} or ${renderCliCommand("routes ...", { inline: true })}.`,
+  );
 }
 
 async function bindAgent(args: string[]) {
   void args;
-  throw new Error("Use `clisbot bots set-agent ...` or `clisbot routes set-agent ...` instead.");
+  throw new Error(
+    `Use ${renderCliCommand("bots set-agent ...", { inline: true })} or ${renderCliCommand("routes set-agent ...", { inline: true })} instead.`,
+  );
 }
 
 async function unbindAgent(args: string[]) {
   void args;
-  throw new Error("Use `clisbot bots clear-agent ...` or `clisbot routes clear-agent ...` instead.");
+  throw new Error(
+    `Use ${renderCliCommand("bots clear-agent ...", { inline: true })} or ${renderCliCommand("routes clear-agent ...", { inline: true })} instead.`,
+  );
 }
 
 async function runAgentResponseModeCli(args: string[]) {

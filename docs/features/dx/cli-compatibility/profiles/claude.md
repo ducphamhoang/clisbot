@@ -4,7 +4,10 @@
 
 Claude has the strongest explicit session-identity model of the current launch trio because `clisbot` can pass a known session id at startup.
 
-Its weaker area is the same as Codex: startup readiness is still more heuristic than explicit.
+Its weaker areas are:
+
+- startup readiness is still more heuristic than explicit
+- Claude can surface Claude-owned plan approval and auto-mode classifier behavior that `clisbot` does not currently suppress
 
 ## Capability Mapping
 
@@ -18,6 +21,11 @@ Current basis:
 - startup args include:
   - `--dangerously-skip-permissions`
 - trust prompt handling is enabled
+
+Important boundary:
+
+- `--dangerously-skip-permissions` skips Claude permission prompts
+- it does not guarantee that Claude will stay out of its own plan-confirmation or auto-mode flows once the session is running
 
 ### `probe`
 
@@ -114,3 +122,36 @@ The running snapshot layer can keep these, but final contract truth should still
 - no explicit startup ready pattern
 - Claude trust/safety prompt wording can drift again
 - multiline paste and terminal settlement remain sensitive to CLI UI changes
+- Claude can enter a plan-complete approval screen even during routed coding work
+- after that approval, Claude may continue with auto-mode classifier semantics instead of returning to a bypass-permissions feel
+
+## Operator Caveats
+
+### Plan Approval Gate
+
+Observed current behavior:
+
+- Claude can switch into a plan-complete confirmation step that asks the operator to proceed or adjust the plan
+- this can happen even when the runner launched Claude with `--dangerously-skip-permissions`
+- `clisbot` does not currently have a validated startup arg that reliably disables this Claude behavior
+
+Current operator workaround:
+
+- turn `/streaming on` for coding-heavy routed work
+- if the run stalls at the plan approval screen, send `/nudge`
+- current observed behavior is that `/nudge` usually triggers the first available option and lets the run continue
+
+Treat that `/nudge` flow as an operational workaround, not a guaranteed Claude contract.
+
+### Auto-Mode Classifier Drift
+
+Observed current behavior:
+
+- Claude can still surface auto-mode classifier decisions even after a bypass-permissions launch
+- the classifier may appear for basic local work such as file edits or command execution
+- after a plan approval step, Claude may continue in auto-mode-style behavior instead of returning to an operator expectation of pure bypass-permissions
+
+Current operator implication:
+
+- if a team wants the most predictable local execution path, disable Claude auto mode in Claude's own settings before routing it through `clisbot`
+- `clisbot` should not currently claim that its Claude launch args alone disable this behavior

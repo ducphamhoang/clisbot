@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +13,17 @@ import {
 import { ProcessedEventsStore } from "../src/channels/processed-events-store.ts";
 
 describe("slack feedback helpers", () => {
+  let previousCliName: string | undefined;
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+  });
+
+  afterEach(() => {
+    process.env.CLISBOT_CLI_NAME = previousCliName;
+  });
+
   test("treats mapped slash-style control commands as command-like", () => {
     expect(
       isSlackCommandLikeMessage({

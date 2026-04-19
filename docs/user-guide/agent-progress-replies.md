@@ -61,7 +61,7 @@ Common render choices:
 ~/.clisbot/bin/clisbot message send \
   --channel telegram \
   --target -1001234567890 \
-  --thread-id 42 \
+  --topic-id 42 \
   --input md \
   --render native \
   --message "## Status\n\n- step 1 done"
@@ -73,7 +73,7 @@ Common render choices:
 ~/.clisbot/bin/clisbot message send \
   --channel telegram \
   --target -1001234567890 \
-  --thread-id 42 \
+  --topic-id 42 \
   --input html \
   --render none \
   --message "<b>Status</b>\n\nstep 1 done"

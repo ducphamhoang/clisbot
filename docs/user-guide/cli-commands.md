@@ -386,9 +386,8 @@ Important behavior:
 - `--target` is the destination:
   - Slack uses destination ids such as channels, groups, or DM destinations
   - Telegram uses the numeric chat id
-- `--thread-id` chooses the thread or topic container:
-  - Slack uses it for thread replies
-  - Telegram uses it for forum topics
+- `--thread-id` chooses the Slack thread container
+- `--topic-id` chooses the Telegram topic container
 - `--reply-to` replies to one specific message inside that destination
 - `message send` and `message edit` accept:
   - `--input <plain|md|html|mrkdwn|blocks>`
@@ -454,11 +453,24 @@ Important behavior:
 - `clisbot loops status`
 - `clisbot loops status --channel slack --target channel:C1234567890 --thread-id 1712345678.123456`
 - `clisbot loops create --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 every day at 07:00 check CI`
-- `clisbot loops --channel telegram --target -1001234567890 --thread-id 42 5m check CI`
+- `clisbot loops create --channel slack --target channel:C1234567890 --new-thread every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target dm:U1234567890 --new-thread every day at 09:00 check inbox`
+- `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 5m check CI`
 - `clisbot loops --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 3 review backlog`
 - `clisbot loops cancel <id>`
 - `clisbot loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --all`
 - `clisbot loops cancel --all`
+
+Targeting:
+
+- `--target` selects the routed surface
+- Slack accepts `channel:<id>`, `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids
+- Telegram expects the numeric chat id in `--target`
+- `--thread-id` means an existing Slack thread ts
+- `--topic-id` means a Telegram topic id
+- omitting the sub-surface flag targets the parent Slack channel/group/DM or Telegram chat
+- `--new-thread` is Slack-only and creates a fresh thread anchor before the loop starts
+- in Telegram forum groups, omitting `--topic-id` targets the parent chat surface; sends then follow Telegram's normal no-`message_thread_id` behavior, which is the General topic when that forum has one
 
 Examples:
 

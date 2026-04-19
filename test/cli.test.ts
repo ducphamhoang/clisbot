@@ -204,6 +204,9 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clisbot routes <subcommand>");
     expect(help).toContain("clisbot routes --help");
     expect(help).toContain("clisbot loops <subcommand>");
+    expect(help).toContain("create --channel <slack|telegram> --target <route> [--thread-id <slack-thread-ts>] [--topic-id <telegram-topic-id>] [--new-thread] <expression>");
+    expect(help).toContain("scoped status/cancel also accept --channel/--target/--thread-id/--topic-id");
+    expect(help).toContain("`--target` selects the routed surface; use `--thread-id` for Slack threads, `--topic-id` for Telegram topics");
     expect(help).toContain("clisbot message <subcommand>");
     expect(help).toContain("clisbot agents <subcommand>");
     expect(help).toContain("clisbot agents --help");
@@ -221,6 +224,7 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clone https://github.com/longbkit/clisbot");
     expect(help).toContain("Codex or Claude Code");
     expect(help).toContain("cancel <id>");
+    expect(help).toContain("loops --help");
   });
 
   test("switches operator command examples to clisbot-dev when configured", () => {

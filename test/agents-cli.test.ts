@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,10 +7,17 @@ import { runAgentsCli } from "../src/control/agents-cli.ts";
 describe("agents cli", () => {
   let tempDir = "";
   let previousConfigPath: string | undefined;
+  let previousCliName: string | undefined;
   const originalLog = console.log;
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+  });
 
   afterEach(() => {
     process.env.CLISBOT_CONFIG_PATH = previousConfigPath;
+    process.env.CLISBOT_CLI_NAME = previousCliName;
     console.log = originalLog;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });

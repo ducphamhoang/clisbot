@@ -7,6 +7,7 @@ import { sleep } from "../shared/process.ts";
 import { normalizePaneText } from "../shared/transcript.ts";
 import type { LoadedConfig } from "../config/load-config.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 import {
   captureTmuxSessionIdentity,
   dismissTmuxTrustPromptIfPresent,
@@ -125,7 +126,7 @@ export class RunnerService {
 
     if (isTransientTmuxTargetError(error)) {
       return new Error(
-        `Runner session "${sessionName}" lost its tmux target ${action}. clisbot stayed alive, but this request could not continue cleanly. Retry once. If it keeps happening, inspect \`clisbot status\` and \`clisbot logs\`.${summarizeSnapshot(lastSnapshot)}`,
+        `Runner session "${sessionName}" lost its tmux target ${action}. clisbot stayed alive, but this request could not continue cleanly. Retry once. If it keeps happening, inspect ${renderCliCommand("status", { inline: true })} and ${renderCliCommand("logs", { inline: true })}.${summarizeSnapshot(lastSnapshot)}`,
       );
     }
 

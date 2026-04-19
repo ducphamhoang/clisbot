@@ -1,14 +1,21 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { buildAgentPromptText, buildSteeringPromptText } from "../src/channels/agent-prompt.ts";
 
 describe("agent prompt envelope", () => {
   let previousWrapperPath: string | undefined;
   let previousPromptCommand: string | undefined;
+  let previousCliName: string | undefined;
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+  });
 
   afterEach(() => {
     process.env.CLISBOT_WRAPPER_PATH = previousWrapperPath;
     process.env.CLISBOT_PROMPT_COMMAND = previousPromptCommand;
+    process.env.CLISBOT_CLI_NAME = previousCliName;
   });
 
   test("renders final-only reply instructions when streaming is enabled for the current thread", () => {
@@ -92,7 +99,7 @@ describe("agent prompt envelope", () => {
     expect(prompt).toContain("/tmp/clis message send \\");
     expect(prompt).toContain("  --channel telegram \\");
     expect(prompt).toContain("  --target -1001 \\");
-    expect(prompt).toContain("  --thread-id 4 \\");
+    expect(prompt).toContain("  --topic-id 4 \\");
     expect(prompt).toContain("  --input md \\");
     expect(prompt).toContain("  --render native \\");
     expect(prompt).toContain("  --final \\");
@@ -143,7 +150,7 @@ describe("agent prompt envelope", () => {
     });
 
     expect(prompt).toContain("channel auto-delivery remains enabled for this conversation");
-    expect(prompt).toContain("do not send user-facing progress updates or the final response with clisbot message send");
+    expect(prompt).toContain("do not send user-facing progress updates or the final response with `clisbot message send`");
     expect(prompt).not.toContain("To send a user-visible progress update or final reply, use the following CLI command:");
     expect(prompt).not.toContain("/tmp/clis message send \\");
     expect(prompt).not.toContain("When replying to the user:");

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { runMessageCli } from "../src/control/message-cli.ts";
 import { resolveSlackConversationRoute } from "../src/channels/slack/route-config.ts";
 import { resolveSlackConversationTarget } from "../src/channels/slack/session-routing.ts";
@@ -9,6 +9,17 @@ import type { ParsedMessageCommand } from "../src/channels/message-command.ts";
 import type { LoadConfigOptions, LoadedConfig } from "../src/config/load-config.ts";
 import { clisbotConfigSchema } from "../src/config/schema.ts";
 import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+
+let previousCliName: string | undefined;
+
+beforeEach(() => {
+  previousCliName = process.env.CLISBOT_CLI_NAME;
+  delete process.env.CLISBOT_CLI_NAME;
+});
+
+afterEach(() => {
+  process.env.CLISBOT_CLI_NAME = previousCliName;
+});
 
 function createRawConfig(): LoadedConfig["raw"] {
   const config = clisbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate()));
@@ -312,7 +323,60 @@ describe("message cli", () => {
     expect(logs[0]).toContain("--message-file");
     expect(logs[0]).toContain("--input <plain|md|html|mrkdwn|blocks>");
     expect(logs[0]).toContain("--render <native|none|html|mrkdwn|blocks>");
+    expect(logs[0]).toContain("--topic-id <telegram-topic-id>");
+    expect(logs[0]).toContain("Telegram topic id");
     expect(logs[0]).toContain("Render Rules:");
+  });
+
+  test("routes telegram send with --topic-id through the resolved bot config", async () => {
+    const { deps, logs, calls, replyTargets } = createDependencies();
+
+    await runMessageCli([
+      "send",
+      "--channel",
+      "telegram",
+      "--account",
+      "ops",
+      "--target",
+      "-1001234567890",
+      "--topic-id",
+      "42",
+      "--message",
+      "hello",
+      "--json",
+    ], deps);
+
+    expect(calls).toContainEqual({
+      provider: "telegram",
+      action: "send",
+      params: {
+        botToken: "telegram-test",
+        target: "-1001234567890",
+        threadId: "42",
+        replyTo: undefined,
+        message: "hello",
+        media: undefined,
+        messageId: undefined,
+        emoji: undefined,
+        remove: false,
+        limit: undefined,
+        query: undefined,
+        pollQuestion: undefined,
+        pollOptions: [],
+        forceDocument: false,
+        silent: false,
+        inputFormat: "md",
+        renderMode: "native",
+        progress: false,
+        final: false,
+      },
+    });
+    expect(logs).toEqual([
+      JSON.stringify({ ok: true, provider: "telegram", action: "send" }, null, 2),
+    ]);
+    expect((replyTargets[0]?.target as { sessionKey?: string } | undefined)?.sessionKey).toBe(
+      "agent:default:telegram:group:-1001234567890:topic:42",
+    );
   });
 
   test("routes slack send through the resolved bot config", async () => {

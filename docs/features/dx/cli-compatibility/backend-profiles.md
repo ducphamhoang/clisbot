@@ -22,11 +22,11 @@ Use these support levels:
 
 ## Comparison Matrix
 
-| CLI | Start | Probe Ready / Waiting Input | Session Id Strategy | Resume | Recover After Pane Loss | Attach Observe | Interrupt | Main Drift Risk |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Codex | Strong | Partial | runner-created + `/status` capture | Strong | Strong | Strong | Partial | no explicit ready pattern |
-| Claude | Strong | Partial | explicit `--session-id` | Strong | Strong | Strong | Partial | no explicit ready pattern |
-| Gemini | Strong | Strong | runner-created + `/stats session` capture | Strong | Strong | Strong | Partial | auth/setup blockers and upstream screen drift |
+| CLI    | Start  | Probe Ready / Waiting Input | Session Id Strategy                       | Resume | Recover After Pane Loss | Attach Observe | Interrupt | Main Drift Risk                                                      |
+| --------| --------| -----------------------------| -------------------------------------------| --------| -------------------------| ----------------| -----------| ----------------------------------------------------------------------|
+| Codex  | Strong | Partial                     | runner-created + `/status` capture        | Strong | Strong                  | Strong         | Partial   | no explicit ready pattern                                            |
+| Claude | Strong | Partial                     | explicit `--session-id`                   | Strong | Strong                  | Strong         | Partial   | no explicit ready pattern plus Claude-owned plan and auto-mode drift |
+| Gemini | Strong | Strong                      | runner-created + `/stats session` capture | Strong | Strong                  | Strong         | Partial   | auth/setup blockers and upstream screen drift                        |
 
 ## Current Cross-CLI Truth
 
@@ -46,6 +46,12 @@ The most important current difference is startup truth:
 - Codex and Claude do not
 
 That means Gemini currently has the clearest machine-readable readiness contract, while Codex and Claude still rely more on generic startup heuristics after trust-prompt handling.
+
+## Operator Snapshot
+
+- `Codex` is the current most stable recommendation for routed coding work.
+- `Claude` is usable, but operators should expect occasional Claude-owned plan approval and auto-mode classifier behavior that is not disabled by the current `clisbot` launch args.
+- `Gemini` is usable when auth is already in good shape, but startup and routed delivery remain more environment-sensitive than Codex.
 
 ## CLI Profiles
 

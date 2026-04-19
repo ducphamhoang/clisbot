@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,9 +32,25 @@ function createConfig(): ClisbotConfig {
 
 describe("channel credentials", () => {
   let tempDir = "";
+  let previousCliName: string | undefined;
+  let previousTelegramBotToken: string | undefined;
+  let previousTelegramMemBotToken: string | undefined;
   const originalHome = process.env.CLISBOT_HOME;
+  const telegramMemEnvName = getTelegramMemEnvName("default");
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    previousTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    previousTelegramMemBotToken = process.env[telegramMemEnvName];
+    delete process.env.CLISBOT_CLI_NAME;
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env[telegramMemEnvName];
+  });
 
   afterEach(() => {
+    process.env.CLISBOT_CLI_NAME = previousCliName;
+    process.env.TELEGRAM_BOT_TOKEN = previousTelegramBotToken;
+    process.env[telegramMemEnvName] = previousTelegramMemBotToken;
     process.env.CLISBOT_HOME = originalHome;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
@@ -62,15 +78,19 @@ describe("channel credentials", () => {
   test("materializes credentialType=mem from the runtime credential store", () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-channel-credentials-"));
     process.env.CLISBOT_HOME = tempDir;
+    const runtimeCredentialsPath = join(tempDir, "state", "runtime-credentials.json");
     const config = createConfig();
     config.bots.telegram.default.credentialType = "mem";
     config.bots.telegram.default.botToken = "";
     setTelegramRuntimeCredential({
       botId: "default",
       botToken: "telegram-mem-token",
+      runtimeCredentialsPath,
     });
 
-    const resolved = materializeRuntimeChannelCredentials(config);
+    const resolved = materializeRuntimeChannelCredentials(config, {
+      runtimeCredentialsPath,
+    });
     expect(resolved.bots.telegram.default.botToken).toBe("telegram-mem-token");
   });
 
@@ -90,11 +110,15 @@ describe("channel credentials", () => {
   });
 
   test("skips missing mem bots instead of throwing during materialization", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-channel-credentials-"));
+    const runtimeCredentialsPath = join(tempDir, "state", "runtime-credentials.json");
     const config = createConfig();
     config.bots.telegram.default.credentialType = "mem";
     config.bots.telegram.default.botToken = "";
 
-    const resolved = materializeRuntimeChannelCredentials(config);
+    const resolved = materializeRuntimeChannelCredentials(config, {
+      runtimeCredentialsPath,
+    });
     expect(resolved.bots.telegram.default.botToken).toBe("");
     expect(resolved.bots.telegram.default.credentialType).toBe("mem");
   });

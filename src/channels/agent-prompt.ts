@@ -95,7 +95,7 @@ export const ACCOUNT_CLAUSE = "  --account {{account_id}} \\\n";
 export const EMPTY_ACCOUNT_CLAUSE = "";
 
 export const SLACK_THREAD_CLAUSE = "  --thread-id {{thread_ts}} \\\n";
-export const TELEGRAM_THREAD_CLAUSE = "  --thread-id {{topic_id}} \\\n";
+export const TELEGRAM_THREAD_CLAUSE = "  --topic-id {{topic_id}} \\\n";
 export const EMPTY_THREAD_CLAUSE = "";
 
 type ChannelPromptMode = "message" | "steer";

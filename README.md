@@ -40,6 +40,24 @@ The challenge is not whether AI is useful. It is how to make it work at enterpri
 - Slack and Telegram are not treated as plain-text sinks: routed conversations can carry thread or topic identity, pairing, and file-aware workflows.
 - Advanced multi-agent setup is available later, but it is not required for day one.
 
+## CLI Compatibility Snapshot
+
+`clisbot` currently works best with `codex`.
+
+`claude` and `gemini` are both usable, but they need a bit more operator awareness today.
+
+| CLI      | Current Stability   | Short Take                                                                                                  |
+| ----------| ---------------------| -------------------------------------------------------------------------------------------------------------|
+| `codex`  | Best today          | Strongest default for routed coding work.                                                                   |
+| `claude` | Usable with caveats | Claude can surface its own plan-approval and auto-mode behavior even when launched with bypass-permissions. |
+| `gemini` | Usable with caveats | Runner support is solid, but auth/setup gating and routed reply behavior still need more care.              |
+
+CLI-specific operator notes:
+
+- [Codex CLI Guide](docs/user-guide/codex-cli.md)
+- [Claude CLI Guide](docs/user-guide/claude-cli.md)
+- [Gemini CLI Guide](docs/user-guide/gemini-cli.md)
+
 ## Quick Start
 
 Platform support:
@@ -61,14 +79,16 @@ clisbot start \
 
 If you want to try first without persisting the token yet, just remove `--persist`.
 
-Current auth note:
+Next steps:
 
-- DMs currently start in pairing mode by default.
-- If no app owner is configured yet, the first DM user during the first `ownerClaimWindowMinutes` becomes app `owner` automatically and does not need pairing approval.
-- Today, if you want an owner or app admin, grant that principal explicitly with the platform prefix plus the channel-native user id, for example `telegram:1276408333` or `slack:U123ABC456`.
-- Example commands:
-  - `clisbot auth add-user app --role owner --user telegram:1276408333`
-  - `clisbot auth add-user app --role admin --user slack:U123ABC456`
+- For security, just as openclaw, direct message with the bot currently requires pairing and groups need explicit specified in allowlist by default.
+- However, `clisbot` has smart autopairing feature to help you get started frictionless. Just send direct message to your bot (through telegram or slack) within 30 minutes so you can claim owner role automatically, and use the bot right away without pairing. After this 30 minutes window you need to approve pairing following instructions by the bot in direct message.
+- To chat with the bot in a group:
+  - telegram: Add bot to group, then use slash command in that group /start, you will be guided with command to add a group. Run that command directly or copy that command and chat directly with the bot in DM to ask it do for you (since you are the owner, you are authorized to run that command). After completed, come back to the group and start talk with the bot. 
+  - Notice that group has require mention (or tag the bot) enabled by default to avoid abuse. But it also has smart follow up within 5 minutes by default so you dont need to tag it again. You could change the mode by asking the bot to do for you.
+  - For long running task such as coding, you might want to toggle streaming mode on with slash command inside the chat "/streaming on", check streaming status anytime with "/streaming status". In slack, native slash command is unconventional so you can get around to use slash command with a space prefix such as " /streaming on", or use alias "\streaming on". This is also true for any other slash command supported by `clisbot`. 
+  - slack: 
+- If you want to add more owner or app admin, grant that principal explicitly with the platform prefix plus the channel-native user id, for example `clisbot auth add-user app --role owner --user telegram:1276408333` or `clisbot auth add-user app --role admin --user slack:U123ABC456`.
 - `clisbot auth --help` now covers role scopes, permission sets, and add/remove flows for users and permissions.
 - App-level auth and owner-claim semantics in [Authorization And Roles](docs/user-guide/auth-and-roles.md) describe both the current runtime reality and the remaining target-model gaps.
 

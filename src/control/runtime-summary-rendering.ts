@@ -10,6 +10,7 @@ import {
   renderTmuxDebugHelpLines,
 } from "./startup-bootstrap.ts";
 import type { ChannelHealthInstance } from "./runtime-health-store.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 function formatTime(value?: string) {
   if (!value) {
@@ -90,7 +91,7 @@ function appendChannelNextStepLines(
 
   if (!hasEnabledChannel) {
     lines.push(
-      `${prefix}- run \`clisbot bots add --channel <slack|telegram> ...\` for the first provider bot you want to expose`,
+      `${prefix}- run ${renderCliCommand("bots add --channel <slack|telegram> ...", { inline: true })} for the first provider bot you want to expose`,
     );
     return;
   }
@@ -107,10 +108,10 @@ function appendChannelNextStepLines(
     `${prefix}- after DM works, add the bot to the target Slack channel or Telegram group/topic`,
   );
   lines.push(
-    `${prefix}- add the route with \`clisbot routes add --channel slack channel:<channelId> --bot default\` or \`clisbot routes add --channel telegram group:<chatId> --bot default\``,
+    `${prefix}- add the route with ${renderCliCommand("routes add --channel slack channel:<channelId> --bot default", { inline: true })} or ${renderCliCommand("routes add --channel telegram group:<chatId> --bot default", { inline: true })}`,
   );
   lines.push(
-    `${prefix}- bind the agent with \`clisbot routes set-agent --channel slack channel:<channelId> --bot default --agent <id>\` or \`clisbot routes set-agent --channel telegram group:<chatId> --bot default --agent <id>\``,
+    `${prefix}- bind the agent with ${renderCliCommand("routes set-agent --channel slack channel:<channelId> --bot default --agent <id>", { inline: true })} or ${renderCliCommand("routes set-agent --channel telegram group:<chatId> --bot default --agent <id>", { inline: true })}`,
   );
 
   if (telegramEnabled) {
@@ -141,21 +142,21 @@ function appendAuthOnboardingLines(
       `${prefix}  - if no owner exists yet, the first DM user during the first ${summary.ownerSummary.ownerClaimWindowMinutes} minutes becomes app owner automatically`,
     );
     lines.push(
-      `${prefix}  - after the first owner exists, add more principals with: \`clisbot auth add-user app --role <owner|admin> --user <principal>\``,
+      `${prefix}  - after the first owner exists, add more principals with: ${renderCliCommand("auth add-user app --role <owner|admin> --user <principal>", { inline: true })}`,
     );
   } else {
-    lines.push(`${prefix}  - inspect current app roles with: \`clisbot auth show app\``);
+    lines.push(`${prefix}  - inspect current app roles with: ${renderCliCommand("auth show app", { inline: true })}`);
   }
 
-  lines.push(`${prefix}  - inspect default agent roles with: \`clisbot auth show agent-defaults\``);
+  lines.push(`${prefix}  - inspect default agent roles with: ${renderCliCommand("auth show agent-defaults", { inline: true })}`);
   lines.push(
-    `${prefix}  - add or remove principals with: \`clisbot auth add-user ...\` and \`clisbot auth remove-user ...\``,
+    `${prefix}  - add or remove principals with: ${renderCliCommand("auth add-user ...", { inline: true })} and ${renderCliCommand("auth remove-user ...", { inline: true })}`,
   );
   lines.push(
-    `${prefix}  - tune role permissions with: \`clisbot auth add-permission ...\` and \`clisbot auth remove-permission ...\``,
+    `${prefix}  - tune role permissions with: ${renderCliCommand("auth add-permission ...", { inline: true })} and ${renderCliCommand("auth remove-permission ...", { inline: true })}`,
   );
   lines.push(
-    `${prefix}  - run \`clisbot auth --help\` or read docs/user-guide/auth-and-roles.md for scopes and permission names`,
+    `${prefix}  - run ${renderCliCommand("auth --help", { inline: true })} or read docs/user-guide/auth-and-roles.md for scopes and permission names`,
   );
 }
 
@@ -279,7 +280,7 @@ function renderRunnerSessionSummaryLines(summary: RuntimeOperatorSummary) {
       return `  - ${session.sessionName} agent=${session.entry.agentId} sessionKey=${session.entry.sessionKey} lastAdmittedPromptAt=${formatSessionTimestamp(session.entry.lastAdmittedPromptAt)}`;
     }),
     ...(hiddenCount > 0 ? [`  (${hiddenCount}) sessions more`] : []),
-    "  hint: `clisbot runner list` or `clisbot runner watch --latest`",
+    `  hint: ${renderCliCommand("runner list", { inline: true })} or ${renderCliCommand("runner watch --latest", { inline: true })}`,
   ];
 }
 
@@ -314,16 +315,16 @@ function appendChannelSetupNote(
       `${prefix}    dms: ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}`,
     );
     lines.push(
-      `${prefix}    add group: \`clisbot routes add --channel telegram group:<chatId> --bot default\``,
+      `${prefix}    add group: ${renderCliCommand("routes add --channel telegram group:<chatId> --bot default", { inline: true })}`,
     );
     lines.push(
-      `${prefix}    bind group: \`clisbot routes set-agent --channel telegram group:<chatId> --bot default --agent <id>\``,
+      `${prefix}    bind group: ${renderCliCommand("routes set-agent --channel telegram group:<chatId> --bot default --agent <id>", { inline: true })}`,
     );
     lines.push(
-      `${prefix}    add topic: \`clisbot routes add --channel telegram topic:<chatId>:<topicId> --bot default\``,
+      `${prefix}    add topic: ${renderCliCommand("routes add --channel telegram topic:<chatId>:<topicId> --bot default", { inline: true })}`,
     );
     lines.push(
-      `${prefix}    bind topic: \`clisbot routes set-agent --channel telegram topic:<chatId>:<topicId> --bot default --agent <id>\``,
+      `${prefix}    bind topic: ${renderCliCommand("routes set-agent --channel telegram topic:<chatId>:<topicId> --bot default --agent <id>", { inline: true })}`,
     );
     lines.push(
       `${prefix}    adjust later: ${renderPrivilegedChatHint(summary, "run in-chat commands here")}`,
@@ -337,16 +338,16 @@ function appendChannelSetupNote(
   );
   lines.push(`${prefix}    groups: ${channel.groupPolicy ?? "n/a"}`);
   lines.push(
-    `${prefix}    add channel: \`clisbot routes add --channel slack channel:<channelId> --bot default\``,
+    `${prefix}    add channel: ${renderCliCommand("routes add --channel slack channel:<channelId> --bot default", { inline: true })}`,
   );
   lines.push(
-    `${prefix}    bind channel: \`clisbot routes set-agent --channel slack channel:<channelId> --bot default --agent <id>\``,
+    `${prefix}    bind channel: ${renderCliCommand("routes set-agent --channel slack channel:<channelId> --bot default --agent <id>", { inline: true })}`,
   );
   lines.push(
-    `${prefix}    add group: \`clisbot routes add --channel slack group:<groupId> --bot default\``,
+    `${prefix}    add group: ${renderCliCommand("routes add --channel slack group:<groupId> --bot default", { inline: true })}`,
   );
   lines.push(
-    `${prefix}    bind group: \`clisbot routes set-agent --channel slack group:<groupId> --bot default --agent <id>\``,
+    `${prefix}    bind group: ${renderCliCommand("routes set-agent --channel slack group:<groupId> --bot default --agent <id>", { inline: true })}`,
   );
   lines.push(
     `${prefix}    adjust later: ${renderPrivilegedChatHint(summary, "run in-chat commands here")}`,
@@ -368,7 +369,7 @@ function appendBootstrapGuidance(lines: string[], summary: RuntimeOperatorSummar
     if (agent.bootstrapState === "missing") {
       lines.push(`  Agent ${agent.id} is missing bootstrap files.`);
       lines.push(`    workspace: ${agent.workspacePath}`);
-      lines.push(`    run: clisbot agents bootstrap ${agent.id} --bot-type ${botType}`);
+      lines.push(`    run: ${renderCliCommand(`agents bootstrap ${agent.id} --bot-type ${botType}`)}`);
       continue;
     }
 
@@ -385,8 +386,8 @@ function appendBootstrapGuidance(lines: string[], summary: RuntimeOperatorSummar
   lines.push(`  - ${renderPrivilegedChatHint(summary, "verify DM access and adjust in-chat settings")}`);
   lines.push("");
   appendAuthOnboardingLines(lines, summary, "  ");
-  lines.push("  - run `clisbot status` to recheck runtime and bootstrap state");
-  lines.push("  - run `clisbot logs` if the bot does not answer as expected");
+  lines.push(`  - run ${renderCliCommand("status", { inline: true })} to recheck runtime and bootstrap state`);
+  lines.push(`  - run ${renderCliCommand("logs", { inline: true })} if the bot does not answer as expected`);
   lines.push(
     ...renderPairingSetupHelpLines("  ", {
       slackEnabled: summary.channelSummaries.some((channel) => channel.channel === "slack" && channel.enabled),
@@ -427,9 +428,9 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
     lines.push("  First run requires both `--cli` and `--bot-type`.");
     lines.push("  personal = one assistant for one human.");
     lines.push("  team = one shared assistant for a team or channel.");
-    lines.push("  Example: clisbot start --cli codex --bot-type personal");
-    lines.push("  Example: clisbot start --cli codex --bot-type team");
-    lines.push("  Manual setup is still available with `clisbot agents add ...`.");
+    lines.push(`  Example: ${renderCliCommand("start --cli codex --bot-type personal")}`);
+    lines.push(`  Example: ${renderCliCommand("start --cli codex --bot-type team")}`);
+    lines.push(`  Manual setup is still available with ${renderCliCommand("agents add ...", { inline: true })}.`);
     lines.push(...renderOperatorHelpLines("  "));
     lines.push(
       "  Bootstrap files will be seeded in the agent workspace. Review BOOTSTRAP.md, SOUL.md, USER.md, IDENTITY.md, and MEMORY.md.",
@@ -448,8 +449,8 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
   lines.push(`  - ${renderPrivilegedChatHint(summary, "adjust in-chat surface settings")}`);
   lines.push("");
   appendAuthOnboardingLines(lines, summary);
-  lines.push("  - run `clisbot status` to inspect agents, channels, and tmux session state");
-  lines.push("  - run `clisbot logs` if anything looks wrong");
+  lines.push(`  - run ${renderCliCommand("status", { inline: true })} to inspect agents, channels, and tmux session state`);
+  lines.push(`  - run ${renderCliCommand("logs", { inline: true })} if anything looks wrong`);
   lines.push(
     ...renderPairingSetupHelpLines("", {
       slackEnabled: summary.channelSummaries.some((channel) => channel.channel === "slack" && channel.enabled),

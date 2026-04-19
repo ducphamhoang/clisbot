@@ -13,6 +13,7 @@ import {
   renderRuntimeErrorLines,
 } from "./operator-errors.ts";
 import { RuntimeHealthStore } from "./runtime-health-store.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 import { listChannelPlugins } from "../channels/registry.ts";
 import { consumeSuppressedConfigReload } from "./config-reload-suppression.ts";
 import type {
@@ -113,8 +114,8 @@ export class RuntimeSupervisor {
         summary: "Runtime crashed due to a fatal error.",
         detail,
         actions: [
-          "run `clisbot logs` and inspect the fatal error",
-          "fix the underlying runtime fault, then restart with `clisbot start`",
+          `run ${renderCliCommand("logs", { inline: true })} and inspect the fatal error`,
+          `fix the underlying runtime fault, then restart with ${renderCliCommand("start", { inline: true })}`,
         ],
         instances: instancesByChannel.get(plugin.id) ?? [],
       });
@@ -377,7 +378,7 @@ export class RuntimeSupervisor {
       summary: params.event.summary ?? `${params.plugin.id} channel failed after startup.`,
       detail: params.event.detail ? `${detailPrefix}; ${params.event.detail}` : detailPrefix,
       actions: params.event.actions ?? [
-        "run `clisbot logs` and inspect the latest channel error",
+        `run ${renderCliCommand("logs", { inline: true })} and inspect the latest channel error`,
         "restart `clisbot` after fixing the channel-level issue",
       ],
       instances,

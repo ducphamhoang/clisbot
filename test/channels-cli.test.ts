@@ -1,5 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { runChannelsCli } from "../src/control/channels-cli.ts";
+
+let previousCliName: string | undefined;
+
+beforeEach(() => {
+  previousCliName = process.env.CLISBOT_CLI_NAME;
+  delete process.env.CLISBOT_CLI_NAME;
+});
+
+afterEach(() => {
+  process.env.CLISBOT_CLI_NAME = previousCliName;
+});
 
 describe("channels cli", () => {
   test("fails fast and redirects operators to the official routes and bots surfaces", async () => {

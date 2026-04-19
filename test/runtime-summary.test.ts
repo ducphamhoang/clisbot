@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,15 +16,22 @@ import { renderDefaultConfigTemplate } from "../src/config/template.ts";
 
 describe("runtime summaries", () => {
   let tempDir = "";
+  let previousCliName: string | undefined;
   const originalClisbotHome = process.env.CLISBOT_HOME;
   const originalSlackAppToken = process.env.SLACK_APP_TOKEN;
   const originalSlackBotToken = process.env.SLACK_BOT_TOKEN;
   const originalTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
 
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+  });
+
   afterEach(() => {
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
     }
+    process.env.CLISBOT_CLI_NAME = previousCliName;
     process.env.CLISBOT_HOME = originalClisbotHome;
     process.env.SLACK_APP_TOKEN = originalSlackAppToken;
     process.env.SLACK_BOT_TOKEN = originalSlackBotToken;

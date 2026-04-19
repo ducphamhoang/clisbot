@@ -1,3 +1,7 @@
+import { renderCliCommand } from "../shared/cli-name.ts";
+
 export async function runChannelsCli(_args: string[]) {
-  throw new Error("Use `clisbot routes ...` for route management and `clisbot bots ...` for bot management.");
+  throw new Error(
+    `Use ${renderCliCommand("routes ...", { inline: true })} for route management and ${renderCliCommand("bots ...", { inline: true })} for bot management.`,
+  );
 }

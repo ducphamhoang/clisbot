@@ -4,6 +4,7 @@ import {
 } from "../auth/defaults.ts";
 import { readEditableConfig, writeEditableConfig } from "../config/config-file.ts";
 import type { AgentEntry, ClisbotConfig } from "../config/schema.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 function getEditableConfigPath() {
   return process.env.CLISBOT_CONFIG_PATH;
@@ -65,17 +66,17 @@ function parseScope(raw: string | undefined, args: string[]): AuthScope {
 
 function renderAuthCliHelp() {
   return [
-    "clisbot auth",
+    renderCliCommand("auth"),
     "",
     "Manage auth roles, principals, and permissions in config.",
     "",
     "Usage:",
-    "  clisbot auth list [--json]",
-    "  clisbot auth show <app|agent-defaults|agent> [--agent <id>] [--json]",
-    "  clisbot auth add-user <app|agent-defaults|agent> --role <role> --user <principal> [--agent <id>]",
-    "  clisbot auth remove-user <app|agent-defaults|agent> --role <role> --user <principal> [--agent <id>]",
-    "  clisbot auth add-permission <app|agent-defaults|agent> --role <role> --permission <permission> [--agent <id>]",
-    "  clisbot auth remove-permission <app|agent-defaults|agent> --role <role> --permission <permission> [--agent <id>]",
+    `  ${renderCliCommand("auth list [--json]")}`,
+    `  ${renderCliCommand("auth show <app|agent-defaults|agent> [--agent <id>] [--json]")}`,
+    `  ${renderCliCommand("auth add-user <app|agent-defaults|agent> --role <role> --user <principal> [--agent <id>]")}`,
+    `  ${renderCliCommand("auth remove-user <app|agent-defaults|agent> --role <role> --user <principal> [--agent <id>]")}`,
+    `  ${renderCliCommand("auth add-permission <app|agent-defaults|agent> --role <role> --permission <permission> [--agent <id>]")}`,
+    `  ${renderCliCommand("auth remove-permission <app|agent-defaults|agent> --role <role> --permission <permission> [--agent <id>]")}`,
     "",
     "Scopes:",
     "  app             edit app.auth",
@@ -93,13 +94,13 @@ function renderAuthCliHelp() {
     "  app `owner` and `admin` principals bypass DM pairing automatically once they are granted",
     "",
     "Examples:",
-    "  clisbot auth add-user app --role owner --user telegram:1276408333",
-    "  clisbot auth remove-user app --role admin --user slack:U123",
-    "  clisbot auth add-user agent --agent default --role admin --user slack:U123",
-    "  clisbot auth add-permission agent-defaults --role member --permission shellExecute",
-    "  clisbot auth remove-permission agent --agent default --role member --permission shellExecute",
-    "  clisbot auth show agent-defaults",
-    "  clisbot auth list --json",
+    `  ${renderCliCommand("auth add-user app --role owner --user telegram:1276408333")}`,
+    `  ${renderCliCommand("auth remove-user app --role admin --user slack:U123")}`,
+    `  ${renderCliCommand("auth add-user agent --agent default --role admin --user slack:U123")}`,
+    `  ${renderCliCommand("auth add-permission agent-defaults --role member --permission shellExecute")}`,
+    `  ${renderCliCommand("auth remove-permission agent --agent default --role member --permission shellExecute")}`,
+    `  ${renderCliCommand("auth show agent-defaults")}`,
+    `  ${renderCliCommand("auth list --json")}`,
   ].join("\n");
 }
 

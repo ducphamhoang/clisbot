@@ -12,6 +12,7 @@ import {
   parseMessageInputFormat,
   parseMessageRenderMode,
 } from "../channels/message-format.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 function getConfigPath() {
   return process.env.CLISBOT_CONFIG_PATH;
@@ -57,6 +58,21 @@ function parseRepeatedOption(args: string[], name: string) {
 function parseOptionValue(args: string[], name: string) {
   const values = parseRepeatedOption(args, name);
   return values.length > 0 ? values.at(-1) : undefined;
+}
+
+function parseThreadingOptions(args: string[], channel: "slack" | "telegram") {
+  const threadId = parseOptionValue(args, "--thread-id");
+  const topicId = parseOptionValue(args, "--topic-id");
+  if (threadId && topicId) {
+    throw new Error("Use only one of `--thread-id` or `--topic-id`.");
+  }
+  if (channel === "slack" && topicId) {
+    throw new Error("Slack message commands use `--thread-id`, not `--topic-id`.");
+  }
+  if (channel === "telegram" && threadId) {
+    throw new Error("Telegram message commands use `--topic-id`, not `--thread-id`.");
+  }
+  return channel === "telegram" ? topicId : threadId;
 }
 
 function parseMessageBodyFileOption(args: string[]) {
@@ -117,7 +133,7 @@ function parseMessageCommand(args: string[]): ParsedMessageCommand | null {
     messageId: parseOptionValue(rest, "--message-id"),
     emoji: parseOptionValue(rest, "--emoji"),
     remove: hasFlag(rest, "--remove"),
-    threadId: parseOptionValue(rest, "--thread-id"),
+    threadId: parseThreadingOptions(rest, channel),
     replyTo: parseOptionValue(rest, "--reply-to"),
     limit: parseIntegerOption(rest, "--limit"),
     query: parseOptionValue(rest, "--query"),
@@ -135,20 +151,20 @@ function parseMessageCommand(args: string[]): ParsedMessageCommand | null {
 
 export function renderMessageHelp() {
   return [
-    "clisbot message",
+    renderCliCommand("message"),
     "",
     "Usage:",
-    "  clisbot message send --channel <slack|telegram> --target <dest> [--message <text> | --body-file <path>] [--input <plain|md|html|mrkdwn|blocks>] [--render <native|none|html|mrkdwn|blocks>] [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--force-document] [--silent] [--progress|--final]",
-    "  clisbot message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <id>] [--silent]",
-    "  clisbot message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]",
-    "  clisbot message reactions --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
-    "  clisbot message read --channel <slack|telegram> --target <dest> [--account <id>] [--limit <n>]",
-    "  clisbot message edit --channel <slack|telegram> --target <dest> --message-id <id> [--message <text> | --body-file <path>] [--input <plain|md|html|mrkdwn|blocks>] [--render <native|none|html|mrkdwn|blocks>] [--account <id>]",
-    "  clisbot message delete --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
-    "  clisbot message pin --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]",
-    "  clisbot message unpin --channel <slack|telegram> --target <dest> [--message-id <id>] [--account <id>]",
-    "  clisbot message pins --channel <slack|telegram> --target <dest> [--account <id>]",
-    "  clisbot message search --channel <slack|telegram> --target <dest> --query <text> [--account <id>] [--limit <n>]",
+    `  ${renderCliCommand("message send --channel <slack|telegram> --target <dest> [--message <text> | --body-file <path>] [--input <plain|md|html|mrkdwn|blocks>] [--render <native|none|html|mrkdwn|blocks>] [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <slack-thread-ts>] [--topic-id <telegram-topic-id>] [--force-document] [--silent] [--progress|--final]")}`,
+    `  ${renderCliCommand("message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <slack-thread-ts>] [--topic-id <telegram-topic-id>] [--silent]")}`,
+    `  ${renderCliCommand("message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]")}`,
+    `  ${renderCliCommand("message reactions --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]")}`,
+    `  ${renderCliCommand("message read --channel <slack|telegram> --target <dest> [--account <id>] [--limit <n>]")}`,
+    `  ${renderCliCommand("message edit --channel <slack|telegram> --target <dest> --message-id <id> [--message <text> | --body-file <path>] [--input <plain|md|html|mrkdwn|blocks>] [--render <native|none|html|mrkdwn|blocks>] [--account <id>]")}`,
+    `  ${renderCliCommand("message delete --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]")}`,
+    `  ${renderCliCommand("message pin --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]")}`,
+    `  ${renderCliCommand("message unpin --channel <slack|telegram> --target <dest> [--message-id <id>] [--account <id>]")}`,
+    `  ${renderCliCommand("message pins --channel <slack|telegram> --target <dest> [--account <id>]")}`,
+    `  ${renderCliCommand("message search --channel <slack|telegram> --target <dest> --query <text> [--account <id>] [--limit <n>]")}`,
     "",
     "Send/Edit Content Options:",
     "  --message <text>              Inline message body",
@@ -170,12 +186,16 @@ export function renderMessageHelp() {
     "  html                          Telegram only",
     "  mrkdwn                        Slack only",
     "",
+    "Threading:",
+    "  --thread-id <id>              Slack thread ts",
+    "  --topic-id <id>               Telegram topic id",
+    "",
     "Examples:",
-    "  clisbot message send --channel telegram --target -1001234567890 --thread-id 42 --message \"## Status\"",
-    "  clisbot message send --channel telegram --target -1001234567890 --thread-id 42 --input html --render none --message \"<b>Status</b>\"",
-    "  clisbot message send --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --message \"## Status\"",
-    "  clisbot message send --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --input mrkdwn --render none --message \"*Status*\"",
-    "  clisbot message send --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --input blocks --render none --body-file ./reply-blocks.json",
+    `  ${renderCliCommand("message send --channel telegram --target -1001234567890 --topic-id 42 --message \"## Status\"")}`,
+    `  ${renderCliCommand("message send --channel telegram --target -1001234567890 --topic-id 42 --input html --render none --message \"<b>Status</b>\"")}`,
+    `  ${renderCliCommand("message send --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --message \"## Status\"")}`,
+    `  ${renderCliCommand("message send --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --input mrkdwn --render none --message \"*Status*\"")}`,
+    `  ${renderCliCommand("message send --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --input blocks --render none --body-file ./reply-blocks.json")}`,
   ].join("\n");
 }
 

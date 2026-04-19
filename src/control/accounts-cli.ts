@@ -1,3 +1,5 @@
+import { renderCliCommand } from "../shared/cli-name.ts";
+
 export async function runAccountsCli(_args: string[]) {
-  throw new Error("Use `clisbot bots ...` instead.");
+  throw new Error(`Use ${renderCliCommand("bots ...", { inline: true })} instead.`);
 }

@@ -1,12 +1,19 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { runRunnerCli } from "../src/control/runner-cli.ts";
 import { CliCommandError } from "../src/control/runtime-cli-shared.ts";
 
 describe("runner cli", () => {
   const originalLog = console.log;
+  let previousCliName: string | undefined;
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+  });
 
   afterEach(() => {
     console.log = originalLog;
+    process.env.CLISBOT_CLI_NAME = previousCliName;
     process.exitCode = undefined;
   });
 

@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import { fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
 import { ensureDir, getDefaultRuntimeHealthPath } from "../shared/paths.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 export type RuntimeChannel = "slack" | "telegram";
 export type RuntimeChannelConnection =
@@ -87,7 +88,7 @@ function summarizeSlackHealthError(error: unknown) {
       actions: [
         "add the missing Slack scopes and event subscriptions for the routes you expect to handle",
         "reinstall the Slack app after changing scopes",
-        "run `clisbot logs` again after reinstall to confirm the missing-scope error is gone",
+        `run ${renderCliCommand("logs", { inline: true })} again after reinstall to confirm the missing-scope error is gone`,
       ],
     };
   }
@@ -95,7 +96,7 @@ function summarizeSlackHealthError(error: unknown) {
   return {
     summary: "Slack channel failed to start.",
     actions: [
-      "run `clisbot logs` and inspect the latest Slack startup error",
+      `run ${renderCliCommand("logs", { inline: true })} and inspect the latest Slack startup error`,
       "verify the Slack app token, bot token, and workspace match",
       "verify Socket Mode and the required Slack scopes are enabled before restarting `clisbot`",
     ],
@@ -109,7 +110,7 @@ function summarizeTelegramHealthError(error: unknown) {
     actions: [
       "verify `bots.telegram.<botId>.botToken` resolves to the intended bot token",
       "confirm no other Telegram bot instance is polling the same token",
-      "run `clisbot logs` again after restarting to confirm the startup error is gone",
+      `run ${renderCliCommand("logs", { inline: true })} again after restarting to confirm the startup error is gone`,
     ],
   };
 }

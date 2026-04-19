@@ -147,7 +147,7 @@ Default Telegram send:
 clisbot message send \
   --channel telegram \
   --target -1001234567890 \
-  --thread-id 42 \
+  --topic-id 42 \
   --message "## Status\n\n- step 1 done"
 ```
 
@@ -157,7 +157,7 @@ Telegram pre-rendered HTML:
 clisbot message send \
   --channel telegram \
   --target -1001234567890 \
-  --thread-id 42 \
+  --topic-id 42 \
   --input html \
   --render none \
   --message "<b>Status</b>\n\nstep 1 done"

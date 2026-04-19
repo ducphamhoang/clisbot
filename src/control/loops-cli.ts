@@ -7,7 +7,6 @@ import {
   createStoredCalendarLoop,
   createStoredIntervalLoop,
   renderLoopStartedMessage,
-  renderLoopStatusSchedule,
   resolveLoopPromptText,
   summarizeLoopPrompt,
   validateLoopInterval,
@@ -30,19 +29,34 @@ import {
 } from "../config/load-config.ts";
 import { getRuntimeStatus } from "./runtime-process.ts";
 import { resolveLoopCliContext } from "./loop-cli-context.ts";
+import {
+  hasFlag,
+  hasLoopContext,
+  parseAddressing,
+  resolveLoopSubtargetId,
+  stripLoopContextArgs,
+  type LoopCliAddressing,
+} from "./loop-cli-addressing.ts";
+import {
+  renderLoopInventory,
+  renderLoopsHelp,
+  renderLoopStoreSummary,
+  renderScopedCommand,
+  renderScopedLoopStatus,
+} from "./loops-cli-rendering.ts";
+import {
+  getScopedLoopCounts,
+  prepareLoopCreateAddressing,
+  removeScopedLoopsById,
+  resolveSlackSurfaceChannelId,
+  selectScopedLoopsForAddressing,
+} from "./loop-cli-targeting.ts";
 import { renderCliCommand } from "../shared/cli-name.ts";
-import { collapseHomePath } from "../shared/paths.ts";
 import { sleep } from "../shared/process.ts";
 
-const LOOP_CONTEXT_FLAGS = new Set(["--channel", "--target", "--thread-id", "--bot", "--account"]);
-const LOOP_BUSY_RETRY_MS = 250;
+export { renderLoopsHelp } from "./loops-cli-rendering.ts";
 
-type LoopCliAddressing = {
-  channel?: "slack" | "telegram";
-  target?: string;
-  threadId?: string;
-  botId?: string;
-};
+const LOOP_BUSY_RETRY_MS = 250;
 
 type LoadedLoopControlState = Awaited<ReturnType<typeof loadLoopControlState>>;
 type LoopCliContext = ReturnType<typeof resolveLoopCliContext>;
@@ -50,6 +64,7 @@ type LoopPromptResolution = Awaited<ReturnType<typeof resolveLoopPromptText>>;
 type LoopCreateRequest = {
   addressing: LoopCliAddressing;
   context: LoopCliContext;
+  deliveryContext?: LoopCliContext;
   parsed: ParsedLoopSlashCommand;
   resolvedPrompt: LoopPromptResolution;
   resolvedTarget: ReturnType<typeof resolveAgentTarget>;
@@ -70,181 +85,6 @@ type LoopCreateBase = {
 
 function getEditableConfigPath() {
   return process.env.CLISBOT_CONFIG_PATH;
-}
-
-function parseOptionValue(args: string[], name: string) {
-  const indexes = args
-    .map((arg, index) => (arg === name ? index : -1))
-    .filter((index) => index >= 0);
-  if (indexes.length === 0) {
-    return undefined;
-  }
-
-  const value = args[indexes.at(-1)! + 1]?.trim();
-  if (!value) {
-    throw new Error(`Missing value for ${name}`);
-  }
-  return value;
-}
-
-function hasFlag(args: string[], flag: string) {
-  return args.includes(flag);
-}
-
-function stripLoopContextArgs(args: string[]) {
-  const remaining: string[] = [];
-  for (let index = 0; index < args.length; index += 1) {
-    const current = args[index];
-    if (current === "--") {
-      remaining.push(...args.slice(index + 1));
-      break;
-    }
-    if (LOOP_CONTEXT_FLAGS.has(current)) {
-      index += 1;
-      continue;
-    }
-    remaining.push(current);
-  }
-  return remaining;
-}
-
-function parseAddressing(args: string[]): LoopCliAddressing {
-  const channel = parseOptionValue(args, "--channel");
-  if (channel && channel !== "slack" && channel !== "telegram") {
-    throw new Error("--channel must be `slack` or `telegram`.");
-  }
-
-  return {
-    channel: channel as LoopCliAddressing["channel"],
-    target: parseOptionValue(args, "--target"),
-    threadId: parseOptionValue(args, "--thread-id"),
-    botId: parseOptionValue(args, "--bot") ?? parseOptionValue(args, "--account"),
-  };
-}
-
-function hasLoopContext(args: string[]) {
-  return Boolean(parseOptionValue(args, "--channel") || parseOptionValue(args, "--target"));
-}
-
-function renderScopedCommand(base: string, addressing: LoopCliAddressing) {
-  const suffix = [
-    `--channel ${addressing.channel}`,
-    addressing.target ? `--target ${addressing.target}` : null,
-    addressing.threadId ? `--thread-id ${addressing.threadId}` : null,
-    addressing.botId ? `--bot ${addressing.botId}` : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return renderCliCommand(`${base} ${suffix}`.trim());
-}
-
-export function renderLoopsHelp() {
-  return [
-    renderCliCommand("loops"),
-    "",
-    "Usage:",
-    `  ${renderCliCommand("loops")}`,
-    `  ${renderCliCommand("loops --help")}`,
-    `  ${renderCliCommand("loops list")}`,
-    `  ${renderCliCommand("loops status")}`,
-    `  ${renderCliCommand("loops status --channel slack --target channel:C1234567890 --thread-id 1712345678.123456")}`,
-    `  ${renderCliCommand("loops create --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 every day at 07:00 check CI")}`,
-    `  ${renderCliCommand("loops --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 5m check CI")}`,
-    `  ${renderCliCommand("loops create --channel telegram --target -1001234567890 --thread-id 42 every weekday at 07:00 standup")}`,
-    `  ${renderCliCommand("loops --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 3 review backlog")}`,
-    `  ${renderCliCommand("loops cancel <id>")}`,
-    `  ${renderCliCommand("loops cancel --all")}`,
-    `  ${renderCliCommand("loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --all")}`,
-    `  ${renderCliCommand("loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456")}`,
-    `  ${renderCliCommand(`loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --all ${LOOP_APP_FLAG}`)}`,
-    "",
-    "Expressions:",
-    "  - interval: `5m check CI` or `check CI every 5m`",
-    `  - forced interval: \`1m ${LOOP_FORCE_FLAG} check CI\` or \`check CI every 1m ${LOOP_FORCE_FLAG}\``,
-    "  - times: `3 check CI` or `check CI 3 times`",
-    "  - calendar: `every day at 07:00 check CI`, `every weekday at 07:00 standup`, or `every mon at 09:00 review queue`",
-    "  - omit the prompt to load `LOOP.md` from the target workspace",
-    "",
-    "Examples:",
-    `  ${renderCliCommand("loops status --channel slack --target channel:C1234567890 --thread-id 1712345678.123456")}`,
-    `  ${renderCliCommand("loops --channel telegram --target -1001234567890 --thread-id 42 5m")}`,
-    `  ${renderCliCommand("loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 abc123")}`,
-    "Behavior:",
-    "  - `list` always renders the global persisted loop inventory",
-    "  - bare `status` is global; scoped `status --channel ... --target ...` matches `/loop status` for one routed session",
-    "  - `create` and bare scoped syntax reuse the same loop parser as channel `/loop`",
-    "  - recurring loops created here are persisted immediately and picked up by the runtime when it is running",
-    "  - if runtime is stopped, recurring loops activate on the next `clisbot start`",
-    "  - global `cancel --all` clears the whole app; scoped `cancel --all` clears one routed session",
-    "  - `cancel --all --app` is accepted only with a scoped session target, matching `/loop cancel --all --app`",
-    "  - one-shot count loops run synchronously in the CLI because the top-level operator process has no shared queue IPC today",
-  ].join("\n");
-}
-
-function renderLoopInventory(params: {
-  commandLabel: "list" | "status";
-  configPath: string;
-  sessionStorePath: string;
-  loops: IntervalLoopStatus[];
-}) {
-  const lines = [
-    renderCliCommand(`loops ${params.commandLabel}`),
-    "",
-    `config: ${collapseHomePath(params.configPath)}`,
-    `sessionStore: ${collapseHomePath(params.sessionStorePath)}`,
-    `activeLoops.global: \`${params.loops.length}\``,
-  ];
-
-  if (params.loops.length === 0) {
-    lines.push("", "No active loops.");
-    return lines.join("\n");
-  }
-
-  lines.push("");
-  for (const loop of params.loops) {
-    lines.push(
-      `- id: \`${loop.id}\` agent: \`${loop.agentId}\` session: \`${loop.sessionKey}\` ${renderLoopStatusSchedule(loop)} remaining: \`${loop.remainingRuns}\` nextRunAt: \`${new Date(loop.nextRunAt).toISOString()}\` prompt: \`${loop.promptSummary}\`${loop.kind !== "calendar" && loop.force ? " force" : ""}`,
-    );
-  }
-
-  return lines.join("\n");
-}
-
-function renderScopedLoopStatus(params: {
-  commandLabel: string;
-  configPath: string;
-  sessionStorePath: string;
-  sessionKey: string;
-  sessionLoops: IntervalLoopStatus[];
-  globalLoopCount: number;
-}) {
-  const lines = [
-    params.commandLabel,
-    "",
-    `config: ${collapseHomePath(params.configPath)}`,
-    `sessionStore: ${collapseHomePath(params.sessionStorePath)}`,
-    `sessionKey: \`${params.sessionKey}\``,
-  ];
-
-  if (params.sessionLoops.length === 0) {
-    lines.push(
-      "No active loops for this session.",
-      `activeLoops.global: \`${params.globalLoopCount}\``,
-    );
-    return lines.join("\n");
-  }
-
-  lines.push(
-    `activeLoops.session: \`${params.sessionLoops.length}\``,
-    `activeLoops.global: \`${params.globalLoopCount}\``,
-    "",
-  );
-  for (const loop of params.sessionLoops) {
-    lines.push(
-      `- id: \`${loop.id}\` ${renderLoopStatusSchedule(loop)} remaining: \`${loop.remainingRuns}\` nextRunAt: \`${new Date(loop.nextRunAt).toISOString()}\` prompt: \`${loop.promptSummary}\`${loop.kind !== "calendar" && loop.force ? " force" : ""}`,
-    );
-  }
-  return lines.join("\n");
 }
 
 function getSessionState(sessionStorePath: string) {
@@ -274,20 +114,17 @@ function resolveScopedLoopContext(
   addressing: LoopCliAddressing,
 ) {
   requireLoopContext(addressing);
+  if (addressing.channel === "telegram" && addressing.threadId) {
+    throw new Error("Telegram loop commands use `--topic-id`, not `--thread-id`.");
+  }
   return resolveLoopCliContext({
     loadedConfig: state.loadedConfig,
     channel: addressing.channel!,
     target: addressing.target!,
-    threadId: addressing.threadId,
+    threadId: resolveLoopSubtargetId(addressing),
+    topicId: addressing.topicId,
     botId: addressing.botId,
   });
-}
-
-function renderLoopStoreSummary(sessionStorePath: string, activeLoopCount: number) {
-  return [
-    `activeLoops.global: \`${activeLoopCount}\``,
-    `sessionStore: ${collapseHomePath(sessionStorePath)}`,
-  ];
 }
 
 async function listLoops(state: LoadedLoopControlState, commandLabel: "list" | "status") {
@@ -304,9 +141,13 @@ async function listLoops(state: LoadedLoopControlState, commandLabel: "list" | "
 
 async function showScopedStatus(state: LoadedLoopControlState, addressing: LoopCliAddressing) {
   const context = resolveScopedLoopContext(state, addressing);
-  const sessionLoops = await state.sessionState.listIntervalLoops({
-    sessionKey: context.sessionTarget.sessionKey,
-  });
+  const sessionLoops = selectScopedLoopsForAddressing(
+    context,
+    addressing,
+    await state.sessionState.listIntervalLoops({
+      sessionKey: context.sessionTarget.sessionKey,
+    }),
+  );
   const globalLoopCount = (await state.sessionState.listIntervalLoops()).length;
   console.log(
     renderScopedLoopStatus({
@@ -357,8 +198,16 @@ async function cancelAllScopedLoops(
   context: LoopCliContext,
   sessionLoops: IntervalLoopStatus[],
 ) {
-  const resolved = resolveAgentTarget(state.loadedConfig, context.sessionTarget);
-  await state.sessionState.clearIntervalLoops(resolved);
+  if (sessionLoops.length > 0) {
+    await removeScopedLoopsById(
+      {
+        loadedConfig: state.loadedConfig,
+        sessionState: state.sessionState,
+        context,
+        loopIds: sessionLoops.map((loop) => loop.id),
+      },
+    );
+  }
   const remaining = await state.sessionState.listIntervalLoops();
   console.log(
     [
@@ -376,8 +225,12 @@ async function cancelOneScopedLoop(
   sessionLoops: IntervalLoopStatus[],
   targetLoopId: string,
 ) {
-  const resolved = resolveAgentTarget(state.loadedConfig, context.sessionTarget);
-  await state.sessionState.removeIntervalLoop(resolved, targetLoopId);
+  await removeScopedLoopsById({
+    loadedConfig: state.loadedConfig,
+    sessionState: state.sessionState,
+    context,
+    loopIds: [targetLoopId],
+  });
   const remaining = await state.sessionState.listIntervalLoops();
   console.log(
     [
@@ -406,9 +259,13 @@ async function cancelScopedLoops(
     return;
   }
 
-  const sessionLoops = await state.sessionState.listIntervalLoops({
-    sessionKey: context.sessionTarget.sessionKey,
-  });
+  const sessionLoops = selectScopedLoopsForAddressing(
+    context,
+    addressing,
+    await state.sessionState.listIntervalLoops({
+      sessionKey: context.sessionTarget.sessionKey,
+    }),
+  );
   if (all) {
     await cancelAllScopedLoops(state, context, sessionLoops);
     return;
@@ -534,23 +391,49 @@ async function resolveLoopCreateRequest(
   rawArgs: string[],
   explicitCreateSubcommand: boolean,
 ): Promise<LoopCreateRequest> {
-  const addressing = parseAddressing(rawArgs);
-  const context = resolveScopedLoopContext(state, addressing);
   const parsed = parseCreateCommand(
     parseCreateExpression(rawArgs, explicitCreateSubcommand),
   );
+  let addressing = parseAddressing(rawArgs);
+  if (addressing.channel === "telegram" && addressing.threadId) {
+    throw new Error("Telegram loop commands use `--topic-id`, not `--thread-id`.");
+  }
   const loopConfig = state.loadedConfig.raw.control.loop;
   const maxRunsPerLoop = loopConfig.maxRunsPerLoop ?? loopConfig.maxTimes ?? 50;
   const maxActiveLoops = loopConfig.maxActiveLoops ?? 10;
   await enforceLoopCreateLimits(state, parsed, maxRunsPerLoop, maxActiveLoops);
-  const resolvedTarget = resolveAgentTarget(state.loadedConfig, context.sessionTarget);
+  const provisionalContext = resolveScopedLoopContext(state, addressing);
+  const provisionalResolvedTarget = resolveAgentTarget(
+    state.loadedConfig,
+    provisionalContext.sessionTarget,
+  );
   const resolvedPrompt = await resolveLoopPromptText({
-    workspacePath: resolvedTarget.workspacePath,
+    workspacePath: provisionalResolvedTarget.workspacePath,
     promptText: parsed.promptText,
   });
+  addressing = await prepareLoopCreateAddressing({
+    configPath: state.configPath,
+    rawArgs,
+    parsed,
+    resolvedPrompt,
+  });
+  const surfaceChannelId = await resolveSlackSurfaceChannelId({
+    configPath: state.configPath,
+    addressing,
+  });
+  const context = resolveScopedLoopContext(state, addressing);
+  const deliveryContext =
+    surfaceChannelId && surfaceChannelId !== context.identity.channelId
+      ? resolveScopedLoopContext(state, {
+          ...addressing,
+          target: surfaceChannelId,
+        })
+      : undefined;
+  const resolvedTarget = resolveAgentTarget(state.loadedConfig, context.sessionTarget);
   return {
     addressing,
     context,
+    deliveryContext,
     parsed,
     resolvedPrompt,
     resolvedTarget,
@@ -560,7 +443,8 @@ async function resolveLoopCreateRequest(
   };
 }
 
-function buildLoopSurfaceBinding(context: LoopCliContext) {
+function buildLoopSurfaceBinding(request: LoopCreateRequest) {
+  const context = request.deliveryContext ?? request.context;
   return {
     platform: context.identity.platform,
     botId: context.botId,
@@ -569,19 +453,6 @@ function buildLoopSurfaceBinding(context: LoopCliContext) {
     chatId: context.identity.chatId,
     threadTs: context.identity.threadTs,
     topicId: context.identity.topicId,
-  };
-}
-
-async function getLoopCounts(state: LoadedLoopControlState, sessionKey: string): Promise<LoopCounts> {
-  const [sessionLoopCount, globalLoopCount] = await Promise.all([
-    state.sessionState
-      .listIntervalLoops({ sessionKey })
-      .then((loops) => loops.length),
-    state.sessionState.listIntervalLoops().then((loops) => loops.length),
-  ]);
-  return {
-    sessionLoopCount,
-    globalLoopCount,
   };
 }
 
@@ -598,8 +469,9 @@ function buildRecurringLoopCreateBase(
 }
 
 function buildRecurringLoopPromptMetadata(request: LoopCreateRequest) {
+  const deliveryContext = request.deliveryContext ?? request.context;
   return {
-    promptText: request.context.buildLoopPromptText(request.resolvedPrompt.text),
+    promptText: deliveryContext.buildLoopPromptText(request.resolvedPrompt.text),
     canonicalPromptText: request.resolvedPrompt.text,
     promptSummary: summarizeLoopPrompt(
       request.resolvedPrompt.text,
@@ -609,7 +481,7 @@ function buildRecurringLoopPromptMetadata(request: LoopCreateRequest) {
       ? ("LOOP.md" as const)
       : ("custom" as const),
     maintenancePrompt: request.resolvedPrompt.maintenancePrompt,
-    surfaceBinding: buildLoopSurfaceBinding(request.context),
+    surfaceBinding: buildLoopSurfaceBinding(request),
   };
 }
 
@@ -645,10 +517,12 @@ async function createCalendarLoop(base: LoopCreateBase) {
     maxRuns: base.request.maxRunsPerLoop,
   });
   await base.state.sessionState.setIntervalLoop(base.request.resolvedTarget, loop);
-  const counts = await getLoopCounts(
-    base.state,
-    base.request.context.sessionTarget.sessionKey,
-  );
+  const counts = await getScopedLoopCounts({
+    sessionState: base.state.sessionState,
+    sessionKey: base.request.context.sessionTarget.sessionKey,
+    context: base.request.context,
+    addressing: base.request.addressing,
+  });
   console.log(
     renderLoopStartedMessage({
       mode: "calendar",
@@ -681,10 +555,12 @@ async function createIntervalLoop(base: LoopCreateBase) {
     force: parsed.force,
   });
   await base.state.sessionState.setIntervalLoop(base.request.resolvedTarget, loop);
-  const counts = await getLoopCounts(
-    base.state,
-    base.request.context.sessionTarget.sessionKey,
-  );
+  const counts = await getScopedLoopCounts({
+    sessionState: base.state.sessionState,
+    sessionKey: base.request.context.sessionTarget.sessionKey,
+    context: base.request.context,
+    addressing: base.request.addressing,
+  });
   console.log(
     renderLoopStartedMessage({
       mode: "interval",
@@ -726,7 +602,7 @@ async function createLoop(
   if (request.parsed.mode === "times") {
     await executeCountLoop({
       state,
-      context: request.context,
+      context: request.deliveryContext ?? request.context,
       promptText: request.resolvedPrompt.text,
       count: request.parsed.count,
       maintenancePrompt: request.resolvedPrompt.maintenancePrompt,
@@ -741,6 +617,9 @@ async function runCancelSubcommand(
   args: string[],
   addressing: LoopCliAddressing,
 ) {
+  if (addressing.newThread) {
+    throw new Error("`--new-thread` only applies when creating a Slack loop.");
+  }
   if (addressing.channel || addressing.target) {
     await cancelScopedLoops(state, args, addressing);
     return;
@@ -762,6 +641,9 @@ async function runStatusSubcommand(
   state: LoadedLoopControlState,
   addressing: LoopCliAddressing,
 ) {
+  if (addressing.newThread) {
+    throw new Error("`--new-thread` only applies when creating a Slack loop.");
+  }
   if (addressing.channel || addressing.target) {
     await showScopedStatus(state, addressing);
     return;

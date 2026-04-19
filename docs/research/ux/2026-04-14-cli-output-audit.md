@@ -850,12 +850,12 @@ Current output:
 clisbot message
 
 Usage:
-  clisbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--force-document] [--silent] [--progress|--final]
-  clisbot message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <id>] [--silent]
+  clisbot message send --channel <slack|telegram> --target <dest> [--message <text> | --body-file <path>] [--input <plain|md|html|mrkdwn|blocks>] [--render <native|none|html|mrkdwn|blocks>] [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <slack-thread-ts>] [--topic-id <telegram-topic-id>] [--force-document] [--silent] [--progress|--final]
+  clisbot message poll --channel <slack|telegram> --target <dest> --poll-question <text> --poll-option <value> [--poll-option <value>] [--account <id>] [--thread-id <slack-thread-ts>] [--topic-id <telegram-topic-id>] [--silent]
   clisbot message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]
   clisbot message reactions --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]
   clisbot message read --channel <slack|telegram> --target <dest> [--account <id>] [--limit <n>]
-  clisbot message edit --channel <slack|telegram> --target <dest> --message-id <id> --message <text> [--account <id>]
+  clisbot message edit --channel <slack|telegram> --target <dest> --message-id <id> [--message <text> | --body-file <path>] [--input <plain|md|html|mrkdwn|blocks>] [--render <native|none|html|mrkdwn|blocks>] [--account <id>]
   clisbot message delete --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]
   clisbot message pin --channel <slack|telegram> --target <dest> --message-id <id> [--account <id>]
   clisbot message unpin --channel <slack|telegram> --target <dest> [--message-id <id>] [--account <id>]
@@ -866,7 +866,7 @@ Usage:
 Problems to address:
 
 - The surface is broad but underspecified.
-- `target`, `reply-to`, `thread-id`, `--progress`, and `--final` all need a little more operator guidance.
+- `target`, `reply-to`, provider-specific thread or topic flags, `--progress`, and `--final` all need a little more operator guidance.
 
 Proposed output:
 
@@ -881,31 +881,33 @@ Most used actions:
   delete   delete one message
 
 Usage:
-  clisbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <id>] [--progress|--final]
+  clisbot message send --channel <slack|telegram> --target <dest> --message <text> [--account <id>] [--media <path-or-url>] [--reply-to <id>] [--thread-id <slack-thread-ts>] [--topic-id <telegram-topic-id>] [--progress|--final]
   clisbot message read --channel <slack|telegram> --target <dest> [--account <id>] [--limit <n>]
   clisbot message react --channel <slack|telegram> --target <dest> --message-id <id> --emoji <emoji> [--account <id>] [--remove]
   ...
 
 Target guide:
   Telegram target: chat id
-  Slack target: channel id, group id, or DM id
+  Slack target: channel id, group id, DM user id, or DM channel id
 
 Reply guide:
   --reply-to   reply to one message
-  --thread-id  post into one thread or topic when the channel supports it
+  --thread-id  Slack only: post into one existing thread
+  --topic-id   Telegram only: post into one topic
 
 Message mode:
   --progress   send a progress-style message
   --final      send a final-style message
 
 Example:
-  clisbot message send --channel telegram --target -1001234567890 --thread-id 42 --message "hello"
+  clisbot message send --channel telegram --target -1001234567890 --topic-id 42 --message "hello"
 ```
 
 Why this proposed version is better:
 
 - It makes the surface teachable.
 - It explains the arguments that are currently easy to misuse.
+- It separates Slack thread vs Telegram topic routing instead of overloading one flag.
 - It keeps the long reference shape without feeling like a wall.
 
 ### `agents list`

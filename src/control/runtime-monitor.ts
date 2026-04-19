@@ -11,6 +11,7 @@ import { installRuntimeConsoleTimestamps } from "../shared/logging.ts";
 import { ensureDir, getDefaultRuntimeMonitorStatePath, getDefaultRuntimePidPath } from "../shared/paths.ts";
 import { sleep } from "../shared/process.ts";
 import { fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 export type RuntimeMonitorPhase = "starting" | "active" | "backoff" | "stopped";
 export type RuntimeMonitorAlertKind = "backoff" | "stopped";
@@ -355,7 +356,7 @@ function renderStoppedAlertMessage(params: {
     "status: runtime stopped after exhausting the configured restart budget",
     `last exit: ${summarizeExit(params.exit)} at ${params.exit.at}`,
     `restart budget used: ${params.totalRestarts}`,
-    "action: inspect `clisbot logs`, fix the fault, then start the service again",
+    `action: inspect ${renderCliCommand("logs", { inline: true })}, fix the fault, then start the service again`,
   ].join("\n");
 }
 

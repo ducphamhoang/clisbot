@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,8 +9,15 @@ import { renderDefaultConfigTemplate } from "../src/config/template.ts";
 describe("fast start e2e", () => {
   let tempDir = "";
   const bunExecutable = Bun.which("bun") ?? process.execPath;
+  let previousCliName: string | undefined;
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+  });
 
   afterEach(() => {
+    process.env.CLISBOT_CLI_NAME = previousCliName;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
       tempDir = "";
@@ -38,6 +45,7 @@ describe("fast start e2e", () => {
         ...process.env,
         CLISBOT_HOME: tempDir,
         CLISBOT_CONFIG_PATH: configPath,
+        CLISBOT_CLI_NAME: "",
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -82,6 +90,7 @@ describe("fast start e2e", () => {
         ...process.env,
         CLISBOT_HOME: tempDir,
         CLISBOT_CONFIG_PATH: configPath,
+        CLISBOT_CLI_NAME: "",
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -108,6 +117,7 @@ describe("fast start e2e", () => {
         ...process.env,
         CLISBOT_HOME: tempDir,
         CLISBOT_CONFIG_PATH: configPath,
+        CLISBOT_CLI_NAME: "",
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -147,6 +157,7 @@ describe("fast start e2e", () => {
         CLISBOT_HOME: tempDir,
         CLISBOT_CONFIG_PATH: configPath,
         CLISBOT_PID_PATH: join(tempDir, "state", "clisbot.pid"),
+        CLISBOT_CLI_NAME: "",
       },
       stdout: "pipe",
       stderr: "pipe",

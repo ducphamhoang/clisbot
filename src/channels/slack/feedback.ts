@@ -2,6 +2,7 @@ import { parseAgentCommand, type CommandPrefixes } from "../../agents/commands.t
 import type { ProcessedEventsStore } from "../processed-events-store.ts";
 import { shouldGuideUnroutedConversation } from "../unrouted-guidance-policy.ts";
 import { hasBotMention } from "./message.ts";
+import { renderCliCommand } from "../../shared/cli-name.ts";
 
 export function isSlackCommandLikeMessage(params: {
   text: string;
@@ -37,8 +38,8 @@ export function renderSlackRouteChoiceMessage(params: {
     "clisbot: this Slack channel is not configured yet.",
     "",
     "Ask the bot owner to do these:",
-    `- \`clisbot routes add --channel slack channel:${params.channelId} --bot default\``,
-    `- \`clisbot routes set-agent --channel slack channel:${params.channelId} --bot default --agent <id>\``,
+    `- ${renderCliCommand(`routes add --channel slack channel:${params.channelId} --bot default`, { inline: true })}`,
+    `- ${renderCliCommand(`routes set-agent --channel slack channel:${params.channelId} --bot default --agent <id>`, { inline: true })}`,
     "",
     `After that, ${botReference} and send \`\\start\` or \`\\status\` here.`,
   ].join("\n");

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -34,6 +34,24 @@ function createConfig(): ClisbotConfig {
 }
 
 describe("startup bootstrap helpers", () => {
+  let previousCliName: string | undefined;
+  let previousHome: string | undefined;
+  let previousTelegramBotToken: string | undefined;
+
+  beforeEach(() => {
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    previousHome = process.env.CLISBOT_HOME;
+    previousTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env.CLISBOT_CLI_NAME;
+    delete process.env.TELEGRAM_BOT_TOKEN;
+  });
+
+  afterEach(() => {
+    process.env.CLISBOT_CLI_NAME = previousCliName;
+    process.env.CLISBOT_HOME = previousHome;
+    process.env.TELEGRAM_BOT_TOKEN = previousTelegramBotToken;
+  });
+
   test("prints focused init help without touching runtime state", async () => {
     const logs: string[] = [];
     const originalLog = console.log;
@@ -276,6 +294,7 @@ describe("startup bootstrap helpers", () => {
 
   test("reports mem credentials as ephemeral even when the current process does not own the secret", () => {
     const config = createConfig();
+    const tempHome = mkdtempSync(join(tmpdir(), "clisbot-startup-bootstrap-"));
     config.bots.telegram.defaults.enabled = true;
     config.bots.telegram.default = {
       enabled: true,
@@ -284,7 +303,9 @@ describe("startup bootstrap helpers", () => {
     } as any;
 
     expect(renderConfiguredChannelTokenIssueLines(config)).toEqual([]);
-    expect(renderConfiguredChannelTokenStatusLines(config)).toContain(
+    expect(renderConfiguredChannelTokenStatusLines(config, {
+      CLISBOT_HOME: tempHome,
+    })).toContain(
       "Telegram bot default: source=cli-ephemeral available=no restartRequiresPersistence=yes",
     );
   });

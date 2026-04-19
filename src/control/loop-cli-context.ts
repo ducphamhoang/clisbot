@@ -32,17 +32,18 @@ type LoopCliContextParams = {
   channel: LoopCliChannel;
   target: string;
   threadId?: string;
+  topicId?: string;
   botId?: string;
 };
 
-type SlackTarget = {
+export type SlackLoopTarget = {
   conversationKind: "dm" | "group" | "channel";
   channelType: "im" | "mpim" | "channel";
   channelId: string;
   userId?: string;
 };
 
-function normalizeSlackTarget(raw: string): SlackTarget {
+export function normalizeSlackLoopTarget(raw: string): SlackLoopTarget {
   const target = raw.trim();
   if (!target) {
     throw new Error("--target is required");
@@ -105,7 +106,7 @@ function normalizeSlackTarget(raw: string): SlackTarget {
 
 function resolveSlackLoopCliContext(params: LoopCliContextParams): LoopCliContext {
   const botId = resolveSlackBotId(params.loadedConfig.raw.bots.slack, params.botId);
-  const target = normalizeSlackTarget(params.target);
+  const target = normalizeSlackLoopTarget(params.target);
   const routeInfo = resolveSlackConversationRoute(
     params.loadedConfig,
     {
@@ -170,9 +171,10 @@ function resolveTelegramLoopCliContext(params: LoopCliContextParams): LoopCliCon
   }
 
   const rawThreadId = params.threadId?.trim();
-  const topicId = rawThreadId ? Number(rawThreadId) : undefined;
-  if (rawThreadId && !Number.isFinite(topicId)) {
-    throw new Error("Telegram --thread-id must be a numeric topic id.");
+  const rawTopicId = params.topicId?.trim() || rawThreadId;
+  const topicId = rawTopicId ? Number(rawTopicId) : undefined;
+  if (rawTopicId && !Number.isFinite(topicId)) {
+    throw new Error("Telegram --topic-id must be a numeric topic id.");
   }
 
   const botId = resolveTelegramBotId(params.loadedConfig.raw.bots.telegram, params.botId);

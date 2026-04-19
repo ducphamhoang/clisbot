@@ -10,6 +10,12 @@ Today this matters most for:
 - Claude Code
 - Gemini CLI
 
+Related CLI-specific notes:
+
+- [Codex CLI Guide](codex-cli.md)
+- [Claude CLI Guide](claude-cli.md)
+- [Gemini CLI Guide](gemini-cli.md)
+
 ## Core Rule
 
 `clisbot` reserves a small set of chat-surface control commands such as:

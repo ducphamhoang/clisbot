@@ -4,6 +4,7 @@ import { SessionStore } from "../agents/session-store.ts";
 import { TmuxClient } from "../runners/tmux/client.ts";
 import { sleep } from "../shared/process.ts";
 import { CliCommandError } from "./runtime-cli-shared.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 import {
   buildRunnerSessionMetadata,
   listRunnerSessions,
@@ -155,18 +156,18 @@ function parseTimeoutMs(raw: string | undefined) {
 
 export function renderRunnerHelp() {
   return [
-    "clisbot runner",
+    renderCliCommand("runner"),
     "",
     "Usage:",
-    "  clisbot runner",
-    "  clisbot runner --help",
-    "  clisbot runner list",
-    "  clisbot runner inspect <session-name> [--lines <n>]",
-    "  clisbot runner watch <session-name> [--lines <n>] [--interval <duration>]",
-    "  clisbot runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]",
-    "  clisbot runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]",
-    "  clisbot runner smoke --backend <codex|claude|gemini> --scenario <name> [--workspace <path>] [--agent <id>] [--artifact-dir <path>] [--timeout-ms <n>] [--keep-session] [--json]",
-    "  clisbot runner smoke --backend all --suite launch-trio [--workspace <path>] [--agent <id>] [--artifact-dir <path>] [--timeout-ms <n>] [--keep-session] [--json]",
+    `  ${renderCliCommand("runner")}`,
+    `  ${renderCliCommand("runner --help")}`,
+    `  ${renderCliCommand("runner list")}`,
+    `  ${renderCliCommand("runner inspect <session-name> [--lines <n>]")}`,
+    `  ${renderCliCommand("runner watch <session-name> [--lines <n>] [--interval <duration>]")}`,
+    `  ${renderCliCommand("runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
+    `  ${renderCliCommand("runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
+    `  ${renderCliCommand("runner smoke --backend <codex|claude|gemini> --scenario <name> [--workspace <path>] [--agent <id>] [--artifact-dir <path>] [--timeout-ms <n>] [--keep-session] [--json]")}`,
+    `  ${renderCliCommand("runner smoke --backend all --suite launch-trio [--workspace <path>] [--agent <id>] [--artifact-dir <path>] [--timeout-ms <n>] [--keep-session] [--json]")}`,
     "",
     "Operator session debugging:",
     "  - `list` shows current tmux runner sessions, newest admitted turn first when known",
@@ -194,7 +195,7 @@ function parseInspectCommand(args: string[]): RunnerInspectOptions {
   const sessionName = parsePositionalArgument(args, ["--lines", "-n"]);
   if (!sessionName) {
     throw new CliCommandError(
-      "Usage: clisbot runner inspect <session-name> [--lines <n>]",
+      `Usage: ${renderCliCommand("runner inspect <session-name> [--lines <n>]")}`,
       2,
     );
   }
@@ -219,7 +220,11 @@ function parseWatchCommand(args: string[]): RunnerWatchOptions {
 
   if (!latest && !next && !sessionName) {
     throw new CliCommandError(
-      "Usage: clisbot runner watch <session-name> [--lines <n>] [--interval <duration>]\n       clisbot runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]\n       clisbot runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]",
+      [
+        `Usage: ${renderCliCommand("runner watch <session-name> [--lines <n>] [--interval <duration>]")}`,
+        `       ${renderCliCommand("runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
+        `       ${renderCliCommand("runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
+      ].join("\n"),
       2,
     );
   }
@@ -238,7 +243,10 @@ function parseSmokeCommand(args: string[]): SmokeCommandOptions {
   const backend = parseSingleOption(args, "--backend");
   if (!backend) {
     throw new CliCommandError(
-      "Usage: clisbot runner smoke --backend <codex|claude|gemini> --scenario <name> [--json]\n       clisbot runner smoke --backend all --suite launch-trio [--json]",
+      [
+        `Usage: ${renderCliCommand("runner smoke --backend <codex|claude|gemini> --scenario <name> [--json]")}`,
+        `       ${renderCliCommand("runner smoke --backend all --suite launch-trio [--json]")}`,
+      ].join("\n"),
       2,
     );
   }
@@ -302,7 +310,7 @@ function renderSmokeNotImplementedResult(options: SmokeCommandOptions) {
     suite: options.suite ?? null,
     error: {
       code: "NOT_IMPLEMENTED",
-      message: "clisbot runner smoke is not implemented yet. The command surface and contract validation are ready; the real execution batch is next.",
+      message: `${renderCliCommand("runner smoke")} is not implemented yet. The command surface and contract validation are ready; the real execution batch is next.`,
     },
     options: {
       workspace: options.workspace ?? null,
@@ -328,7 +336,7 @@ async function runSmokeCli(args: string[]) {
   } else {
     console.log(
       [
-        "clisbot runner smoke",
+        renderCliCommand("runner smoke"),
         "",
         `backend: ${options.backend}`,
         options.scenario ? `scenario: ${options.scenario}` : `suite: ${options.suite}`,
@@ -362,7 +370,7 @@ function renderWatchFrame(params: {
   snapshot: string;
 }) {
   return [
-    "clisbot runner watch",
+    renderCliCommand("runner watch"),
     "",
     `session: ${params.sessionName}`,
     params.agentId ? `agent: ${params.agentId}` : null,
@@ -397,7 +405,7 @@ async function runListCli() {
   }
 
   console.log([
-    "clisbot runner list",
+    renderCliCommand("runner list"),
     "",
     ...sessions.map((session) => {
       if (!session.entry) {
@@ -445,7 +453,7 @@ async function resolveWatchSelection(options: RunnerWatchOptions) {
     const latest = resolveLatestSessionMetadata(sessionMetadata);
     if (!latest) {
       throw new CliCommandError(
-        "No admitted prompt is recorded yet. Use `clisbot runner watch --next` or watch a named session.",
+        `No admitted prompt is recorded yet. Use ${renderCliCommand("runner watch --next", { inline: true })} or watch a named session.`,
         1,
       );
     }

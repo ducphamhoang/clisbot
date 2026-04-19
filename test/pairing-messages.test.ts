@@ -1,9 +1,20 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildPairingReply,
   buildPairingQueueFullReply,
   buildPairingReplyFromRequest,
 } from "../src/channels/pairing/messages.ts";
+
+let previousCliName: string | undefined;
+
+beforeEach(() => {
+  previousCliName = process.env.CLISBOT_CLI_NAME;
+  delete process.env.CLISBOT_CLI_NAME;
+});
+
+afterEach(() => {
+  process.env.CLISBOT_CLI_NAME = previousCliName;
+});
 
 describe("buildPairingReply", () => {
   test("renders the concrete approval command with the issued code", () => {

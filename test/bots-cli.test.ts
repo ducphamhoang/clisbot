@@ -7,6 +7,7 @@ import { getCanonicalTelegramBotTokenPath } from "../src/config/channel-credenti
 import { clisbotConfigSchema } from "../src/config/schema.ts";
 import { renderDefaultConfigTemplate } from "../src/config/template.ts";
 import { runBotsCli } from "../src/control/bots-cli.ts";
+import { renderCliCommand } from "../src/shared/cli-name.ts";
 
 describe("bots cli", () => {
   let tempDir = "";
@@ -109,7 +110,9 @@ describe("bots cli", () => {
           }),
         } as any,
       ),
-    ).rejects.toThrow("Use `clisbot bots set-agent ...`, `clisbot bots set-credentials ...`");
+    ).rejects.toThrow(
+      `Use ${renderCliCommand("bots set-agent ...", { inline: true })}, ${renderCliCommand("bots set-credentials ...", { inline: true })}`,
+    );
   });
 
   test("set-agent updates the bot fallback agent", async () => {

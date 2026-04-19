@@ -40,6 +40,7 @@ import {
   printCommandOutcomeBanner,
   printCommandOutcomeFooter,
 } from "./runtime-cli-shared.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 type PreparedBootstrapState = {
   bootstrapFlags: ParsedBootstrapFlags;
@@ -62,11 +63,11 @@ function renderBootstrapCommandHelp(commandName: "init" | "start") {
       : "seed config and optionally bootstrap the first agent without starting runtime";
 
   return [
-    `clisbot ${commandName}`,
+    renderCliCommand(commandName),
     "",
     "Usage:",
-    `  clisbot ${commandName} --help`,
-    `  clisbot ${commandName} [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]`,
+    `  ${renderCliCommand(`${commandName} --help`)}`,
+    `  ${renderCliCommand(`${commandName} [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]`)}`,
     "                   [--slack-account <id> --slack-app-token <ENV_NAME|${ENV_NAME}|literal> --slack-bot-token <ENV_NAME|${ENV_NAME}|literal>]...",
     "                   [--telegram-account <id> --telegram-bot-token <ENV_NAME|${ENV_NAME}|literal>]...",
     "",
@@ -79,17 +80,17 @@ function renderBootstrapCommandHelp(commandName: "init" | "start") {
     commandName === "start"
       ? "  - literal token values without `--persist` stay runtime-only for this start invocation"
       : "  - literal token values on `init` require `--persist` because no runtime exists yet",
-    "  - `--persist` writes canonical credential files so later plain `clisbot start` can reuse them",
+    `  - \`--persist\` writes canonical credential files so later plain ${renderCliCommand("start")} can reuse them`,
     "",
     "Examples:",
-    `  clisbot ${commandName} --cli codex --bot-type personal --telegram-bot-token TELEGRAM_BOT_TOKEN`,
-    `  clisbot ${commandName} --cli codex --bot-type team --slack-app-token SLACK_APP_TOKEN --slack-bot-token SLACK_BOT_TOKEN`,
-    `  clisbot ${commandName} --cli gemini --bot-type personal --telegram-bot-token \"$TELEGRAM_BOT_TOKEN\" --persist`,
+    `  ${renderCliCommand(`${commandName} --cli codex --bot-type personal --telegram-bot-token TELEGRAM_BOT_TOKEN`)}`,
+    `  ${renderCliCommand(`${commandName} --cli codex --bot-type team --slack-app-token SLACK_APP_TOKEN --slack-bot-token SLACK_BOT_TOKEN`)}`,
+    `  ${renderCliCommand(`${commandName} --cli gemini --bot-type personal --telegram-bot-token \"$TELEGRAM_BOT_TOKEN\" --persist`)}`,
     "",
     "Related help:",
-    "  - `clisbot agents --help` for lower-level agent bootstrap and binding control",
-    "  - `clisbot bots --help` for bot credentials and fallback agent setup",
-    "  - `clisbot routes --help` for route setup after bootstrap",
+    `  - ${renderCliCommand("agents --help", { inline: true })} for lower-level agent bootstrap and binding control`,
+    `  - ${renderCliCommand("bots --help", { inline: true })} for bot credentials and fallback agent setup`,
+    `  - ${renderCliCommand("routes --help", { inline: true })} for route setup after bootstrap`,
   ].join("\n");
 }
 
@@ -118,13 +119,13 @@ function printMissingBootstrapOptions(commandName: "init" | "start") {
   console.log("  personal = one assistant for one human");
   console.log("  team     = one shared assistant for a team or channel");
   console.log("Prepare with one of these commands:");
-  console.log(`  clisbot ${commandName} --cli codex --bot-type personal`);
-  console.log(`  clisbot ${commandName} --cli codex --bot-type team`);
-  console.log(`  clisbot ${commandName} --cli claude --bot-type personal`);
-  console.log(`  clisbot ${commandName} --cli claude --bot-type team`);
-  console.log(`  clisbot ${commandName} --cli gemini --bot-type personal`);
-  console.log(`  clisbot ${commandName} --cli gemini --bot-type team`);
-  console.log("Manual setup is still available with `clisbot agents add ...`.");
+  console.log(`  ${renderCliCommand(`${commandName} --cli codex --bot-type personal`)}`);
+  console.log(`  ${renderCliCommand(`${commandName} --cli codex --bot-type team`)}`);
+  console.log(`  ${renderCliCommand(`${commandName} --cli claude --bot-type personal`)}`);
+  console.log(`  ${renderCliCommand(`${commandName} --cli claude --bot-type team`)}`);
+  console.log(`  ${renderCliCommand(`${commandName} --cli gemini --bot-type personal`)}`);
+  console.log(`  ${renderCliCommand(`${commandName} --cli gemini --bot-type team`)}`);
+  console.log(`Manual setup is still available with ${renderCliCommand("agents add ...", { inline: true })}.`);
   for (const line of renderOperatorHelpLines()) {
     console.log(line);
   }
@@ -235,7 +236,9 @@ async function prepareBootstrapState(
   }
 
   if (commandName === "init" && hasLiteralMemCredentials(bootstrapFlags) && !bootstrapFlags.persist) {
-    throw new Error("`clisbot init` with literal channel tokens requires --persist.");
+    throw new Error(
+      `${renderCliCommand("init", { inline: true })} with literal channel tokens requires --persist.`,
+    );
   }
 
   const configResult = await ensureConfigFile(configPath);
@@ -349,7 +352,9 @@ async function printAlreadyRunningStartSummary(pid: number, configPath: string, 
   } catch (error) {
     printCommandOutcomeBanner("success");
     console.log(`clisbot is already running with pid: ${pid}`);
-    console.log("Run `clisbot status` to inspect runtime state or `clisbot logs` to inspect recent activity.");
+    console.log(
+      `Run ${renderCliCommand("status", { inline: true })} to inspect runtime state or ${renderCliCommand("logs", { inline: true })} to inspect recent activity.`,
+    );
     for (const line of renderChannelSetupHelpLines()) {
       console.log(line);
     }

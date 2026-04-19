@@ -1,3 +1,5 @@
+import { renderCliCommand } from "../../shared/cli-name.ts";
+
 export function renderTelegramRouteChoiceMessage(params: {
   chatId: number | string;
   topicId?: number | string;
@@ -13,18 +15,18 @@ export function renderTelegramRouteChoiceMessage(params: {
     "Ask the bot owner to choose one of these:",
     "",
     "Add the whole group to the allowlist:",
-    `\`clisbot routes add --channel telegram group:${chatId} --bot default\``,
+    renderCliCommand(`routes add --channel telegram group:${chatId} --bot default`, { inline: true }),
     "",
     "Bind the whole group to a specific agent:",
-    `\`clisbot routes set-agent --channel telegram group:${chatId} --bot default --agent <id>\``,
+    renderCliCommand(`routes set-agent --channel telegram group:${chatId} --bot default --agent <id>`, { inline: true }),
   ];
 
   if (topicId != null) {
     lines.push(
       "",
       "Or bind only this topic to a specific agent:",
-      `\`clisbot routes add --channel telegram topic:${chatId}:${topicId} --bot default\``,
-      `\`clisbot routes set-agent --channel telegram topic:${chatId}:${topicId} --bot default --agent <id>\``,
+      renderCliCommand(`routes add --channel telegram topic:${chatId}:${topicId} --bot default`, { inline: true }),
+      renderCliCommand(`routes set-agent --channel telegram topic:${chatId}:${topicId} --bot default --agent <id>`, { inline: true }),
     );
   }
 

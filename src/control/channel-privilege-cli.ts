@@ -1,6 +1,8 @@
+import { renderCliCommand } from "../shared/cli-name.ts";
+
 export function renderChannelPrivilegeCliRemovedMessage() {
   return [
-    "`clisbot channels privilege` has been removed.",
+    `${renderCliCommand("channels privilege", { inline: true })} has been removed.`,
     "Manage routed permissions through `app.auth` and `agents.<id>.auth` instead.",
     "Grant `shellExecute` on the target agent role when `/bash` should be allowed.",
   ].join("\n");

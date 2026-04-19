@@ -19,6 +19,9 @@ Related pages:
 - [Channel Operations](channels.md)
 - [Bots And Credentials](bots-and-credentials.md)
 - [Release Notes](../releases/README.md)
+- [Codex CLI Guide](codex-cli.md)
+- [Claude CLI Guide](claude-cli.md)
+- [Gemini CLI Guide](gemini-cli.md)
 - [Telegram Bot Setup](telegram-setup.md)
 - [Slack App Setup](slack-setup.md)
 - [Slash Commands](slash-commands.md)
@@ -29,6 +32,14 @@ Related pages:
 - [Runtime Operations](runtime-operations.md)
 
 If setup is unclear, clone this repo, open it in Codex or Claude Code, and ask it to help set up `clisbot`. The docs here are kept current enough for guided setup and troubleshooting.
+
+## CLI-Specific Notes
+
+If you are choosing a default coding CLI or debugging routed behavior, start here:
+
+- [Codex CLI Guide](codex-cli.md)
+- [Claude CLI Guide](claude-cli.md)
+- [Gemini CLI Guide](gemini-cli.md)
 
 ## Platform Support
 
@@ -310,21 +321,45 @@ Timezone config examples:
 
 ## Loops CLI
 
-Use `clisbot loops ...` to inspect or cancel recurring loops that were already created through channel `/loop` commands.
+Use `clisbot loops ...` to create, inspect, or cancel loop work from the operator CLI.
 
 Current subcommands:
 
 - `clisbot loops list`
 - `clisbot loops status`
+- `clisbot loops status --channel slack --target channel:C123 --thread-id 1712345678.123456`
+- `clisbot loops create --channel slack --target channel:C123 --thread-id 1712345678.123456 every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target channel:C123 --new-thread every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target dm:U1234567890 --new-thread every day at 09:00 check inbox`
+- `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 5m check CI`
+- `clisbot loops --channel slack --target channel:C123 --thread-id 1712345678.123456 3 review backlog`
 - `clisbot loops cancel <id>`
+- `clisbot loops cancel --channel slack --target channel:C123 --thread-id 1712345678.123456 --all`
 - `clisbot loops cancel --all`
+
+Targeting rules:
+
+- `--target` chooses the routed surface
+- on Slack, use `channel:<id>`, `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids
+- on Telegram, `--target` is the numeric chat id
+- `--thread-id` means an existing Slack thread ts
+- `--topic-id` means a Telegram topic id
+- omitting the sub-surface flag targets the parent Slack channel/group/DM or the parent Telegram chat
+- `--new-thread` is Slack-only and creates a fresh thread anchor before the loop starts
+- in Telegram forum groups, omitting `--topic-id` targets the parent chat surface; sends then follow Telegram's normal no-`message_thread_id` behavior, which is the General topic when that forum has one
 
 Important behavior:
 
-- `list` and `status` are aliases and print the same global inventory
-- this CLI does not create loops
+- `list` is always app-wide inventory
+- bare `status` is app-wide inventory; scoped `status --channel ... --target ...` matches `/loop status` for one routed session
+- recurring CLI-created loops reuse the same parser family as `/loop` and land in the same persisted session store
+- the CLI accepts the same expression families as `/loop`: interval, forced interval, times/count, and wall-clock schedules
+- omitting the prompt body loads `LOOP.md` from the target workspace, matching maintenance-loop behavior from chat
 - every row includes `agentId` and `sessionKey` because the operator CLI is app-wide rather than route-scoped
-- `cancel --all` is app-wide
+- `cancel --all` is app-wide when no routed target is given
+- scoped `cancel --all` clears one routed session and scoped `cancel --all --app` clears the whole app
+- if runtime is already running, it reconciles new recurring loops from persistence; if runtime is stopped, those loops activate on the next start
+- count/times loops run synchronously in the CLI process today; recurring loops are persisted for the runtime scheduler
 - loop state is read from `session.storePath`, which defaults to `~/.clisbot/state/sessions.json`
 - if `CLISBOT_HOME` is set, the default session store becomes `<CLISBOT_HOME>/state/sessions.json`
 - the runtime scheduler re-checks persisted loop state before each scheduled tick, so cancelling through the CLI suppresses future runs without adding a separate control socket
