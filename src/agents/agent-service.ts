@@ -1,12 +1,15 @@
 import {
   type FollowUpMode,
 } from "./follow-up-policy.ts";
-import { randomUUID } from "node:crypto";
 import type { IntervalLoopStatus, StoredIntervalLoop } from "./loop-state.ts";
 import {
   computeNextCalendarLoopRunAtMs,
   type LoopCalendarCadence,
 } from "./loop-command.ts";
+import {
+  createStoredCalendarLoop,
+  createStoredIntervalLoop,
+} from "./loop-control-shared.ts";
 import {
   type RunObserver,
   type RunUpdate,
@@ -90,6 +93,8 @@ type SurfaceNotificationRequest = {
 
 type SurfaceNotificationHandler = (request: SurfaceNotificationRequest) => Promise<void>;
 
+const LOOP_RECONCILE_INTERVAL_MS = 1_000;
+
 export type SessionDiagnostics = {
   sessionId?: string;
   resumeCommand?: string;
@@ -131,6 +136,7 @@ export class AgentService {
   private activeRuns: SessionService;
   private stopping = false;
   private cleanupTimer?: ReturnType<typeof setInterval>;
+  private loopReconcileTimer?: ReturnType<typeof setInterval>;
   private loopTimers = new Set<ReturnType<typeof setTimeout>>();
   private intervalLoops = new Map<string, ManagedIntervalLoop>();
   private surfaceNotificationHandlers = new Map<string, SurfaceNotificationHandler>();
@@ -177,7 +183,12 @@ export class AgentService {
 
   async start() {
     await this.activeRuns.recoverPersistedRuns();
-    await this.restoreIntervalLoops();
+    await this.reconcilePersistedIntervalLoops();
+    this.loopReconcileTimer = setInterval(() => {
+      void this.reconcilePersistedIntervalLoops().catch((error) => {
+        console.error("loop reconcile failed", error);
+      });
+    }, LOOP_RECONCILE_INTERVAL_MS);
     const cleanup = this.loadedConfig.raw.control.sessionCleanup;
     if (!cleanup.enabled) {
       return;
@@ -193,6 +204,10 @@ export class AgentService {
 
   async stop() {
     this.stopping = true;
+    if (this.loopReconcileTimer) {
+      clearInterval(this.loopReconcileTimer);
+      this.loopReconcileTimer = undefined;
+    }
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = undefined;
@@ -403,26 +418,18 @@ export class AgentService {
       );
     }
 
-    const id = randomUUID().split("-")[0] ?? randomUUID();
-    const loop: StoredIntervalLoop = {
-      id,
-      intervalMs: params.intervalMs,
-      maxRuns: params.maxRuns,
-      attemptedRuns: 0,
-      executedRuns: 0,
-      skippedRuns: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      nextRunAt: Date.now(),
+    const loop = createStoredIntervalLoop({
       promptText: params.promptText,
       canonicalPromptText: params.canonicalPromptText,
       protectedControlMutationRule: params.protectedControlMutationRule,
       promptSummary: params.promptSummary,
       promptSource: params.promptSource,
+      surfaceBinding: params.surfaceBinding,
+      intervalMs: params.intervalMs,
+      maxRuns: params.maxRuns,
       createdBy: params.createdBy,
       force: params.force,
-      surfaceBinding: params.surfaceBinding,
-    };
+    });
 
     const resolved = this.resolveTarget(params.target);
     await this.sessionState.setIntervalLoop(resolved, loop);
@@ -459,45 +466,22 @@ export class AgentService {
       );
     }
 
-    const nextRunAt =
-      computeNextCalendarLoopRunAtMs({
-        cadence: params.cadence,
-        dayOfWeek: params.dayOfWeek,
-        hour: params.hour,
-        minute: params.minute,
-        timezone: params.timezone,
-        nowMs: Date.now(),
-      }) ?? 0;
-    if (!nextRunAt) {
-      throw new Error("Unable to compute the next wall-clock loop run.");
-    }
-
-    const id = randomUUID().split("-")[0] ?? randomUUID();
-    const loop: StoredIntervalLoop = {
-      kind: "calendar",
-      id,
-      maxRuns: params.maxRuns,
-      attemptedRuns: 0,
-      executedRuns: 0,
-      skippedRuns: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      nextRunAt,
+    const loop = createStoredCalendarLoop({
       promptText: params.promptText,
       canonicalPromptText: params.canonicalPromptText,
       protectedControlMutationRule: params.protectedControlMutationRule,
       promptSummary: params.promptSummary,
       promptSource: params.promptSource,
-      createdBy: params.createdBy,
+      surfaceBinding: params.surfaceBinding,
       cadence: params.cadence,
       dayOfWeek: params.dayOfWeek,
       localTime: params.localTime,
       hour: params.hour,
       minute: params.minute,
       timezone: params.timezone,
-      force: false,
-      surfaceBinding: params.surfaceBinding,
-    };
+      maxRuns: params.maxRuns,
+      createdBy: params.createdBy,
+    });
 
     const resolved = this.resolveTarget(params.target);
     await this.sessionState.setIntervalLoop(resolved, loop);
@@ -585,6 +569,14 @@ export class AgentService {
     return this.activeRuns.observeRun(target, observer);
   }
 
+  async observeActiveRun(
+    target: AgentSessionTarget,
+    observer: Omit<RunObserver, "lastSentAt">,
+    options: { resumeLive?: boolean } = {},
+  ) {
+    return this.activeRuns.observeActiveRun(target, observer, options);
+  }
+
   async detachRunObserver(target: AgentSessionTarget, observerId: string) {
     return this.activeRuns.detachRunObserver(target, observerId);
   }
@@ -622,10 +614,16 @@ export class AgentService {
     }.maxMessageChars;
   }
 
-  private async restoreIntervalLoops() {
+  private async reconcilePersistedIntervalLoops() {
     const persistedLoops = await this.sessionState.listIntervalLoops();
+    const persistedIds = new Set<string>();
     for (const persisted of persistedLoops) {
+      persistedIds.add(persisted.id);
       if (persisted.attemptedRuns >= persisted.maxRuns) {
+        this.dropManagedIntervalLoop(persisted.id);
+        continue;
+      }
+      if (this.intervalLoops.has(persisted.id)) {
         continue;
       }
       const target = {
@@ -640,6 +638,13 @@ export class AgentService {
         persisted.id,
         Math.max(0, persisted.nextRunAt - Date.now()),
       );
+    }
+
+    for (const loopId of this.intervalLoops.keys()) {
+      if (persistedIds.has(loopId)) {
+        continue;
+      }
+      this.dropManagedIntervalLoop(loopId);
     }
   }
 

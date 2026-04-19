@@ -15,15 +15,22 @@ import {
   formatFollowUpTtlMinutes,
   type FollowUpConfig,
 } from "../agents/follow-up-policy.ts";
-import { formatLoopIntervalShort } from "../agents/loop-command.ts";
 import {
-  formatCalendarLoopSchedule,
   FORCE_LOOP_INTERVAL_MS,
+  formatCalendarLoopSchedule,
+  formatLoopIntervalShort,
   LOOP_APP_FLAG,
   LOOP_FORCE_FLAG,
   MIN_LOOP_INTERVAL_MS,
   resolveLoopTimezone,
 } from "../agents/loop-command.ts";
+import {
+  renderLoopStartedMessage as renderManagedLoopStartedMessage,
+  renderLoopStatusSchedule as renderManagedLoopStatusSchedule,
+  resolveLoopPromptText as resolveManagedLoopPromptText,
+  summarizeLoopPrompt as summarizeManagedLoopPrompt,
+  validateLoopInterval as validateManagedLoopInterval,
+} from "../agents/loop-control-shared.ts";
 import {
   renderChannelSnapshot,
   escapeCodeFence,
@@ -57,9 +64,8 @@ import {
   setConversationStreaming,
 } from "./streaming-config.ts";
 import { logLatencyDebug, type LatencyDebugContext } from "../control/latency-debug.ts";
-import { fileExists, readTextFile } from "../shared/fs.ts";
 import { sleep } from "../shared/process.ts";
-import { join } from "node:path";
+import { renderCliCommand } from "../shared/cli-name.ts";
 import type { ProcessingIndicatorLifecycle } from "./processing-indicator.ts";
 import type { ChannelIdentity } from "./channel-identity.ts";
 import { resolveChannelIdentityBotId } from "./channel-identity.ts";
@@ -204,7 +210,7 @@ function renderRouteStatusMessage(params: {
   };
 }) {
   const lines = [
-    "clisbot status",
+    "Status",
     "",
     `platform: \`${params.identity.platform}\``,
     `conversationKind: \`${params.identity.conversationKind}\``,
@@ -268,7 +274,7 @@ function renderRouteStatusMessage(params: {
     lines.push("", "Session loops:");
     for (const loop of params.loopState.sessionLoops) {
       lines.push(
-        `- \`${loop.id}\` ${renderLoopStatusSchedule(loop)} remaining \`${loop.remainingRuns}\` nextRunAt \`${new Date(loop.nextRunAt).toISOString()}\``,
+        `- \`${loop.id}\` ${renderManagedLoopStatusSchedule(loop)} remaining \`${loop.remainingRuns}\` nextRunAt \`${new Date(loop.nextRunAt).toISOString()}\``,
       );
     }
   }
@@ -279,7 +285,7 @@ function renderRouteStatusMessage(params: {
     "- `/help`",
     "- `/whoami`",
     "- `/status`",
-    "- `/attach`, `/detach`, `/watch every 30s`",
+    "- `/attach`, `/detach`, `/watch every <duration>`",
     "- `/followup status`",
     "- `/streaming status|on|off|latest|all`",
     "- `/responsemode status`",
@@ -308,7 +314,7 @@ function renderResponseModeStatusMessage(params: {
   };
 }) {
   const lines = [
-    "clisbot response mode",
+    "Response mode",
     "",
     `activeRoute.responseMode: \`${params.route.responseMode}\``,
   ];
@@ -321,8 +327,8 @@ function renderResponseModeStatusMessage(params: {
   lines.push(
     "",
     "Available values:",
-    "- `capture-pane`: clisbot posts pane-derived progress and final settlement",
-    "- `message-tool`: clisbot still monitors the pane, but the agent should reply with `clisbot message send`",
+    "- `capture-pane`: clisbot posts pane-derived progress and the final result",
+    `- \`message-tool\`: clisbot still monitors the pane, but the agent should reply with ${renderCliCommand("message send", { inline: true })}`,
   );
 
   return lines.join("\n");
@@ -336,7 +342,7 @@ function renderStreamingStatusMessage(params: {
   };
 }) {
   const lines = [
-    `clisbot streaming mode: \`${params.route.streaming}\``,
+    `Streaming mode: \`${params.route.streaming}\``,
   ];
 
   if (params.persisted) {
@@ -364,7 +370,7 @@ function renderAdditionalMessageModeStatusMessage(params: {
   };
 }) {
   const lines = [
-    "clisbot additional message mode",
+    "Additional message mode",
     "",
     `activeRoute.additionalMessageMode: \`${params.route.additionalMessageMode}\``,
   ];
@@ -459,50 +465,6 @@ function renderLoopUsage() {
   ].join("\n");
 }
 
-function renderLoopStartedMessage(params: {
-  mode: "times" | "interval" | "calendar";
-  count?: number;
-  intervalMs?: number;
-  scheduleText?: string;
-  timezone?: string;
-  nextRunAt?: number;
-  maintenancePrompt: boolean;
-  loopId?: string;
-  maxRuns?: number;
-  sessionLoopCount?: number;
-  globalLoopCount?: number;
-  warning?: string;
-}) {
-  if (params.mode === "times") {
-    const count = params.count ?? 1;
-    return [
-      `Started loop for ${count} iteration${count === 1 ? "" : "s"}.`,
-      params.maintenancePrompt ? "prompt: `LOOP.md`" : "prompt: custom",
-      "Runs are queued immediately in order.",
-    ].join("\n");
-  }
-
-  const scheduleText =
-    params.mode === "calendar"
-      ? params.scheduleText ?? "scheduled"
-      : `every ${formatLoopIntervalShort(params.intervalMs ?? 0)}`;
-
-  return [
-    `Started loop \`${params.loopId ?? ""}\` ${scheduleText}.`,
-    params.maintenancePrompt ? "prompt: `LOOP.md`" : "prompt: custom",
-    ...(params.timezone ? [`timezone: \`${params.timezone}\``] : []),
-    `maxRuns: \`${params.maxRuns ?? 0}\``,
-    "policy: `skip-if-busy`",
-    `activeLoops.session: \`${params.sessionLoopCount ?? 0}\``,
-    `activeLoops.global: \`${params.globalLoopCount ?? 0}\``,
-    `cancel: \`/loop cancel ${params.loopId ?? ""}\``,
-    ...(params.warning ? [`warning: ${params.warning}`] : []),
-    params.mode === "calendar"
-      ? `The first run is scheduled for \`${new Date(params.nextRunAt ?? 0).toISOString()}\`.`
-      : "The first run starts now.",
-  ].join("\n");
-}
-
 function renderLoopStatusMessage(params: {
   sessionLoops: ReturnType<AgentService["listIntervalLoops"]>;
   globalLoopCount: number;
@@ -526,36 +488,11 @@ function renderLoopStatusMessage(params: {
 
   for (const loop of params.sessionLoops) {
     lines.push(
-      `- id: \`${loop.id}\` ${renderLoopStatusSchedule(loop)} remaining: \`${loop.remainingRuns}\` nextRunAt: \`${new Date(loop.nextRunAt).toISOString()}\` prompt: \`${loop.promptSummary}\`${loop.kind !== "calendar" && loop.force ? " force" : ""}`,
+      `- id: \`${loop.id}\` ${renderManagedLoopStatusSchedule(loop)} remaining: \`${loop.remainingRuns}\` nextRunAt: \`${new Date(loop.nextRunAt).toISOString()}\` prompt: \`${loop.promptSummary}\`${loop.kind !== "calendar" && loop.force ? " force" : ""}`,
     );
   }
 
   return lines.join("\n");
-}
-
-function summarizeLoopPrompt(text: string, maintenancePrompt: boolean) {
-  if (maintenancePrompt) {
-    return "LOOP.md";
-  }
-
-  const singleLine = text.replace(/\s+/g, " ").trim();
-  if (singleLine.length <= 60) {
-    return singleLine || "(empty)";
-  }
-  return `${singleLine.slice(0, 57)}...`;
-}
-
-function renderLoopStatusSchedule(
-  loop: NonNullable<ReturnType<AgentService["listIntervalLoops"]>[number]>,
-) {
-  if (loop.kind === "calendar") {
-    return `schedule: \`${formatCalendarLoopSchedule({
-      cadence: loop.cadence,
-      dayOfWeek: loop.dayOfWeek,
-      localTime: loop.localTime,
-    })}\` timezone: \`${loop.timezone}\``;
-  }
-  return `interval: \`${formatLoopIntervalShort(loop.intervalMs)}\``;
 }
 
 function resolveEffectiveLoopTimezone(params: {
@@ -563,62 +500,6 @@ function resolveEffectiveLoopTimezone(params: {
   defaultTimezone?: string;
 }) {
   return resolveLoopTimezone(params.routeTimezone, params.defaultTimezone);
-}
-
-function validateLoopInterval(params: {
-  intervalMs: number;
-  force: boolean;
-}) {
-  if (params.intervalMs < MIN_LOOP_INTERVAL_MS) {
-    return {
-      error: "Loop interval must be at least `1m`.",
-    };
-  }
-
-  if (params.intervalMs < FORCE_LOOP_INTERVAL_MS && !params.force) {
-    return {
-      error: `Loop intervals below \`5m\` require \`${LOOP_FORCE_FLAG}\`.`,
-    };
-  }
-
-  return {
-    warning:
-      params.force && params.intervalMs < FORCE_LOOP_INTERVAL_MS
-        ? `interval below \`5m\` was accepted because \`${LOOP_FORCE_FLAG}\` was set`
-        : undefined,
-  };
-}
-
-async function resolveLoopPromptText(params: {
-  agentService: AgentService;
-  sessionTarget: AgentSessionTarget;
-  promptText?: string;
-}) {
-  const providedPrompt = params.promptText?.trim();
-  if (providedPrompt) {
-    return {
-      text: providedPrompt,
-      maintenancePrompt: false,
-    };
-  }
-
-  const workspacePath = params.agentService.getWorkspacePath(params.sessionTarget);
-  const loopPromptPath = join(workspacePath, "LOOP.md");
-  if (!(await fileExists(loopPromptPath))) {
-    throw new Error(
-      `No loop prompt was provided and LOOP.md was not found in \`${workspacePath}\`. Create LOOP.md there if you want maintenance loops.`,
-    );
-  }
-
-  const loopPromptText = (await readTextFile(loopPromptPath)).trim();
-  if (!loopPromptText) {
-    throw new Error(`LOOP.md is empty in \`${workspacePath}\`.`);
-  }
-
-  return {
-    text: loopPromptText,
-    maintenancePrompt: true,
-  };
 }
 
 function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
@@ -1401,12 +1282,20 @@ export async function processChannelInteraction<TChunk>(params: {
     }
 
     if (slashCommand.name === "attach") {
-      const observation = await params.agentService.observeRun(
+      const observation = await params.agentService.observeActiveRun(
         params.sessionTarget,
         buildRunObserver({
           mode: "live",
         }),
+        {
+          resumeLive: true,
+        },
       );
+      if (!observation.active || !observation.update) {
+        await params.postText("This thread does not have an active run to attach to.");
+        await params.agentService.recordConversationReply(params.sessionTarget);
+        return interactionResult;
+      }
       await applyRunUpdate(observation.update);
       return interactionResult;
     }
@@ -1418,15 +1307,15 @@ export async function processChannelInteraction<TChunk>(params: {
       );
       await params.postText(
         detached.detached
-          ? "Detached this thread from live updates. clisbot will still post the final settlement here when the run completes."
-          : "This thread was not attached to an active run.",
+          ? "Detached this thread from live updates. clisbot will still post the final result here when the run completes."
+          : "This thread is not currently attached to an active run.",
       );
       await params.agentService.recordConversationReply(params.sessionTarget);
       return interactionResult;
     }
 
     if (slashCommand.name === "watch") {
-      const observation = await params.agentService.observeRun(
+      const observation = await params.agentService.observeActiveRun(
         params.sessionTarget,
         buildRunObserver({
           mode: "poll",
@@ -1434,6 +1323,11 @@ export async function processChannelInteraction<TChunk>(params: {
           durationMs: slashCommand.durationMs,
         }),
       );
+      if (!observation.active || !observation.update) {
+        await params.postText("This thread does not have an active run to watch.");
+        await params.agentService.recordConversationReply(params.sessionTarget);
+        return interactionResult;
+      }
       await applyRunUpdate(observation.update);
       return interactionResult;
     }
@@ -1699,7 +1593,7 @@ export async function processChannelInteraction<TChunk>(params: {
     }
 
     if (slashCommand.params.mode === "interval") {
-      const intervalValidation = validateLoopInterval({
+      const intervalValidation = validateManagedLoopInterval({
         intervalMs: effectiveIntervalMs!,
         force: slashCommand.params.force,
       });
@@ -1710,11 +1604,13 @@ export async function processChannelInteraction<TChunk>(params: {
       }
     }
 
-    let resolvedLoopPrompt: Awaited<ReturnType<typeof resolveLoopPromptText>>;
+    let resolvedLoopPrompt: Awaited<ReturnType<typeof resolveManagedLoopPromptText>>;
     try {
-      resolvedLoopPrompt = await resolveLoopPromptText({
-        agentService: params.agentService,
-        sessionTarget: params.sessionTarget,
+      const loopWorkspacePath = slashCommand.params.promptText
+        ? ""
+        : params.agentService.getWorkspacePath(params.sessionTarget);
+      resolvedLoopPrompt = await resolveManagedLoopPromptText({
+        workspacePath: loopWorkspacePath,
         promptText: slashCommand.params.promptText,
       });
     } catch (error) {
@@ -1727,7 +1623,7 @@ export async function processChannelInteraction<TChunk>(params: {
 
     if (slashCommand.params.mode === "times") {
       await params.postText(
-        renderLoopStartedMessage({
+        renderManagedLoopStartedMessage({
           mode: slashCommand.params.mode,
           count: slashCommand.params.count,
           maintenancePrompt: resolvedLoopPrompt.maintenancePrompt,
@@ -1743,7 +1639,7 @@ export async function processChannelInteraction<TChunk>(params: {
           maxChars: params.maxChars,
           promptText: buildLoopPromptText(resolvedLoopPrompt.text),
           queueStartMode: params.route.surfaceNotifications.queueStart,
-          notificationPromptSummary: summarizeLoopPrompt(
+          notificationPromptSummary: summarizeManagedLoopPrompt(
             resolvedLoopPrompt.text,
             resolvedLoopPrompt.maintenancePrompt,
           ),
@@ -1765,7 +1661,7 @@ export async function processChannelInteraction<TChunk>(params: {
         target: params.sessionTarget,
         promptText: buildLoopPromptText(resolvedLoopPrompt.text),
         canonicalPromptText: resolvedLoopPrompt.text,
-        promptSummary: summarizeLoopPrompt(
+        promptSummary: summarizeManagedLoopPrompt(
           resolvedLoopPrompt.text,
           resolvedLoopPrompt.maintenancePrompt,
         ),
@@ -1782,7 +1678,7 @@ export async function processChannelInteraction<TChunk>(params: {
         protectedControlMutationRule: params.protectedControlMutationRule,
       });
       await params.postText(
-        renderLoopStartedMessage({
+        renderManagedLoopStartedMessage({
           mode: "calendar",
           scheduleText: formatCalendarLoopSchedule({
             cadence: slashCommand.params.cadence,
@@ -1798,6 +1694,7 @@ export async function processChannelInteraction<TChunk>(params: {
             sessionKey: params.sessionTarget.sessionKey,
           }).length,
           globalLoopCount: params.agentService.getActiveIntervalLoopCount(),
+          cancelCommand: "/loop cancel",
         }),
       );
       await params.agentService.recordConversationReply(params.sessionTarget);
@@ -1808,7 +1705,7 @@ export async function processChannelInteraction<TChunk>(params: {
       target: params.sessionTarget,
       promptText: buildLoopPromptText(resolvedLoopPrompt.text),
       canonicalPromptText: resolvedLoopPrompt.text,
-      promptSummary: summarizeLoopPrompt(
+      promptSummary: summarizeManagedLoopPrompt(
         resolvedLoopPrompt.text,
         resolvedLoopPrompt.maintenancePrompt,
       ),
@@ -1821,7 +1718,7 @@ export async function processChannelInteraction<TChunk>(params: {
       protectedControlMutationRule: params.protectedControlMutationRule,
     });
     await params.postText(
-      renderLoopStartedMessage({
+      renderManagedLoopStartedMessage({
         mode: "interval",
         intervalMs: effectiveIntervalMs,
         maintenancePrompt: resolvedLoopPrompt.maintenancePrompt,
@@ -1831,10 +1728,11 @@ export async function processChannelInteraction<TChunk>(params: {
           sessionKey: params.sessionTarget.sessionKey,
         }).length,
         globalLoopCount: params.agentService.getActiveIntervalLoopCount(),
-        warning: validateLoopInterval({
+        warning: validateManagedLoopInterval({
           intervalMs: effectiveIntervalMs!,
           force: slashCommand.params.force,
         }).warning,
+        cancelCommand: "/loop cancel",
       }),
     );
     await params.agentService.recordConversationReply(params.sessionTarget);

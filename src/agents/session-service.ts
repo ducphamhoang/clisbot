@@ -278,19 +278,10 @@ export class SessionService {
   async observeRun(
     target: AgentSessionTarget,
     observer: Omit<RunObserver, "lastSentAt">,
-  ) {
-    const existingRun =
-      this.activeRuns.get(target.sessionKey) ??
-      (await this.reconcilePersistedActiveRun(target));
-    if (existingRun) {
-      existingRun.observers.set(observer.id, {
-        ...observer,
-      });
-      existingRun.observerFailures.delete(observer.id);
-      return {
-        active: !isTerminalRunStatus(existingRun.latestUpdate.status),
-        update: existingRun.latestUpdate,
-      };
+  ): Promise<{ active: boolean; update: RunUpdate }> {
+    const activeObservation = await this.observeActiveRun(target, observer);
+    if (activeObservation.active) {
+      return activeObservation;
     }
 
     const transcript = await this.runnerSessions.captureTranscript(target);
@@ -306,6 +297,31 @@ export class SessionService {
         fullSnapshot: transcript.snapshot,
         initialSnapshot: "",
       },
+    };
+  }
+
+  async observeActiveRun(
+    target: AgentSessionTarget,
+    observer: Omit<RunObserver, "lastSentAt">,
+    options: { resumeLive?: boolean } = {},
+  ): Promise<
+    | { active: true; update: RunUpdate }
+    | { active: false }
+  > {
+    const existingRun =
+      this.activeRuns.get(target.sessionKey) ??
+      (await this.reconcilePersistedActiveRun(target));
+    if (!existingRun) {
+      return {
+        active: false,
+      };
+    }
+
+    this.registerObserver(existingRun, observer);
+    const update = options.resumeLive ? this.resumeDetachedRun(existingRun) : existingRun.latestUpdate;
+    return {
+      active: !isTerminalRunStatus(update.status),
+      update,
     };
   }
 
@@ -351,15 +367,7 @@ export class SessionService {
 
     const startedAt = Date.now();
     run.startedAt = startedAt;
-    if (run.latestUpdate.status === "detached") {
-      run.latestUpdate = this.createRunUpdate({
-        resolved: run.resolved,
-        status: "running",
-        snapshot: run.latestUpdate.snapshot,
-        fullSnapshot: run.latestUpdate.fullSnapshot,
-        initialSnapshot: run.latestUpdate.initialSnapshot,
-      });
-    }
+    this.resumeDetachedRun(run);
     await this.sessionState.setSessionRuntime(run.resolved, {
       state: "running",
       startedAt,
@@ -379,7 +387,29 @@ export class SessionService {
   }
 
   private buildDetachedNote(resolved: ResolvedAgentTarget) {
-    return `This session has been running for over ${resolved.stream.maxRuntimeLabel}. clisbot will keep monitoring it, switch this thread to sparse progress updates, and post the final result here when it completes. Use \`/attach\` to resume live updates, \`/watch every 30s\` for interval updates, or \`/stop\` to interrupt it.`;
+    return `This session has been running for over ${resolved.stream.maxRuntimeLabel}. clisbot left it running and will post the final result here when it completes. Use \`/attach\` for live updates, \`/watch every <duration>\` for periodic updates, or \`/stop\` to interrupt it.`;
+  }
+
+  private registerObserver(run: ActiveRun, observer: Omit<RunObserver, "lastSentAt">) {
+    run.observers.set(observer.id, {
+      ...observer,
+    });
+    run.observerFailures.delete(observer.id);
+  }
+
+  private resumeDetachedRun(run: ActiveRun) {
+    if (run.latestUpdate.status !== "detached") {
+      return run.latestUpdate;
+    }
+
+    run.latestUpdate = this.createRunUpdate({
+      resolved: run.resolved,
+      status: "running",
+      snapshot: run.latestUpdate.snapshot,
+      fullSnapshot: run.latestUpdate.fullSnapshot,
+      initialSnapshot: run.latestUpdate.initialSnapshot,
+    });
+    return run.latestUpdate;
   }
 
   private applyDetachedObserverPolicy(run: ActiveRun) {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +10,17 @@ import {
 import type { AgentSessionTarget } from "../src/agents/agent-service.ts";
 import { renderDefaultConfigTemplate } from "../src/config/template.ts";
 import { sleep } from "../src/shared/process.ts";
+
+let previousCliName: string | undefined;
+
+beforeEach(() => {
+  previousCliName = process.env.CLISBOT_CLI_NAME;
+  delete process.env.CLISBOT_CLI_NAME;
+});
+
+afterEach(() => {
+  process.env.CLISBOT_CLI_NAME = previousCliName;
+});
 
 function createRoute(
   overrides: Partial<ChannelInteractionRoute> = {},
@@ -601,7 +612,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     });
 
     expect(posted).toHaveLength(1);
-    expect(posted[0]).toContain("clisbot status");
+    expect(posted[0]).toContain("Status");
     expect(posted[0]).toContain("storedSessionId: `33333333-3333-3333-3333-333333333333`");
     expect(posted[0]).toContain(
       "resumeCommand: `codex resume 33333333-3333-3333-3333-333333333333 --dangerously-bypass-approvals-and-sandbox --no-alt-screen`",
@@ -618,7 +629,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("appRole: `member`");
     expect(posted[0]).toContain("agentRole: `member`");
     expect(posted[0]).toContain("canUseShell: `false`");
-    expect(posted[0]).toContain("/attach`, `/detach`, `/watch every 30s`");
+    expect(posted[0]).toContain("/attach`, `/detach`, `/watch every <duration>`");
     expect(posted[0]).toContain("/transcript` enabled on this route (`verbose: minimal`)");
     expect(posted[0]).toContain("/bash` requires `shellExecute`");
   });
@@ -648,7 +659,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     });
 
     expect(posted).toHaveLength(1);
-    expect(posted[0]).toContain("clisbot status");
+    expect(posted[0]).toContain("Status");
     expect(posted[0]).toContain("principal: `slack:U123`");
     expect(posted[0]).toContain("principalFormat: `slack:<nativeUserId>`");
     expect(posted[0]).toContain("principalExample: `slack:U123`");
@@ -707,7 +718,7 @@ describe("processChannelInteraction sensitive command gating", () => {
       rmSync(configDir, { recursive: true, force: true });
     }
 
-    expect(posted[0]).toContain("clisbot response mode");
+    expect(posted[0]).toContain("Response mode");
     expect(posted[0]).toContain("activeRoute.responseMode: `message-tool`");
     expect(posted[0]).toContain("config.responseMode: `message-tool`");
   });
@@ -766,7 +777,7 @@ describe("processChannelInteraction sensitive command gating", () => {
       rmSync(configDir, { recursive: true, force: true });
     }
 
-    expect(posted[0]).toContain("clisbot streaming mode: `latest`");
+    expect(posted[0]).toContain("Streaming mode: `latest`");
     expect(posted[0]).toContain("config.target: `slack channel:C123`");
     expect(posted[0]).not.toContain("activeRoute.streaming:");
     expect(posted[0]).not.toContain("config.streaming:");
@@ -886,7 +897,7 @@ describe("processChannelInteraction sensitive command gating", () => {
       rmSync(configDir, { recursive: true, force: true });
     }
 
-    expect(posted[0]).toContain("clisbot streaming mode: `all`");
+    expect(posted[0]).toContain("Streaming mode: `all`");
     expect(posted[0]).toContain("config.target: `telegram topic:-1001:4`");
   });
 
@@ -1063,7 +1074,7 @@ describe("processChannelInteraction sensitive command gating", () => {
       rmSync(configDir, { recursive: true, force: true });
     }
 
-    expect(posted[0]).toContain("clisbot additional message mode");
+    expect(posted[0]).toContain("Additional message mode");
     expect(posted[0]).toContain("activeRoute.additionalMessageMode: `queue`");
     expect(posted[0]).toContain("config.additionalMessageMode: `queue`");
   });
@@ -1188,7 +1199,7 @@ describe("processChannelInteraction detached long-running settlement", () => {
             fullSnapshot: "Still working through the repository.",
             initialSnapshot: "",
             note:
-              "This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it.",
+              "This session has been running for over 15 minutes. clisbot left it running and will post the final result here when it completes. Use `/attach` for live updates, `/watch every <duration>` for periodic updates, or `/stop` to interrupt it.",
           }),
         }),
         recordConversationReply: async () => undefined,
@@ -1233,7 +1244,7 @@ describe("processChannelInteraction detached long-running settlement", () => {
             fullSnapshot: "Still working through the repository.",
             initialSnapshot: "",
             note:
-              "This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it.",
+              "This session has been running for over 15 minutes. clisbot left it running and will post the final result here when it completes. Use `/attach` for live updates, `/watch every <duration>` for periodic updates, or `/stop` to interrupt it.",
           }),
         }),
         recordConversationReply: async () => undefined,
@@ -3346,7 +3357,7 @@ describe("processChannelInteraction run observer commands", () => {
 
     await processChannelInteraction({
       agentService: {
-        observeRun: async (_target: AgentSessionTarget, observer: any) => {
+        observeActiveRun: async (_target: AgentSessionTarget, observer: any) => {
           observedMode = observer.mode;
           return {
             active: true,
@@ -3381,6 +3392,73 @@ describe("processChannelInteraction run observer commands", () => {
     expect(posted[0]).toContain("Still working through the repository.");
   });
 
+  test("attach resumes live updates for a detached run", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        observeActiveRun: async (_target: AgentSessionTarget, _observer: any, options: any) => {
+          expect(options).toEqual({
+            resumeLive: true,
+          });
+          return {
+            active: true,
+            update: {
+              status: "running",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "Back on live updates.",
+              fullSnapshot: "Back on live updates.",
+              initialSnapshot: "",
+            },
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/attach",
+      route: createRoute(),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("Back on live updates.");
+  });
+
+  test("attach reports when there is no active run", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        observeActiveRun: async () => ({
+          active: false,
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/attach",
+      route: createRoute(),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("does not have an active run to attach to");
+  });
+
   test("detach stops live updates for the current thread", async () => {
     const posted: string[] = [];
 
@@ -3405,6 +3483,7 @@ describe("processChannelInteraction run observer commands", () => {
     });
 
     expect(posted[0]).toContain("Detached this thread from live updates");
+    expect(posted[0]).toContain("final result");
   });
 
   test("watch registers a polling observer", async () => {
@@ -3413,7 +3492,7 @@ describe("processChannelInteraction run observer commands", () => {
 
     await processChannelInteraction({
       agentService: {
-        observeRun: async (_target: AgentSessionTarget, observer: any) => {
+        observeActiveRun: async (_target: AgentSessionTarget, observer: any) => {
           observedMode = observer.mode;
           observedInterval = observer.intervalMs;
           return {
@@ -3444,6 +3523,32 @@ describe("processChannelInteraction run observer commands", () => {
 
     expect(observedMode).toBe("poll");
     expect(observedInterval).toBe(30_000);
+  });
+
+  test("watch reports when there is no active run", async () => {
+    const posted: string[] = [];
+
+    await processChannelInteraction({
+      agentService: {
+        observeActiveRun: async () => ({
+          active: false,
+        }),
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "/watch every 30s",
+      route: createRoute(),
+      maxChars: 4000,
+      postText: async (text) => {
+        posted.push(text);
+        return [text];
+      },
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(posted[0]).toContain("does not have an active run to watch");
   });
 });
 

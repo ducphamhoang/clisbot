@@ -694,11 +694,11 @@ Finagling
         content: "Still working through the repository.",
         maxChars: 200,
         note:
-          "This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it.",
+          "This session has been running for over 15 minutes. clisbot left it running and will post the final result here when it completes. Use `/attach` for live updates, `/watch every <duration>` for periodic updates, or `/stop` to interrupt it.",
         allowTranscriptInspection: true,
       }),
     ).toBe(
-      "Still working through the repository.\n\n_This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it. You can also use `/transcript` to inspect the current session snapshot._",
+      "Still working through the repository.\n\n_This session has been running for over 15 minutes. clisbot left it running and will post the final result here when it completes. Use `/attach` for live updates, `/watch every <duration>` for periodic updates, or `/stop` to interrupt it. You can also use `/transcript` to inspect the current session snapshot._",
     );
   });
 
@@ -745,11 +745,11 @@ Finagling
         content: "Still working through the repository.",
         maxChars: 200,
         note:
-          "This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it.",
+          "This session has been running for over 15 minutes. clisbot left it running and will post the final result here when it completes. Use `/attach` for live updates, `/watch every <duration>` for periodic updates, or `/stop` to interrupt it.",
         allowTranscriptInspection: false,
       }),
     ).toBe(
-      "Still working through the repository.\n\n_This session has been running for over 15 minutes. clisbot left it running as-is. Use `/attach`, `/watch every 30s`, or `/stop` to manage it._",
+      "Still working through the repository.\n\n_This session has been running for over 15 minutes. clisbot left it running and will post the final result here when it completes. Use `/attach` for live updates, `/watch every <duration>` for periodic updates, or `/stop` to interrupt it._",
     );
   });
 

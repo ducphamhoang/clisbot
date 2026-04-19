@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AgentService } from "../src/agents/agent-service.ts";
 import { ClearedQueuedTaskError } from "../src/agents/job-queue.ts";
+import { createStoredIntervalLoop } from "../src/agents/loop-control-shared.ts";
 import { resolveAgentTarget } from "../src/agents/resolved-target.ts";
 import { loadConfig, resolveSessionStorePath } from "../src/config/load-config.ts";
 import { clisbotConfigSchema, type ClisbotConfig } from "../src/config/schema.ts";
@@ -1913,6 +1914,81 @@ describe("AgentService session identity", () => {
     await service.stop();
   });
 
+  test("reconciles a loop persisted after runtime start", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-loop-reconcile-"));
+    const storePath = join(tempDir, "sessions.json");
+    const socketPath = join(tempDir, "clisbot.sock");
+    const workspaceTemplate = join(tempDir, "workspaces", "{agentId}");
+    const configPath = join(tempDir, "clisbot.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        buildConfig({
+          socketPath,
+          storePath,
+          workspaceTemplate,
+          runnerCommand: "codex",
+          runnerArgs: ["-C", "{workspace}"],
+          sessionId: {
+            create: { mode: "runner", args: [] },
+            capture: {
+              mode: "status-command",
+              statusCommand: "/status",
+              pattern: RUNNER_GENERATED_ID,
+              timeoutMs: 10,
+              pollIntervalMs: 1,
+            },
+            resume: { mode: "command", args: ["resume", "{sessionId}"] },
+          },
+          cleanupEnabled: false,
+        }),
+        null,
+        2,
+      ),
+    );
+    const loadedConfig = await loadConfig(configPath);
+    const tmux = new FakeTmuxClient() as unknown as TmuxClient;
+    const service = new AgentService(loadedConfig, { tmux });
+    const state = new AgentSessionState(new SessionStore(storePath));
+    const target = {
+      agentId: "default",
+      sessionKey: "agent:default:slack:channel:c4:thread:loop-reconcile",
+    };
+
+    await service.start();
+
+    const resolved = resolveAgentTarget(loadedConfig, target);
+    await state.setIntervalLoop(
+      resolved,
+      createStoredIntervalLoop({
+        promptText: "check deploy",
+        promptSummary: "check deploy",
+        promptSource: "custom",
+        intervalMs: 300,
+        maxRuns: 3,
+        createdBy: "U123",
+        force: true,
+      }),
+    );
+
+    const deadline = Date.now() + 2_000;
+    let loop = service.listIntervalLoops({ sessionKey: target.sessionKey })[0];
+    while (!loop && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      loop = service.listIntervalLoops({ sessionKey: target.sessionKey })[0];
+    }
+
+    expect(loop?.promptSummary).toBe("check deploy");
+
+    while ((loop?.attemptedRuns ?? 0) === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      loop = service.listIntervalLoops({ sessionKey: target.sessionKey })[0];
+    }
+
+    expect(loop?.attemptedRuns ?? 0).toBeGreaterThan(0);
+    await service.stop();
+  });
+
   test("does not rewrite a cancelled loop when a stale runtime update arrives later", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-loop-race-"));
     const storePath = join(tempDir, "sessions.json");
@@ -2205,7 +2281,7 @@ describe("AgentService session identity", () => {
       expect(execution.snapshot).toContain("STEP");
       expect(execution.note).toContain("over 1 second");
       expect(execution.note).toContain("/attach");
-      expect(execution.note).toContain("/watch every 30s");
+      expect(execution.note).toContain("/watch every <duration>");
       expect(await fakeTmux.hasSession(execution.sessionName)).toBe(true);
 
       const staleEntry = readSessionEntry(storePath, target.sessionKey);

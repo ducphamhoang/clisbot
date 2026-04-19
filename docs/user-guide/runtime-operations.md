@@ -21,7 +21,7 @@ Current meaning:
   - it is logged for metrics or debugging, but it does not settle the turn or surface a timeout into chat
 - `maxRuntimeMin: 30`
   - default observation window of 30 minutes for one turn
-  - if the session is still active after that window, clisbot stops live follow, leaves the session running, shifts this thread to sparse progress updates, and still posts the final result here later
+  - if the session is still active after that window, clisbot stops live follow, leaves the session running, and still posts the final result here later
 - `maxRuntimeSec`
   - optional second-based observation window when you need tighter tests or shorter limits
 
@@ -44,9 +44,8 @@ Current commands:
   - if the run is already settled, you get one latest settled state
 - `/detach`
   - stop live updates for this thread
-  - switch this thread to sparse progress updates while the run is still active
   - the underlying run keeps going
-  - final settlement is still posted here when the run completes
+  - the final result is still posted here when the run completes
 - `/watch every 30s`
   - post the latest state here every 30 seconds until the run completes
 - `/watch every 30s for 10m`

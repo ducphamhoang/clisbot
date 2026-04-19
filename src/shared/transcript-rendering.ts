@@ -346,7 +346,7 @@ export function resolveDetachedInteractionNote(params: {
 }) {
   const note =
     params.baseNote ??
-    "This session is still running. Use `/attach`, `/watch every 30s`, or `/stop` to manage it.";
+    "This session is still running. Use `/attach`, `/watch every <duration>`, or `/stop` to manage it.";
   if (!params.allowTranscriptInspection) {
     return note;
   }

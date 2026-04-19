@@ -511,6 +511,41 @@ describe("SessionService observer delivery", () => {
     expect(observation.update.snapshot).toBe("no active run anymore");
   });
 
+  test("observeActiveRun resumes live updates for a detached run", async () => {
+    const resolved = createResolvedTarget();
+    const manager = createManager(resolved) as any;
+    const observer: Omit<RunObserver, "lastSentAt"> = {
+      id: "attach-thread",
+      mode: "live",
+      onUpdate: async () => undefined,
+    };
+    const run = createRun(resolved, new Map());
+    run.latestUpdate = createUpdate(resolved, {
+      status: "detached",
+      snapshot: "Still working through the repository.",
+      fullSnapshot: "Still working through the repository.",
+      initialSnapshot: "",
+      note: "detached note",
+    });
+    manager.activeRuns.set(resolved.sessionKey, run);
+
+    const observation = await manager.observeActiveRun(
+      {
+        agentId: resolved.agentId,
+        sessionKey: resolved.sessionKey,
+      },
+      observer,
+      {
+        resumeLive: true,
+      },
+    );
+
+    expect(observation.active).toBe(true);
+    expect(observation.update.status).toBe("running");
+    expect(observation.update.note).toBeUndefined();
+    expect(manager.activeRuns.get(resolved.sessionKey)?.observers.get("attach-thread")?.mode).toBe("live");
+  });
+
   test("executePrompt does not reject with active-run admission when persisted runtime is stale", async () => {
     const resolved = createResolvedTarget();
     const setSessionRuntime = mock(async () => undefined);

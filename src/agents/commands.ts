@@ -9,6 +9,7 @@ import {
   renderLoopHelpLines,
   type ParsedLoopSlashCommand,
 } from "./loop-command.ts";
+import { renderCliCommand } from "../shared/cli-name.ts";
 
 export type CommandPrefixes = {
   slash: string[];
@@ -539,7 +540,7 @@ export function renderAgentControlSlashHelp() {
     "- `/whoami`: show the current platform, route, and sender identity details",
     "- `/transcript`: show the current conversation session transcript when the route verbose policy allows it",
     "- `/attach`: attach this thread to the active run and resume live updates when it is still processing",
-    "- `/detach`: stop live updates for this thread, switch to sparse progress updates, and still allow final settlement here",
+    "- `/detach`: stop live updates for this thread while still posting the final result here",
     "- `/watch every 30s [for 10m]`: post the latest state on an interval until the run settles or the watch window ends",
     "- `/stop`: send Escape to interrupt the current conversation session",
     "- `/nudge`: send one extra Enter to the current tmux session without resending the prompt text",
@@ -553,7 +554,7 @@ export function renderAgentControlSlashHelp() {
     "- `/streaming status|on|off|latest|all`: show or change streaming mode for this surface",
     "- `/responsemode status`: show the configured response mode for this surface",
     "- `/responsemode capture-pane`: settle replies from captured pane output for this surface",
-    "- `/responsemode message-tool`: expect the agent to reply through `clisbot message send` for this surface",
+    `- \`/responsemode message-tool\`: expect the agent to reply through ${renderCliCommand("message send", { inline: true })} for this surface`,
     "- `/additionalmessagemode status`: show how extra messages behave while a run is already active",
     "- `/additionalmessagemode steer`: send later user messages straight into the active session",
     "- `/additionalmessagemode queue`: queue later user messages behind the active run for this surface",
