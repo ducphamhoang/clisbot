@@ -200,6 +200,8 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clisbot logs [--lines N]");
     expect(help).toContain("clisbot bots <subcommand>");
     expect(help).toContain("clisbot bots --help");
+    expect(help).not.toContain("get-group-policy|set-group-policy");
+    expect(help).not.toContain("get-channel-policy|set-channel-policy");
     expect(help).toContain("clisbot start --help");
     expect(help).toContain("clisbot routes <subcommand>");
     expect(help).toContain("clisbot routes --help");

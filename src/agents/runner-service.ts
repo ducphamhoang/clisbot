@@ -47,7 +47,8 @@ export type ShellCommandResult = {
 const TMUX_MISSING_SESSION_PATTERN = /(?:can't find session:|no server running on )/i;
 const TMUX_SERVER_UNAVAILABLE_PATTERN = /(?:No such file or directory|error connecting to|failed to connect to server)/i;
 const TMUX_DUPLICATE_SESSION_PATTERN = /duplicate session:/i;
-const TMUX_TRANSIENT_TARGET_PATTERN = /(?:no current target|can't find pane|can't find window)/i;
+const TMUX_TRANSIENT_TARGET_PATTERN =
+  /(?:no current target|can't find pane|can't find window|no such pane|no such window|tmux pane state unavailable)/i;
 const SESSION_READY_CAPTURE_RETRY_COUNT = 5;
 const SESSION_READY_CAPTURE_RETRY_DELAY_MS = 100;
 const SESSION_ID_CAPTURE_FAILURE_COOLDOWN_MS = 15_000;
@@ -98,6 +99,14 @@ function isRecoverableStartupSessionLoss(error: unknown) {
 
 function isFreshStartRetryablePromptDeliveryError(error: unknown) {
   return error instanceof TmuxPasteUnconfirmedError || error instanceof TmuxSubmitUnconfirmedError;
+}
+
+function isRetryableFreshStartFault(error: unknown) {
+  return (
+    isRecoverableStartupSessionLoss(error) ||
+    isTransientTmuxTargetError(error) ||
+    isFreshStartRetryablePromptDeliveryError(error)
+  );
 }
 
 export class RunnerService {
@@ -258,10 +267,7 @@ export class RunnerService {
     error: unknown,
     remainingFreshRetries: number,
   ) {
-    if (
-      !isRecoverableStartupSessionLoss(error) &&
-      !isFreshStartRetryablePromptDeliveryError(error)
-    ) {
+    if (!isRetryableFreshStartFault(error)) {
       return null;
     }
 
@@ -456,24 +462,24 @@ export class RunnerService {
     });
 
     try {
-      await this.tmux.newSession({
-        sessionName: resolved.sessionName,
-        cwd: resolved.workspacePath,
-        command,
-      });
-    } catch (error) {
-      const hasSession = await this.tmux.hasSession(resolved.sessionName);
-      if (!isTmuxDuplicateSessionError(error) || !hasSession) {
-        throw error;
+      try {
+        await this.tmux.newSession({
+          sessionName: resolved.sessionName,
+          cwd: resolved.workspacePath,
+          command,
+        });
+      } catch (error) {
+        const hasSession = await this.tmux.hasSession(resolved.sessionName);
+        if (!isTmuxDuplicateSessionError(error) || !hasSession) {
+          throw error;
+        }
       }
-    }
 
-    logLatencyDebug("ensure-session-ready-new-session", timingContext, {
-      startupDelayMs: resolved.runner.startupDelayMs,
-      resumingExistingSession,
-      hasStoredSessionId: Boolean(existing?.sessionId),
-    });
-    try {
+      logLatencyDebug("ensure-session-ready-new-session", timingContext, {
+        startupDelayMs: resolved.runner.startupDelayMs,
+        resumingExistingSession,
+        hasStoredSessionId: Boolean(existing?.sessionId),
+      });
       const bootstrapResult = await waitForTmuxSessionBootstrap({
         tmux: this.tmux,
         sessionName: resolved.sessionName,

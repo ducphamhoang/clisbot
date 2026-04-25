@@ -244,19 +244,24 @@ clisbot routes --help
 Most-used commands:
 
 - `clisbot routes list`
-- `clisbot routes add --channel slack channel:C1234567890 --bot default`
+- `clisbot routes add --channel slack group:C1234567890 --bot default`
 - `clisbot routes add --channel slack group:G1234567890 --bot default`
 - `clisbot routes add --channel telegram group:-1001234567890 --bot default`
 - `clisbot routes add --channel telegram topic:-1001234567890:42 --bot default`
 - `clisbot routes add --channel telegram dm:* --bot default`
-- `clisbot routes set-agent --channel slack channel:C1234567890 --bot default --agent support`
+- `clisbot routes set-agent --channel slack group:C1234567890 --bot default --agent support`
 - `clisbot routes set-require-mention --channel telegram group:-1001234567890 --bot default --value false`
-- `clisbot routes set-response-mode --channel slack channel:C1234567890 --bot default --mode message-tool`
+- `clisbot routes set-response-mode --channel slack group:C1234567890 --bot default --mode message-tool`
 - `clisbot routes set-additional-message-mode --channel telegram topic:-1001234567890:42 --bot default --mode queue`
 
 Important behavior:
 
-- route ids are explicit: `channel:<id>`, `group:<id>`, `topic:<chatId>:<topicId>`, `dm:<id|*>`
+- preferred route ids are `group:<id>`, `group:*`, `topic:<chatId>:<topicId>`, and `dm:<id|*>`
+- stored config uses raw ids plus `*` inside `directMessages` and `groups`
+- legacy Slack `channel:<id>` input is still accepted for compatibility
+- `group:*` is the default multi-user sender policy node of a bot
+- `disabled` means truly silent, including owner/admin and pairing guidance
+- owner/admin do not bypass `groupPolicy`/`channelPolicy` admission; after a group is admitted and enabled, they bypass sender allowlists, while `blockUsers` still wins
 - `add` is create-only
 - if the route already exists, use the matching `set-<key>` command
 - route-local auth visibility still depends on `verbose` and resolved auth roles
@@ -327,20 +332,20 @@ Current subcommands:
 
 - `clisbot loops list`
 - `clisbot loops status`
-- `clisbot loops status --channel slack --target channel:C123 --thread-id 1712345678.123456`
-- `clisbot loops create --channel slack --target channel:C123 --thread-id 1712345678.123456 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target channel:C123 --new-thread every day at 07:00 check CI`
+- `clisbot loops status --channel slack --target group:C123 --thread-id 1712345678.123456`
+- `clisbot loops create --channel slack --target group:C123 --thread-id 1712345678.123456 every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target group:C123 --new-thread every day at 07:00 check CI`
 - `clisbot loops create --channel slack --target dm:U1234567890 --new-thread every day at 09:00 check inbox`
 - `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 5m check CI`
-- `clisbot loops --channel slack --target channel:C123 --thread-id 1712345678.123456 3 review backlog`
+- `clisbot loops --channel slack --target group:C123 --thread-id 1712345678.123456 3 review backlog`
 - `clisbot loops cancel <id>`
-- `clisbot loops cancel --channel slack --target channel:C123 --thread-id 1712345678.123456 --all`
+- `clisbot loops cancel --channel slack --target group:C123 --thread-id 1712345678.123456 --all`
 - `clisbot loops cancel --all`
 
 Targeting rules:
 
 - `--target` chooses the routed surface
-- on Slack, use `channel:<id>`, `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids
+- on Slack, use `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids
 - on Telegram, `--target` is the numeric chat id
 - `--thread-id` means an existing Slack thread ts
 - `--topic-id` means a Telegram topic id

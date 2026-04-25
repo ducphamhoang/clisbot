@@ -6,6 +6,7 @@ export type ResolvedChannelAuth = {
   appRole: string;
   agentRole: string;
   mayBypassPairing: boolean;
+  mayBypassSharedSenderPolicy: boolean;
   mayManageProtectedResources: boolean;
   canUseShell: boolean;
 };
@@ -151,6 +152,7 @@ export function resolveChannelAuth(params: {
     appRole,
     agentRole,
     mayBypassPairing: appAdminLike,
+    mayBypassSharedSenderPolicy: appAdminLike,
     mayManageProtectedResources,
     canUseShell: appAdminLike || agentPermissions.has("shellExecute"),
   };

@@ -184,6 +184,7 @@ function renderWhoAmIMessage(params: {
     `appRole: \`${params.auth.appRole}\``,
     `agentRole: \`${params.auth.agentRole}\``,
     `mayBypassPairing: \`${params.auth.mayBypassPairing}\``,
+    `mayBypassSharedSenderPolicy: \`${params.auth.mayBypassSharedSenderPolicy}\``,
     `mayManageProtectedResources: \`${params.auth.mayManageProtectedResources}\``,
     `canUseShell: \`${params.auth.canUseShell}\``,
     `verbose: \`${params.route.verbose}\``,
@@ -252,6 +253,7 @@ function renderRouteStatusMessage(params: {
     `verbose: \`${params.route.verbose}\``,
     `appRole: \`${params.auth.appRole}\``,
     `agentRole: \`${params.auth.agentRole}\``,
+    `mayBypassSharedSenderPolicy: \`${params.auth.mayBypassSharedSenderPolicy}\``,
     `mayManageProtectedResources: \`${params.auth.mayManageProtectedResources}\``,
     `canUseShell: \`${params.auth.canUseShell}\``,
     `timezone: \`${params.route.timezone ?? "(inherit host/app)"}\``,
@@ -1216,6 +1218,7 @@ export async function processChannelInteraction<TChunk>(params: {
     appRole: "member",
     agentRole: "member",
     mayBypassPairing: false,
+    mayBypassSharedSenderPolicy: false,
     mayManageProtectedResources: false,
     canUseShell: false,
   };

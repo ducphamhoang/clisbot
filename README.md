@@ -40,17 +40,53 @@ The challenge is not whether AI is useful. It is how to make it work at enterpri
 - Slack and Telegram are not treated as plain-text sinks: routed conversations can carry thread or topic identity, pairing, and file-aware workflows.
 - Advanced multi-agent setup is available later, but it is not required for day one.
 
+## Surface Access Model
+
+The important current config mental model is:
+
+- `app`
+- `bots`
+- `agents`
+
+Inside each bot:
+
+- `directMessages` is the one-person surface map
+- `groups` is the multi-user surface map
+- stored keys use raw provider-local ids plus `*`
+
+Examples:
+
+- Slack shared surface: `groups["C1234567890"]`
+- Telegram group: `groups["-1001234567890"]`
+- Telegram topic: `groups["-1001234567890"].topics["42"]`
+- DM wildcard default: `directMessages["*"]`
+
+Operator CLI ids stay prefixed:
+
+- `dm:<id>`
+- `dm:*`
+- `group:<id>`
+- `group:*`
+- `topic:<chatId>:<topicId>`
+
+Current invariants:
+
+- Slack `channel:<id>` is compatibility input only, not canonical operator naming
+- stored config under one bot uses only raw ids plus `*` inside `directMessages` and `groups`
+- `group:*` is the default multi-user sender policy node for one bot and should be updated or disabled, not removed
+- `disabled` means silent for everyone on that surface, including owner/admin and pairing guidance
+- owner/admin do not bypass `groupPolicy`/`channelPolicy` admission; after a group is admitted and enabled, they bypass sender allowlists, while `blockUsers` still wins
+- the deny message intentionally uses one common human-facing term, `group`, for every multi-user surface
+
 ## CLI Compatibility Snapshot
 
-`clisbot` currently works best with `codex`.
-
-`claude` and `gemini` are both usable, but they need a bit more operator awareness today.
+`clisbot` currently works well with Codex, Claude, and Gemini.
 
 | CLI      | Current Stability   | Short Take                                                                                                  |
 | ----------| ---------------------| -------------------------------------------------------------------------------------------------------------|
 | `codex`  | Best today          | Strongest default for routed coding work.                                                                   |
 | `claude` | Usable with caveats | Claude can surface its own plan-approval and auto-mode behavior even when launched with bypass-permissions. |
-| `gemini` | Usable with caveats | Runner support is solid, but auth/setup gating and routed reply behavior still need more care.              |
+| `gemini` | Fully compatible   | Gemini is supported as a first-class runner for routed Slack and Telegram workflows.                         |
 
 CLI-specific operator notes:
 
@@ -81,7 +117,13 @@ If you want to try first without persisting the token yet, just remove `--persis
 
 Next steps:
 
-- For security, just as openclaw, direct message with the bot currently requires pairing and groups need explicit specified in allowlist by default.
+- For security, DMs default to pairing.
+- Existing `0.1.43` config is upgraded automatically on first run. clisbot writes a backup first under `~/.clisbot/backups/`, then rewrites the config to the current shape.
+- Shared Slack channels, Slack groups, Telegram groups, and Telegram topics are a separate gate: normal users need an explicit route such as `group:<id>` or `topic:<chatId>:<topicId>` before the bot will talk there. Legacy Slack `channel:<id>` input still works for compatibility.
+- After a shared surface is admitted, per-surface sender control comes from the bot's default shared rule `groups["*"]` plus any route-local `allowUsers` or `blockUsers`.
+- If the effective shared policy is `disabled`, the bot stays silent there for everyone, including owner/admin.
+- If the effective shared policy is `allowlist` and a sender is not allowed, the bot denies before the runner:
+  - `You are not allowed to use this bot in this group. Ask a bot owner or admin to add you to \`allowUsers\` for this surface.`
 - However, `clisbot` has smart autopairing feature to help you get started frictionless. Just send direct message to your bot (through telegram or slack) within 30 minutes so you can claim owner role automatically, and use the bot right away without pairing. After this 30 minutes window you need to approve pairing following instructions by the bot in direct message.
 - To chat with the bot in a group:
   - telegram: Add bot to group, then use slash command in that group /start, you will be guided with command to add a group. Run that command directly or copy that command and chat directly with the bot in DM to ask it do for you (since you are the owner, you are authorized to run that command). After completed, come back to the group and start talk with the bot. 
@@ -224,7 +266,7 @@ The docs in this repo are kept current, including the [User Guide](docs/user-gui
 If you prefer to configure everything yourself:
 
 1. Read the official config template in [config/clisbot.json.template](config/clisbot.json.template).
-2. If you need the archived legacy snapshot, compare it with [config/clisbot.json.v0.1.0.template](config/clisbot.json.v0.1.0.template).
+2. If you need the archived released snapshot for migration review, compare it with [config/clisbot.v0.1.43.json.template](config/clisbot.v0.1.43.json.template).
 3. Copy the official template to `~/.clisbot/clisbot.json` and adjust bots, routes, agents, workspaces, and policies for your environment.
 4. Add agents through the CLI so tool defaults, startup options, and bootstrap templates stay consistent.
 5. Optionally move stable channel secrets into env vars or canonical credential files after your first successful run.

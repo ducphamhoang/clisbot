@@ -455,6 +455,7 @@ describe("processChannelInteraction sensitive command gating", () => {
         appRole: "member",
         agentRole: "admin",
         mayBypassPairing: false,
+        mayBypassSharedSenderPolicy: false,
         mayManageProtectedResources: false,
         canUseShell: true,
       },
@@ -558,6 +559,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("principalExample: `slack:U123`");
     expect(posted[0]).toContain("appRole: `member`");
     expect(posted[0]).toContain("agentRole: `member`");
+    expect(posted[0]).toContain("mayBypassSharedSenderPolicy: `false`");
     expect(posted[0]).toContain("canUseShell: `false`");
     expect(posted[0]).toContain("verbose: `minimal`");
   });
@@ -610,6 +612,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("principalExample: `telegram:123`");
     expect(posted[0]).toContain("appRole: `member`");
     expect(posted[0]).toContain("agentRole: `member`");
+    expect(posted[0]).toContain("mayBypassSharedSenderPolicy: `false`");
     expect(posted[0]).toContain("verbose: `minimal`");
   });
 
@@ -665,6 +668,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain(`run.detachedAt: \`${new Date(detachedAt).toISOString()}\``);
     expect(posted[0]).toContain("appRole: `member`");
     expect(posted[0]).toContain("agentRole: `member`");
+    expect(posted[0]).toContain("mayBypassSharedSenderPolicy: `false`");
     expect(posted[0]).toContain("canUseShell: `false`");
     expect(posted[0]).toContain("/attach`, `/detach`, `/watch every <duration>`");
     expect(posted[0]).toContain("/transcript` enabled on this route (`verbose: minimal`)");
@@ -853,14 +857,14 @@ describe("processChannelInteraction sensitive command gating", () => {
       });
 
       const updated = JSON.parse(readFileSync(configPath, "utf8"));
-      expect(updated.bots.slack.default.groups["channel:C123"].followUp.mode).toBe("mention-only");
+      expect(updated.bots.slack.default.groups.C123.followUp.mode).toBe("mention-only");
     } finally {
       process.env.CLISBOT_CONFIG_PATH = originalConfigPath;
       rmSync(configDir, { recursive: true, force: true });
     }
 
     expect(setModeCalls).toBe(1);
-    expect(posted[0]).toContain("Updated follow-up mode for `slack channel:C123`.");
+    expect(posted[0]).toContain("Updated follow-up mode for `slack group:C123`.");
     expect(posted[0]).toContain("config.followUp.mode: `mention-only`");
     expect(posted[0]).toContain("currentConversation.overrideMode: `mention-only`");
   });
@@ -1014,7 +1018,7 @@ describe("processChannelInteraction sensitive command gating", () => {
               default: {
                 ...template.bots.slack.default,
                 groups: {
-                  "channel:C123": {
+                  C123: {
                     requireMention: true,
                     streaming: "all",
                   },
@@ -1050,7 +1054,7 @@ describe("processChannelInteraction sensitive command gating", () => {
     }
 
     expect(posted[0]).toContain("Streaming mode: `latest`");
-    expect(posted[0]).toContain("config.target: `slack channel:C123`");
+    expect(posted[0]).toContain("config.target: `slack group:C123`");
     expect(posted[0]).not.toContain("activeRoute.streaming:");
     expect(posted[0]).not.toContain("config.streaming:");
   });
@@ -2485,7 +2489,7 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(reconciled.at(-1)).toContain("queued reply complete");
   });
 
-  test("queue mode forces queued acknowledgment and clisbot-managed settlement while busy", async () => {
+  test("queue mode acknowledges queued work while streaming is off", async () => {
     const posted: string[] = [];
     const reconciled: string[] = [];
     let observedPrompt = "";

@@ -36,9 +36,10 @@ import {
 import { resolveTelegramUnroutedGuidanceModeForEvent } from "./feedback.ts";
 import {
   resolveTelegramConversationTarget,
-  type TelegramConversationKind,
 } from "./session-routing.ts";
-import { resolveTelegramConversationRoute } from "./route-config.ts";
+import {
+  resolveTelegramConversationRoute,
+} from "./route-config.ts";
 import {
   getTelegramMaxChars,
   postTelegramText,
@@ -70,6 +71,7 @@ import { beginTelegramTypingHeartbeat } from "./typing.ts";
 import { buildTokenHint } from "../runtime-identity.ts";
 import { ConversationProcessingIndicatorCoordinator } from "../processing-indicator.ts";
 import type { ChannelRuntimeLifecycleEvent } from "../channel-plugin.ts";
+import { renderGroupRouteAccessDeniedMessage } from "../route-policy.ts";
 
 type TelegramGetMeResult = {
   id: number;
@@ -474,6 +476,8 @@ export class TelegramPollingService {
       botUsername: this.botUsername,
       botId: this.botId,
     });
+    const route = routeInfo.route;
+    const sessionTarget = routeInfo.sessionTarget;
     const unroutedGuidanceMode = resolveTelegramUnroutedGuidanceModeForEvent({
       conversationKind: routeInfo.conversationKind,
       rawText,
@@ -481,7 +485,10 @@ export class TelegramPollingService {
       slashCommand,
       isBotOriginated: isTelegramBotOriginatedMessage(message),
     });
-    if (!routeInfo.route) {
+    if (!route) {
+      if (routeInfo.status === "disabled") {
+        return;
+      }
       if (unroutedGuidanceMode) {
         try {
           await callTelegramApi(
@@ -508,15 +515,84 @@ export class TelegramPollingService {
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
+    if (!sessionTarget) {
+      await this.processedEventsStore.markCompleted(eventId);
+      return;
+    }
 
     if (message.from?.id === this.botUserId) {
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
 
-    if (isTelegramBotOriginatedMessage(message) && !routeInfo.route.allowBots) {
+    if (isTelegramBotOriginatedMessage(message) && !route.allowBots) {
       await this.processedEventsStore.markCompleted(eventId);
       return;
+    }
+
+    if (routeInfo.conversationKind !== "dm") {
+      const senderId = message.from?.id != null ? String(message.from.id) : "";
+      const senderUsername = message.from?.username;
+      const sharedAuth =
+        senderId && route.agentId
+          ? resolveChannelAuth({
+            config: this.loadedConfig.raw,
+            agentId: route.agentId,
+            identity: {
+              platform: "telegram",
+              botId: this.botId,
+              conversationKind: routeInfo.conversationKind,
+              senderId,
+              chatId: String(message.chat.id),
+              topicId:
+                message.message_thread_id != null
+                  ? String(message.message_thread_id)
+                  : undefined,
+            },
+          })
+          : undefined;
+      if (
+        senderId &&
+        isTelegramSenderBlocked({
+          blockFrom: route.blockUsers ?? [],
+          userId: senderId,
+          username: senderUsername,
+        })
+      ) {
+        await this.processedEventsStore.markCompleted(eventId);
+        return;
+      }
+      if (
+        !sharedAuth?.mayBypassSharedSenderPolicy &&
+        senderId &&
+        (
+          route.policy === "allowlist" ||
+          (route.allowUsers?.length ?? 0) > 0
+        ) &&
+        !isTelegramSenderAllowed({
+          allowFrom: route.allowUsers ?? [],
+          userId: senderId,
+          username: senderUsername,
+        })
+      ) {
+        try {
+          await callTelegramApi(
+            this.botCredentials.botToken,
+            "sendMessage",
+            {
+              chat_id: message.chat.id,
+              ...(message.message_thread_id != null
+                ? { message_thread_id: message.message_thread_id }
+                : {}),
+              text: renderGroupRouteAccessDeniedMessage(),
+            },
+          );
+        } catch (error) {
+          console.error("telegram shared allowlist deny reply failed", error);
+        }
+        await this.processedEventsStore.markCompleted(eventId);
+        return;
+      }
     }
 
     if (routeInfo.conversationKind === "dm") {
@@ -571,7 +647,7 @@ export class TelegramPollingService {
 
       const auth = resolveChannelAuth({
         config: this.loadedConfig.raw,
-        agentId: routeInfo.route.agentId,
+        agentId: route.agentId,
         identity: dmIdentity,
       });
 
@@ -636,9 +712,9 @@ export class TelegramPollingService {
       hasTelegramBotMention(rawText, this.botUsername) ||
       Boolean(slashCommand && rawText.startsWith("/"));
     const followUpState =
-      await this.agentService.getConversationFollowUpState(routeInfo.sessionTarget);
+      await this.agentService.getConversationFollowUpState(sessionTarget);
     const effectiveFollowUpMode = resolveFollowUpMode({
-      defaultMode: routeInfo.route.followUp.mode,
+      defaultMode: route.followUp.mode,
       overrideMode: followUpState.overrideMode,
     });
     const bypassMention = rawText.startsWith("/") || rawText.startsWith("!");
@@ -647,7 +723,7 @@ export class TelegramPollingService {
       bypassMention ||
       isImplicitFollowUpAllowed({
         mode: effectiveFollowUpMode,
-        participationTtlMs: routeInfo.route.followUp.participationTtlMs,
+        participationTtlMs: route.followUp.participationTtlMs,
         lastBotReplyAt: followUpState.lastBotReplyAt,
         directReplyToBot: isReplyToTelegramBot(message, this.botUserId),
       });
@@ -656,7 +732,7 @@ export class TelegramPollingService {
       : rawText;
     const recentMessageMarker = String(message.message_id);
     if (rawText || explicitMention || slashCommand) {
-      await this.agentService.appendRecentConversationMessage(routeInfo.sessionTarget, {
+      await this.agentService.appendRecentConversationMessage(sessionTarget, {
         marker: recentMessageMarker,
         text: slashCommand ? "" : textBody,
         senderId:
@@ -667,13 +743,13 @@ export class TelegramPollingService {
           .trim() || message.from?.username?.trim() || undefined,
       });
     }
-    if (routeInfo.route.requireMention && !wasMentioned) {
+    if (route.requireMention && !wasMentioned) {
       await this.processedEventsStore.markCompleted(eventId);
       return;
     }
 
     if (explicitMention && followUpState.overrideMode === "paused") {
-      await this.agentService.reactivateConversationFollowUp(routeInfo.sessionTarget);
+      await this.agentService.reactivateConversationFollowUp(sessionTarget);
     }
     const effectivePromptText =
       textBody ||
@@ -690,8 +766,8 @@ export class TelegramPollingService {
     const attachmentPaths = await resolveTelegramAttachmentPaths({
       message,
       botToken: this.botCredentials.botToken,
-      workspacePath: this.agentService.getWorkspacePath(routeInfo.sessionTarget),
-      sessionKey: routeInfo.sessionTarget.sessionKey,
+      workspacePath: this.agentService.getWorkspacePath(sessionTarget),
+      sessionKey: sessionTarget.sessionKey,
       messageId: String(message.message_id),
     });
     const text = prependAttachmentMentions(effectivePromptText, attachmentPaths);
@@ -700,7 +776,7 @@ export class TelegramPollingService {
       return;
     }
     const recentConversationReplay = await this.agentService.getRecentConversationReplayMessages(
-      routeInfo.sessionTarget,
+      sessionTarget,
       {
         excludeMarker: recentMessageMarker,
       },
@@ -713,7 +789,7 @@ export class TelegramPollingService {
 
     await this.processedEventsStore.markProcessing(eventId);
     await this.activityStore.record({
-      agentId: routeInfo.route.agentId,
+      agentId: route.agentId,
       channel: "telegram",
       surface:
         routeInfo.conversationKind === "dm"
@@ -742,11 +818,11 @@ export class TelegramPollingService {
           routeInfo.topicId != null ? String(routeInfo.topicId) : undefined,
       };
       const cliTool =
-        getAgentEntry(this.loadedConfig, routeInfo.route.agentId)?.cli ??
+        getAgentEntry(this.loadedConfig, route.agentId)?.cli ??
         this.loadedConfig.raw.agents.defaults.cli;
       const auth = resolveChannelAuth({
         config: this.loadedConfig.raw,
-        agentId: routeInfo.route.agentId,
+        agentId: route.agentId,
         identity,
       });
       const protectedControlMutationRule = auth.mayManageProtectedResources
@@ -757,22 +833,22 @@ export class TelegramPollingService {
         identity,
         config: this.getBotConfig().agentPrompt,
         cliTool,
-        responseMode: routeInfo.route.responseMode,
-        streaming: routeInfo.route.streaming,
+        responseMode: route.responseMode,
+        streaming: route.streaming,
         protectedControlMutationRule,
       });
       const timingContext = {
         platform: "telegram" as const,
         eventId,
-        agentId: routeInfo.route.agentId,
+        agentId: route.agentId,
         chatId: String(message.chat.id),
         topicId:
           routeInfo.topicId != null ? String(routeInfo.topicId) : undefined,
-        sessionKey: routeInfo.sessionTarget.sessionKey,
+        sessionKey: sessionTarget.sessionKey,
       };
       logLatencyDebug("telegram-event-accepted", timingContext, {
         conversationKind: routeInfo.conversationKind,
-        responseMode: routeInfo.route.responseMode,
+        responseMode: route.responseMode,
         botId: this.botId,
       });
       const processingLease = await this.processingIndicators.acquire({
@@ -791,7 +867,7 @@ export class TelegramPollingService {
       try {
         const interaction = await processChannelInteraction({
           agentService: this.agentService,
-          sessionTarget: routeInfo.sessionTarget,
+          sessionTarget,
           identity,
           auth,
           senderId:
@@ -804,20 +880,20 @@ export class TelegramPollingService {
               identity,
               config: this.getBotConfig().agentPrompt,
               cliTool,
-              responseMode: routeInfo.route.responseMode,
-              streaming: routeInfo.route.streaming,
+              responseMode: route.responseMode,
+              streaming: route.streaming,
               protectedControlMutationRule,
             }),
           protectedControlMutationRule,
           transformSessionInputText: enrichPromptText,
           onPromptAccepted: async () => {
             await this.agentService.markRecentConversationProcessed(
-              routeInfo.sessionTarget,
+              sessionTarget,
               recentMessageMarker,
             );
           },
-          route: routeInfo.route,
-          maxChars: this.getTelegramMaxChars(routeInfo.route.agentId),
+          route,
+          maxChars: this.getTelegramMaxChars(route.agentId),
           timingContext,
           postText: async (nextText) => {
             const renderedReply = resolveTelegramMessageContent({
@@ -855,7 +931,7 @@ export class TelegramPollingService {
         });
         await processingLease.setLifecycle({
           agentService: this.agentService,
-          sessionTarget: routeInfo.sessionTarget,
+          sessionTarget,
           observerId: `telegram-processing:${message.chat.id}:${routeInfo.topicId ?? "root"}`,
           lifecycle: interaction.processingIndicatorLifecycle,
         });
@@ -954,6 +1030,7 @@ function resolveRouteAndTarget(params: {
     return {
       conversationKind: routeInfo.conversationKind,
       route: null,
+      status: routeInfo.status,
       sessionTarget: null,
       topicId,
     };
@@ -962,6 +1039,7 @@ function resolveRouteAndTarget(params: {
   return {
     conversationKind: routeInfo.conversationKind,
     route,
+    status: routeInfo.status,
     topicId,
     sessionTarget: resolveTelegramConversationTarget({
       loadedConfig: params.loadedConfig,

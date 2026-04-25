@@ -54,6 +54,7 @@ class FakeTmuxClient {
   private readonly ignoreEnterCounts = new Map<string, number>();
   private nextStatusResponseMode: "session-id" | "no-session-id" = "session-id";
   private nextDropPromptLiteralCount = 0;
+  private paneStateFailuresRemaining = 0;
 
   markInvalidResumeSessionId(sessionId: string) {
     this.invalidResumeSessionIds.add(sessionId);
@@ -105,6 +106,10 @@ class FakeTmuxClient {
 
   dropPromptLiteralOnNextSession(count: number) {
     this.nextDropPromptLiteralCount = count;
+  }
+
+  failNextPaneStateReads(count: number) {
+    this.paneStateFailuresRemaining = Math.max(0, count);
   }
 
   async isServerRunning() {
@@ -328,6 +333,10 @@ class FakeTmuxClient {
   }
 
   async getPaneState(sessionName: string) {
+    if (this.paneStateFailuresRemaining > 0) {
+      this.paneStateFailuresRemaining -= 1;
+      throw new Error(`tmux pane state unavailable for ${sessionName}:main: <empty>`);
+    }
     const session = this.requireSession(sessionName);
     return {
       cursorX: session.cursorX,
@@ -1642,6 +1651,146 @@ describe("AgentService session identity", () => {
     }
   });
 
+  test("retries a fresh startup when the tmux window disappears during session creation", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: ["-C", "{workspace}"],
+            startupRetryCount: 2,
+            startupRetryDelayMs: 1,
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const loaded = await loadConfig(configPath);
+      const fakeTmux = new FakeTmuxClient();
+      let newSessionCount = 0;
+      const originalNewSession = fakeTmux.newSession.bind(fakeTmux);
+      fakeTmux.newSession = async (params) => {
+        newSessionCount += 1;
+        await originalNewSession(params);
+        if (newSessionCount < 3) {
+          await fakeTmux.killSession(params.sessionName);
+          throw new Error(
+            `tmux set-window-option -t ${params.sessionName}:main automatic-rename off failed with code 1: no such window: ${params.sessionName}:main`,
+          );
+        }
+      };
+
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:slack:channel:c-window:thread:startup-window-loss",
+      };
+
+      const run = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+
+      expect(run.snapshot).toContain("PONG");
+      expect(newSessionCount).toBe(3);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("retries a fresh startup when pane state is temporarily unavailable during session-id capture", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "fake-cli",
+            runnerArgs: ["-C", "{workspace}"],
+            startupRetryCount: 2,
+            startupRetryDelayMs: 1,
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const loaded = await loadConfig(configPath);
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.failNextPaneStateReads(2);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:slack:channel:c-pane:thread:startup-pane-state-loss",
+      };
+
+      const run = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+
+      expect(run.snapshot).toContain("PONG");
+      expect(fakeTmux.sessionCommands.length).toBe(3);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   test("recovers when the tmux socket exists but the server is not running", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
@@ -1811,7 +1960,7 @@ describe("AgentService session identity", () => {
 
     const loadedConfig = await loadConfig(configPath);
     loadedConfig.raw.bots.slack.defaults.agentPrompt.enabled = true;
-    loadedConfig.raw.bots.slack.default.groups["channel:c4"] = {
+    loadedConfig.raw.bots.slack.default.groups.c4 = {
       enabled: true,
       requireMention: true,
       allowBots: false,
@@ -1846,8 +1995,11 @@ describe("AgentService session identity", () => {
       force: true,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    const transcript = await service.captureTranscript(target);
+    let transcript = await service.captureTranscript(target);
+    for (let attempt = 0; attempt < 10 && !transcript.snapshot.includes("check deploy"); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      transcript = await service.captureTranscript(target);
+    }
 
     expect(transcript.snapshot).toContain("check deploy");
     expect(transcript.snapshot).toContain("To send a user-visible progress update or final reply, use the following CLI command:");
@@ -3228,5 +3380,5 @@ describe("AgentService session identity", () => {
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
-  });
+  }, 10000);
 });

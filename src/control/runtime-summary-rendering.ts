@@ -108,10 +108,10 @@ function appendChannelNextStepLines(
     `${prefix}- after DM works, add the bot to the target Slack channel or Telegram group/topic`,
   );
   lines.push(
-    `${prefix}- add the route with ${renderCliCommand("routes add --channel slack channel:<channelId> --bot default", { inline: true })} or ${renderCliCommand("routes add --channel telegram group:<chatId> --bot default", { inline: true })}`,
+    `${prefix}- add the route with ${renderCliCommand("routes add --channel slack group:<channelId> --bot default", { inline: true })} or ${renderCliCommand("routes add --channel telegram group:<chatId> --bot default", { inline: true })}`,
   );
   lines.push(
-    `${prefix}- bind the agent with ${renderCliCommand("routes set-agent --channel slack channel:<channelId> --bot default --agent <id>", { inline: true })} or ${renderCliCommand("routes set-agent --channel telegram group:<chatId> --bot default --agent <id>", { inline: true })}`,
+    `${prefix}- bind the agent with ${renderCliCommand("routes set-agent --channel slack group:<channelId> --bot default --agent <id>", { inline: true })} or ${renderCliCommand("routes set-agent --channel telegram group:<chatId> --bot default --agent <id>", { inline: true })}`,
   );
 
   if (telegramEnabled) {
@@ -176,14 +176,16 @@ function renderChannelSummaryLine(channel: ChannelOperatorSummary) {
     ? ` last=${formatTime(channel.lastActivityAt)} via ${channel.lastActivityAgentId ?? "unknown"}`
     : " last=never";
   const dm = ` dm=${channel.directMessagesEnabled ? channel.directMessagesPolicy : "disabled"}`;
-  const group = channel.groupPolicy ? ` groups=${channel.groupPolicy}` : "";
+  const sharedDefault = channel.sharedDefaultPolicy
+    ? ` sharedDefault=${channel.sharedDefaultPolicy}`
+    : "";
   const render =
     ` streaming=${channel.streaming} response=${channel.response} responseMode=${channel.responseMode} additionalMessageMode=${channel.additionalMessageMode}`;
   const routeHint =
     channel.configuredSurfaceCount === 0
       ? " routes=none"
       : ` routes=${channel.configuredSurfaceCount}`;
-  return `  - ${channel.channel} enabled=${channel.enabled ? "yes" : "no"} connection=${channel.connection} defaultAgent=${channel.defaultAgentId}${render}${dm}${group}${routeHint}${last}`;
+  return `  - ${channel.channel} enabled=${channel.enabled ? "yes" : "no"} connection=${channel.connection} defaultAgent=${channel.defaultAgentId}${render}${dm}${sharedDefault}${routeHint}${last}`;
 }
 
 function renderChannelDiagnosticLines(summary: RuntimeOperatorSummary) {
@@ -221,6 +223,9 @@ function renderChannelDiagnosticLinesForChannel(channel: ChannelOperatorSummary)
   }
   for (const action of channel.healthActions) {
     lines.push(`    action: ${action}`);
+  }
+  if (channel.sharedDefaultPolicy) {
+    lines.push(`    sharedDefault: ${channel.sharedDefaultPolicy}`);
   }
   return lines;
 }
@@ -314,6 +319,7 @@ function appendChannelSetupNote(
     lines.push(
       `${prefix}    dms: ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}`,
     );
+    lines.push(`${prefix}    sharedDefault: ${channel.sharedDefaultPolicy ?? "n/a"}`);
     lines.push(
       `${prefix}    add group: ${renderCliCommand("routes add --channel telegram group:<chatId> --bot default", { inline: true })}`,
     );
@@ -336,18 +342,12 @@ function appendChannelSetupNote(
   lines.push(
     `${prefix}    dms: ${channel.directMessagesEnabled ? `enabled (${channel.directMessagesPolicy})` : "disabled"}`,
   );
-  lines.push(`${prefix}    groups: ${channel.groupPolicy ?? "n/a"}`);
+  lines.push(`${prefix}    sharedDefault: ${channel.sharedDefaultPolicy ?? "n/a"}`);
   lines.push(
-    `${prefix}    add channel: ${renderCliCommand("routes add --channel slack channel:<channelId> --bot default", { inline: true })}`,
+    `${prefix}    add group: ${renderCliCommand("routes add --channel slack group:<channelId> --bot default", { inline: true })}`,
   );
   lines.push(
-    `${prefix}    bind channel: ${renderCliCommand("routes set-agent --channel slack channel:<channelId> --bot default --agent <id>", { inline: true })}`,
-  );
-  lines.push(
-    `${prefix}    add group: ${renderCliCommand("routes add --channel slack group:<groupId> --bot default", { inline: true })}`,
-  );
-  lines.push(
-    `${prefix}    bind group: ${renderCliCommand("routes set-agent --channel slack group:<groupId> --bot default --agent <id>", { inline: true })}`,
+    `${prefix}    bind group: ${renderCliCommand("routes set-agent --channel slack group:<channelId> --bot default --agent <id>", { inline: true })}`,
   );
   lines.push(
     `${prefix}    adjust later: ${renderPrivilegedChatHint(summary, "run in-chat commands here")}`,

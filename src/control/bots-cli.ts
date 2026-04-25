@@ -125,16 +125,14 @@ function renderBotsHelp() {
     `  ${renderCliCommand("bots set-credentials --channel slack [--bot <id>] --app-token <ENV_NAME|${ENV_NAME}|literal> --bot-token <ENV_NAME|${ENV_NAME}|literal> [--persist]")}`,
     `  ${renderCliCommand("bots get-dm-policy --channel <slack|telegram> [--bot <id>]")}`,
     `  ${renderCliCommand("bots set-dm-policy --channel <slack|telegram> [--bot <id>] --policy <disabled|pairing|allowlist|open>")}`,
-    `  ${renderCliCommand("bots get-group-policy --channel <slack|telegram> [--bot <id>]")}`,
-    `  ${renderCliCommand("bots set-group-policy --channel <slack|telegram> [--bot <id>] --policy <disabled|allowlist|open>")}`,
-    `  ${renderCliCommand("bots get-channel-policy --channel slack [--bot <id>]")}`,
-    `  ${renderCliCommand("bots set-channel-policy --channel slack [--bot <id>] --policy <disabled|allowlist|open>")}`,
     "",
     "Notes:",
     "  - `add` creates only; if the bot already exists, use `set-agent`, `set-credentials`, or another `set-<key>` command",
     "  - `--agent` binds an existing agent as the bot fallback agent",
     "  - `--cli` with `--bot-type` creates a new agent using the same id as the bot",
+    "  - if you want an extra agent without adding another provider bot, create it with `agents add ...` and then point this bot at it with `set-agent`",
     "  - raw token input without `--persist` requires a running clisbot runtime",
+    "  - normal shared-route admission now follows the bot's `group:*` default plus any exact `group:<id>` override",
   ].join("\n");
 }
 
@@ -619,43 +617,7 @@ async function getOrSetBotPolicy(args: string[], action: string) {
     return;
   }
 
-  if (action === "get-group-policy") {
-    console.log(`${provider}/${botId} groupPolicy: ${bot.groupPolicy ?? "disabled"}`);
-    console.log(`config: ${configPath}`);
-    return;
-  }
-
-  if (action === "set-group-policy") {
-    const policy = parseOptionValue(args, "--policy");
-    if (policy !== "disabled" && policy !== "allowlist" && policy !== "open") {
-      throw new Error(renderBotsHelp());
-    }
-    bot.groupPolicy = policy;
-    await writeEditableConfig(configPath, config);
-    console.log(`set groupPolicy for ${provider}/${botId} to ${policy}`);
-    console.log(`config: ${configPath}`);
-    return;
-  }
-
-  if (provider !== "slack") {
-    throw new Error("Slack only.");
-  }
-  const slackBot = bot as ClisbotConfig["bots"]["slack"][string];
-
-  if (action === "get-channel-policy") {
-    console.log(`slack/${botId} channelPolicy: ${slackBot.channelPolicy ?? "disabled"}`);
-    console.log(`config: ${configPath}`);
-    return;
-  }
-
-  const policy = parseOptionValue(args, "--policy");
-  if (policy !== "disabled" && policy !== "allowlist" && policy !== "open") {
-    throw new Error(renderBotsHelp());
-  }
-  slackBot.channelPolicy = policy;
-  await writeEditableConfig(configPath, config);
-  console.log(`set channelPolicy for slack/${botId} to ${policy}`);
-  console.log(`config: ${configPath}`);
+  throw new Error(renderBotsHelp());
 }
 
 async function getCredentialSource(args: string[]) {
@@ -733,11 +695,7 @@ export async function runBotsCli(
 
   if (
     action === "get-dm-policy" ||
-    action === "set-dm-policy" ||
-    action === "get-group-policy" ||
-    action === "set-group-policy" ||
-    action === "get-channel-policy" ||
-    action === "set-channel-policy"
+    action === "set-dm-policy"
   ) {
     await getOrSetBotPolicy(args.slice(1), action);
     return;

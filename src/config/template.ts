@@ -10,6 +10,7 @@ import {
   getDefaultTmuxSocketPath,
   getDefaultWorkspaceTemplate,
 } from "../shared/paths.ts";
+import { CURRENT_SCHEMA_VERSION } from "./config-migration.ts";
 import { getDefaultRuntimeMonitorRestartBackoff } from "./runtime-monitor-backoff.ts";
 
 type DefaultChannelBootstrapOptions = {
@@ -36,7 +37,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
   return JSON.stringify(
     {
       meta: {
-        schemaVersion: "0.1.43",
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         lastTouchedAt: new Date().toISOString(),
       },
       app: {
@@ -91,7 +92,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           allowBots: false,
           requireMention: true,
           dmScope: "per-channel-peer",
-          groupPolicy: "allowlist",
           commandPrefixes: {
             slash: ["::", "\\"],
             bash: ["!"],
@@ -117,8 +117,9 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             defaultBotId: "default",
             mode: "socket",
             allowBots: false,
-            channelPolicy: "disabled",
-            groupPolicy: "disabled",
+            dmPolicy: "pairing",
+            channelPolicy: "allowlist",
+            groupPolicy: "allowlist",
             agentPrompt: {
               enabled: true,
               maxProgressMessages: 3,
@@ -133,10 +134,20 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
               loadingMessages: [],
             },
             directMessages: {
-              "dm:*": {
+              "*": {
                 enabled: true,
                 requireMention: false,
                 policy: "pairing",
+                allowUsers: [],
+                blockUsers: [],
+                allowBots: false,
+              },
+            },
+            groups: {
+              "*": {
+                enabled: true,
+                requireMention: true,
+                policy: "open",
                 allowUsers: [],
                 blockUsers: [],
                 allowBots: false,
@@ -166,6 +177,9 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             name: "default",
             appToken: renderEnvReference("SLACK_APP_TOKEN", options.slackAppTokenRef),
             botToken: renderEnvReference("SLACK_BOT_TOKEN", options.slackBotTokenRef),
+            dmPolicy: "pairing",
+            channelPolicy: "allowlist",
+            groupPolicy: "allowlist",
             directMessages: {},
             groups: {},
           },
@@ -176,20 +190,32 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             defaultBotId: "default",
             mode: "polling",
             allowBots: false,
-            groupPolicy: "disabled",
+            dmPolicy: "pairing",
+            groupPolicy: "allowlist",
             agentPrompt: {
               enabled: true,
               maxProgressMessages: 3,
               requireFinalResponse: true,
             },
             directMessages: {
-              "dm:*": {
+              "*": {
                 enabled: true,
                 requireMention: false,
                 policy: "pairing",
                 allowUsers: [],
                 blockUsers: [],
                 allowBots: false,
+              },
+            },
+            groups: {
+              "*": {
+                enabled: true,
+                requireMention: true,
+                policy: "open",
+                allowUsers: [],
+                blockUsers: [],
+                allowBots: false,
+                topics: {},
               },
             },
             commandPrefixes: {
@@ -219,6 +245,8 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             enabled: telegramEnabled,
             name: "default",
             botToken: renderEnvReference("TELEGRAM_BOT_TOKEN", options.telegramBotTokenRef),
+            dmPolicy: "pairing",
+            groupPolicy: "allowlist",
             directMessages: {},
             groups: {},
           },

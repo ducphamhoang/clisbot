@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +24,7 @@ describe("loadConfig", () => {
   const originalSlackAppToken = process.env.SLACK_APP_TOKEN;
   const originalSlackBotToken = process.env.SLACK_BOT_TOKEN;
   const originalTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+  const originalWarn = console.warn;
 
   afterEach(() => {
     if (tempDir) {
@@ -34,6 +35,7 @@ describe("loadConfig", () => {
     process.env.SLACK_APP_TOKEN = originalSlackAppToken;
     process.env.SLACK_BOT_TOKEN = originalSlackBotToken;
     process.env.TELEGRAM_BOT_TOKEN = originalTelegramBotToken;
+    console.warn = originalWarn;
   });
 
   test("loads the new config shape and expands env-backed bot credentials", async () => {
@@ -63,6 +65,7 @@ describe("loadConfig", () => {
       mode: "auto",
       participationTtlMin: 13,
     };
+    config.bots.slack.default.dmPolicy = "allowlist";
     config.bots.slack.default.directMessages = {
       "*": {
         enabled: true,
@@ -128,13 +131,13 @@ describe("loadConfig", () => {
     });
     expect(resolvedSlackBot.followUp.mode).toBe("auto");
     expect(resolvedSlackBot.followUp.participationTtlMin).toBe(13);
-    expect(resolvedSlackBot.directMessages["dm:*"]?.policy).toBe("allowlist");
-    expect(resolvedSlackBot.directMessages["dm:*"]?.allowUsers).toEqual(["U999"]);
-    expect(resolvedSlackBot.directMessages["dm:*"]?.blockUsers).toEqual(["U555"]);
-    expect(resolvedSlackBot.directMessages["dm:U123"]?.policy).toBeUndefined();
-    expect(resolvedSlackBot.directMessages["dm:U123"]?.allowUsers).toEqual([]);
-    expect(resolvedSlackBot.directMessages["dm:U123"]?.responseMode).toBe("message-tool");
-    expect(resolvedSlackBot.directMessages["dm:U123"]?.additionalMessageMode).toBe("queue");
+    expect(resolvedSlackBot.directMessages["*"]?.policy).toBe("allowlist");
+    expect(resolvedSlackBot.directMessages["*"]?.allowUsers).toEqual(["U999"]);
+    expect(resolvedSlackBot.directMessages["*"]?.blockUsers).toEqual(["U555"]);
+    expect(resolvedSlackBot.directMessages["U123"]?.policy).toBe("pairing");
+    expect(resolvedSlackBot.directMessages["U123"]?.allowUsers).toEqual([]);
+    expect(resolvedSlackBot.directMessages["U123"]?.responseMode).toBe("message-tool");
+    expect(resolvedSlackBot.directMessages["U123"]?.additionalMessageMode).toBe("queue");
     expect(loaded.raw.agents.defaults.runner.codex.sessionId!.capture.mode).toBe(
       "status-command",
     );
@@ -172,6 +175,125 @@ describe("loadConfig", () => {
     expect(resolvedDefaultAgent.runner.sessionId.create.mode).toBe("runner");
     expect(resolvedDefaultAgent.runner.sessionId.capture.mode).toBe("status-command");
     expect(resolvedDefaultAgent.runner.sessionId.resume.mode).toBe("command");
+  });
+
+  test("migrates released 0.1.43 route keys into the new canonical surface shape", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = buildTemplateConfig();
+
+    config.meta.schemaVersion = "0.1.43";
+    delete config.bots.slack.default.dmPolicy;
+    config.bots.slack.defaults.directMessages = {
+      "dm:*": {
+        enabled: true,
+        policy: "pairing",
+        allowUsers: [],
+        blockUsers: [],
+        allowBots: false,
+      },
+    };
+    config.bots.slack.default.directMessages = {
+      "dm:*": {
+        enabled: true,
+        policy: "allowlist",
+        allowUsers: ["U_OWNER"],
+        blockUsers: [],
+        allowBots: false,
+      },
+      "dm:U_DEV": {
+        enabled: false,
+        policy: "disabled",
+        allowUsers: ["U_DEV"],
+        responseMode: "capture-pane",
+      },
+    };
+    config.bots.slack.default.groups = {
+      "groups:*": {
+        enabled: false,
+        policy: "disabled",
+        allowUsers: [],
+        blockUsers: [],
+        allowBots: false,
+      },
+      "channel:C123": {
+        enabled: true,
+        policy: "allowlist",
+        allowUsers: ["U_DEVOPS"],
+        blockUsers: [],
+        allowBots: false,
+      },
+    };
+
+    await Bun.write(configPath, JSON.stringify(config));
+
+    process.env.SLACK_APP_TOKEN = "app-token";
+    process.env.SLACK_BOT_TOKEN = "bot-token";
+    process.env.TELEGRAM_BOT_TOKEN = "telegram-token";
+    const warnings: string[] = [];
+    console.warn = ((message?: unknown) => {
+      warnings.push(String(message ?? ""));
+    }) as typeof console.warn;
+
+    const loaded = await loadConfigWithoutEnvResolution(configPath);
+
+    expect(loaded.raw.meta.schemaVersion).toBe("0.1.44");
+    expect(loaded.raw.bots.slack.default.directMessages["*"]?.policy).toBe("allowlist");
+    expect(loaded.raw.bots.slack.default.directMessages["U_DEV"]?.enabled).toBe(true);
+    expect(loaded.raw.bots.slack.default.directMessages["U_DEV"]?.policy).toBe("pairing");
+    expect(loaded.raw.bots.slack.default.directMessages["U_DEV"]?.allowUsers).toEqual([]);
+    expect(loaded.raw.bots.slack.default.directMessages["U_DEV"]?.responseMode).toBe(
+      "capture-pane",
+    );
+    expect(loaded.raw.bots.slack.default.groupPolicy).toBe("allowlist");
+    expect(loaded.raw.bots.slack.default.groups["*"]?.policy).toBe("open");
+    expect(loaded.raw.bots.slack.default.groups["C123"]?.policy).toBe("allowlist");
+    expect(loaded.raw.bots.slack.default.groups["C123"]?.allowUsers).toEqual(["U_DEVOPS"]);
+
+    const rewrittenConfig = JSON.parse(readFileSync(configPath, "utf8"));
+    const backups = readdirSync(join(tempDir, "backups"));
+    expect(rewrittenConfig.meta.schemaVersion).toBe("0.1.44");
+    expect(rewrittenConfig.bots.slack.default.groups["*"].policy).toBe("open");
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toContain("clisbot.json.0.1.43.");
+    const backupConfig = JSON.parse(readFileSync(join(tempDir, "backups", backups[0]!), "utf8"));
+    expect(backupConfig.meta.schemaVersion).toBe("0.1.43");
+    expect(backupConfig.bots.slack.default.groups["groups:*"].policy).toBe("disabled");
+    expect(warnings).toEqual([
+      expect.stringContaining("backup 0.1.43 config to"),
+      "clisbot config upgrade: preparing 0.1.43 -> 0.1.44",
+      "clisbot config upgrade: dry-run validating 0.1.44 config",
+      expect.stringContaining("applying 0.1.44 config to"),
+      expect.stringContaining("applied 0.1.43 -> 0.1.44; backup:"),
+    ]);
+  });
+
+  test("preserves current-schema disabled wildcard sender policy", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = buildTemplateConfig();
+    config.bots.telegram.default.groups["*"] = {
+      enabled: false,
+      policy: "disabled",
+      requireMention: true,
+      allowUsers: [],
+      blockUsers: [],
+      allowBots: false,
+      topics: {},
+    };
+
+    await Bun.write(configPath, JSON.stringify(config));
+    const warnings: string[] = [];
+    console.warn = ((message?: unknown) => {
+      warnings.push(String(message ?? ""));
+    }) as typeof console.warn;
+
+    const loaded = await loadConfigWithoutEnvResolution(configPath);
+
+    expect(loaded.raw.bots.telegram.default.groupPolicy).toBe("allowlist");
+    expect(loaded.raw.bots.telegram.default.groups["*"]?.enabled).toBe(false);
+    expect(loaded.raw.bots.telegram.default.groups["*"]?.policy).toBe("disabled");
+    expect(warnings).toEqual([]);
   });
 
   test("rejects legacy privilegeCommands config keys", async () => {

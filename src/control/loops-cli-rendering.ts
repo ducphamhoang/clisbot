@@ -1,6 +1,7 @@
 import { renderLoopStatusSchedule } from "../agents/loop-control-shared.ts";
 import type { IntervalLoopStatus } from "../agents/loop-state.ts";
 import { LOOP_APP_FLAG, LOOP_FORCE_FLAG } from "../agents/loop-command.ts";
+import { renderSlackTargetSyntax } from "../config/route-contract.ts";
 import { renderCliCommand } from "../shared/cli-name.ts";
 import { collapseHomePath } from "../shared/paths.ts";
 import {
@@ -32,20 +33,20 @@ export function renderLoopsHelp() {
     `  ${renderCliCommand("loops --help")}`,
     `  ${renderCliCommand("loops list")}`,
     `  ${renderCliCommand("loops status")}`,
-    `  ${renderCliCommand("loops status --channel slack --target channel:C1234567890 --thread-id 1712345678.123456")}`,
-    `  ${renderCliCommand("loops create --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 every day at 07:00 check CI")}`,
-    `  ${renderCliCommand("loops create --channel slack --target channel:C1234567890 --new-thread every day at 07:00 check CI")}`,
-    `  ${renderCliCommand("loops --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 5m check CI")}`,
+    `  ${renderCliCommand("loops status --channel slack --target group:C1234567890 --thread-id 1712345678.123456")}`,
+    `  ${renderCliCommand("loops create --channel slack --target group:C1234567890 --thread-id 1712345678.123456 every day at 07:00 check CI")}`,
+    `  ${renderCliCommand("loops create --channel slack --target group:C1234567890 --new-thread every day at 07:00 check CI")}`,
+    `  ${renderCliCommand("loops --channel slack --target group:C1234567890 --thread-id 1712345678.123456 5m check CI")}`,
     `  ${renderCliCommand("loops create --channel telegram --target -1001234567890 --topic-id 42 every weekday at 07:00 standup")}`,
-    `  ${renderCliCommand("loops --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 3 review backlog")}`,
+    `  ${renderCliCommand("loops --channel slack --target group:C1234567890 --thread-id 1712345678.123456 3 review backlog")}`,
     `  ${renderCliCommand("loops cancel <id>")}`,
     `  ${renderCliCommand("loops cancel --all")}`,
-    `  ${renderCliCommand("loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --all")}`,
-    `  ${renderCliCommand("loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456")}`,
-    `  ${renderCliCommand(`loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 --all ${LOOP_APP_FLAG}`)}`,
+    `  ${renderCliCommand("loops cancel --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --all")}`,
+    `  ${renderCliCommand("loops cancel --channel slack --target group:C1234567890 --thread-id 1712345678.123456")}`,
+    `  ${renderCliCommand(`loops cancel --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --all ${LOOP_APP_FLAG}`)}`,
     "",
     "Targets:",
-    "  - Slack `--target` accepts `channel:<id>`, `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids",
+    `  - Slack \`--target\` accepts ${renderSlackTargetSyntax()}`,
     "  - Telegram `--target` is the numeric chat id",
     "  - use `--thread-id` for an existing Slack thread ts",
     "  - use `--topic-id` for a Telegram topic id",
@@ -61,10 +62,10 @@ export function renderLoopsHelp() {
     "  - omit the prompt to load `LOOP.md` from the target workspace",
     "",
     "Examples:",
-    `  ${renderCliCommand("loops status --channel slack --target channel:C1234567890 --thread-id 1712345678.123456")}`,
+    `  ${renderCliCommand("loops status --channel slack --target group:C1234567890 --thread-id 1712345678.123456")}`,
     `  ${renderCliCommand("loops --channel telegram --target -1001234567890 --topic-id 42 5m")}`,
     `  ${renderCliCommand("loops --channel slack --target dm:U1234567890 --new-thread every day at 09:00 check inbox")}`,
-    `  ${renderCliCommand("loops cancel --channel slack --target channel:C1234567890 --thread-id 1712345678.123456 abc123")}`,
+    `  ${renderCliCommand("loops cancel --channel slack --target group:C1234567890 --thread-id 1712345678.123456 abc123")}`,
     "Behavior:",
     "  - `list` always renders the global persisted loop inventory",
     "  - bare `status` is global; scoped `status --channel ... --target ...` matches `/loop status` for one routed session",
@@ -74,6 +75,8 @@ export function renderLoopsHelp() {
     "  - global `cancel --all` clears the whole app; scoped `cancel --all` clears one routed session",
     "  - `cancel --all --app` is accepted only with a scoped session target, matching `/loop cancel --all --app`",
     "  - one-shot count loops run synchronously in the CLI because the top-level operator process has no shared queue IPC today",
+    "  - wall-clock loop timezone resolves from route override, then `control.loop.defaultTimezone`, then host timezone",
+    "  - calendar loops freeze the resolved effective timezone at creation time; if timing looks wrong, inspect route `timezone` first",
   ].join("\n");
 }
 

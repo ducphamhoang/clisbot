@@ -8,20 +8,21 @@ Examples:
 
 - `clisbot loops list`
 - `clisbot loops status`
-- `clisbot loops status --channel slack --target channel:C123 --thread-id 1712345678.123456`
-- `clisbot loops create --channel slack --target channel:C123 --thread-id 1712345678.123456 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target channel:C123 --new-thread every day at 07:00 check CI`
+- `clisbot loops status --channel slack --target group:C123 --thread-id 1712345678.123456`
+- `clisbot loops create --channel slack --target group:C123 --thread-id 1712345678.123456 every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target group:C123 --new-thread every day at 07:00 check CI`
 - `clisbot loops create --channel slack --target dm:U1234567890 --new-thread every day at 09:00 check inbox`
 - `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 5m check CI`
-- `clisbot loops --channel slack --target channel:C123 --thread-id 1712345678.123456 3 review backlog`
+- `clisbot loops --channel slack --target group:C123 --thread-id 1712345678.123456 3 review backlog`
 - `clisbot loops cancel abc123`
-- `clisbot loops cancel --channel slack --target channel:C123 --thread-id 1712345678.123456 --all`
+- `clisbot loops cancel --channel slack --target group:C123 --thread-id 1712345678.123456 --all`
 - `clisbot loops cancel --all`
 
 ## Routed Targeting
 
 - `--target` chooses the routed surface, not the schedule:
-- for Slack, `--target` accepts `channel:<id>`, `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids
+- for Slack, `--target` accepts canonical `group:<id>` and `dm:<user-or-channel-id>`, plus raw `C...` / `G...` / `D...` ids
+- legacy `channel:<id>` input still works for compatibility, but it is not the preferred contract
 - for Telegram, `--target` is the numeric chat id
 - `--thread-id` narrows a Slack route to one existing thread ts
 - `--topic-id` narrows a Telegram route to one topic id

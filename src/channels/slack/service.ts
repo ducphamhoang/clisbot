@@ -79,6 +79,7 @@ import {
 } from "../../config/channel-bots.ts";
 import { logLatencyDebug } from "../../control/latency-debug.ts";
 import { buildTokenHint } from "../runtime-identity.ts";
+import { renderGroupRouteAccessDeniedMessage } from "../route-policy.ts";
 
 type SlackAppType = InstanceType<typeof App>;
 type SlackThreadTsCacheEntry = {
@@ -310,6 +311,61 @@ export class SlackSocketService {
       debugSlackEvent("drop-bot-message", { eventId, allowBots: params.route.allowBots });
       await this.processedEventsStore.markCompleted(eventId);
       return;
+    }
+
+    if (params.conversationKind !== "dm") {
+      const senderId =
+        typeof event.user === "string" ? event.user.trim().toUpperCase() : "";
+      const sharedAuth =
+        senderId && params.route.agentId
+          ? resolveChannelAuth({
+            config: this.loadedConfig.raw,
+            agentId: params.route.agentId,
+            identity: {
+              platform: "slack",
+              botId: this.botId,
+              conversationKind: params.conversationKind,
+              senderId,
+              channelId,
+            },
+          })
+          : undefined;
+      if (
+        senderId &&
+        isSlackSenderBlocked({
+          blockFrom: params.route.blockUsers ?? [],
+          userId: senderId,
+        })
+      ) {
+        debugSlackEvent("drop-shared-blocked", { eventId, senderId });
+        await this.processedEventsStore.markCompleted(eventId);
+        return;
+      }
+      if (
+        !sharedAuth?.mayBypassSharedSenderPolicy &&
+        senderId &&
+        (
+          params.route.policy === "allowlist" ||
+          (params.route.allowUsers?.length ?? 0) > 0
+        ) &&
+        !isSlackSenderAllowed({
+          allowFrom: params.route.allowUsers ?? [],
+          userId: senderId,
+        })
+      ) {
+        try {
+          await postSlackText(this.app.client, {
+            channel: channelId,
+            threadTs: await this.resolveThreadTs(event),
+            text: renderGroupRouteAccessDeniedMessage(),
+          });
+        } catch (error) {
+          console.error("slack shared allowlist deny reply failed", error);
+        }
+        debugSlackEvent("drop-shared-not-allowed", { eventId, senderId });
+        await this.processedEventsStore.markCompleted(eventId);
+        return;
+      }
     }
 
     if (params.conversationKind === "dm") {
@@ -758,6 +814,14 @@ export class SlackSocketService {
       );
       const route = resolvedRoute.route;
       if (!route) {
+        if (resolvedRoute.status === "disabled") {
+          debugSlackEvent("drop-disabled-route", {
+            eventId: body.event_id,
+            channel: normalizedEvent.channel,
+            type: "app_mention",
+          });
+          return;
+        }
         if (
           isBotOriginatedSlackEvent(normalizedEvent) &&
           !this.getBotConfig().allowBots
@@ -815,6 +879,14 @@ export class SlackSocketService {
       const route = resolvedRoute.route;
 
       if (!route) {
+        if (resolvedRoute.status === "disabled") {
+          debugSlackEvent("drop-disabled-route", {
+            eventId: body.event_id,
+            channel: normalizedEvent.channel,
+            type: "message",
+          });
+          return;
+        }
         const shouldGuide = shouldGuideUnroutedSlackEvent({
           conversationKind: resolvedRoute.conversationKind,
           isCommandLike: isSlackCommandLikeMessage({

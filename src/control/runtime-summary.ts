@@ -19,6 +19,8 @@ import {
   resolveTelegramBotConfig,
   resolveTelegramDirectMessageConfig,
 } from "../config/channel-bots.ts";
+import { resolveSharedGroupsWildcardRoute } from "../config/group-routes.ts";
+import { isSharedGroupsWildcardRouteId } from "../config/group-routes.ts";
 import { ActivityStore } from "./activity-store.ts";
 import {
   collapseHomePath,
@@ -71,7 +73,7 @@ export type ChannelOperatorSummary = {
   configuredSurfaceCount: number;
   directMessagesEnabled: boolean;
   directMessagesPolicy: string;
-  groupPolicy?: string;
+  sharedDefaultPolicy?: string;
   lastActivityAt?: string;
   lastActivityAgentId?: string;
   healthSummary?: string;
@@ -128,7 +130,10 @@ function countTelegramSurfaces(loadedConfig: LoadedConfig) {
     .filter(([botId]) => botId !== "defaults")
     .reduce((total, [, bot]) => {
       const groups = "groups" in bot ? bot.groups ?? {} : {};
-      return total + Object.values(groups).reduce((groupTotal: number, group) => {
+      return total + Object.entries(groups).reduce((groupTotal: number, [groupId, group]) => {
+        if (isSharedGroupsWildcardRouteId(groupId)) {
+          return groupTotal;
+        }
         return groupTotal + 1 + Object.keys(group.topics ?? {}).length;
       }, 0);
     }, 0);
@@ -139,7 +144,7 @@ function countSlackSurfaces(loadedConfig: LoadedConfig) {
     .filter(([botId]) => botId !== "defaults")
     .reduce((total, [, bot]) => {
       const groups = "groups" in bot ? bot.groups ?? {} : {};
-      return total + Object.keys(groups).length;
+      return total + Object.keys(groups).filter((groupId) => !isSharedGroupsWildcardRouteId(groupId)).length;
     }, 0);
 }
 
@@ -227,7 +232,8 @@ export async function getRuntimeOperatorSummary(params: {
       configuredSurfaceCount: countSlackSurfaces(loadedConfig),
       directMessagesEnabled: defaultSlackDmConfig?.enabled !== false,
       directMessagesPolicy: defaultSlackDmConfig?.policy ?? "disabled",
-      groupPolicy: defaultSlackBot.groupPolicy,
+      sharedDefaultPolicy:
+        resolveSharedGroupsWildcardRoute(defaultSlackBot.groups)?.policy,
       lastActivityAt: activities.channels.slack?.updatedAt,
       lastActivityAgentId: activities.channels.slack?.agentId,
       healthSummary: deriveHealthSummary({
@@ -253,7 +259,8 @@ export async function getRuntimeOperatorSummary(params: {
       configuredSurfaceCount: countTelegramSurfaces(loadedConfig),
       directMessagesEnabled: defaultTelegramDmConfig?.enabled !== false,
       directMessagesPolicy: defaultTelegramDmConfig?.policy ?? "disabled",
-      groupPolicy: defaultTelegramBot.groupPolicy,
+      sharedDefaultPolicy:
+        resolveSharedGroupsWildcardRoute(defaultTelegramBot.groups)?.policy,
       lastActivityAt: activities.channels.telegram?.updatedAt,
       lastActivityAgentId: activities.channels.telegram?.agentId,
       healthSummary: deriveHealthSummary({

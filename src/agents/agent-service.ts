@@ -66,6 +66,7 @@ import {
   resolveTelegramBotConfig,
   resolveTelegramDirectMessageConfig,
 } from "../config/channel-bots.ts";
+import { resolveSharedGroupsWildcardRoute } from "../config/group-routes.ts";
 
 type StreamUpdate = RunUpdate;
 
@@ -806,8 +807,9 @@ export class AgentService {
       const routeKey = identity.conversationKind === "group"
         ? identity.channelId ? `group:${identity.channelId}` : undefined
         : identity.channelId ? `channel:${identity.channelId}` : undefined;
+      const wildcardRoute = resolveSharedGroupsWildcardRoute(routeCollection);
       const route = identity.channelId
-        ? routeCollection[routeKey ?? ""] ?? routeCollection["*"]
+        ? routeCollection[routeKey ?? ""] ?? wildcardRoute
         : undefined;
       return {
         ...resolved,
@@ -836,7 +838,8 @@ export class AgentService {
     }
 
     const groupRoute = identity.chatId
-      ? channelConfig.groups[identity.chatId] ?? channelConfig.groups["*"]
+      ? channelConfig.groups[identity.chatId] ??
+        resolveSharedGroupsWildcardRoute(channelConfig.groups)
       : undefined;
     resolved = {
       ...resolved,
