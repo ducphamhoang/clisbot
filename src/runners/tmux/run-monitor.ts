@@ -3,6 +3,8 @@ import {
   appendInteractionText,
   deriveBoundedRunningRewritePreview,
   deriveInteractionText,
+  deriveLatestPromptInteractionSnapshot,
+  deriveLatestPromptRunningInteractionSnapshot,
   deriveRunningInteractionText,
   deriveRunningInteractionSnapshot,
   hasActiveTimerStatus,
@@ -112,13 +114,18 @@ export async function monitorTmuxRun(params: TmuxRunMonitorParams) {
     }
     const hasActiveTimer = hasActiveTimerStatus(snapshot);
     const currentRunningSnapshot = deriveRunningInteractionSnapshot(snapshot);
+    const promptRunningSnapshot = deriveLatestPromptRunningInteractionSnapshot(snapshot);
     const baselineRunningSnapshot =
-      deriveInteractionText(baselineSnapshot, snapshot) || currentRunningSnapshot;
-    const runningDelta = priorSnapshot
-      ? deriveRunningInteractionText(priorSnapshot, snapshot)
-      : currentRunningSnapshot;
+      promptRunningSnapshot ||
+      deriveInteractionText(baselineSnapshot, snapshot) ||
+      currentRunningSnapshot;
+    const runningDelta = promptRunningSnapshot
+      ? ""
+      : priorSnapshot
+        ? deriveRunningInteractionText(priorSnapshot, snapshot)
+        : currentRunningSnapshot;
     const shouldReplaceRunningSnapshot =
-      paneChanged &&
+      (paneChanged || Boolean(promptRunningSnapshot)) &&
       !runningDelta &&
       Boolean(baselineRunningSnapshot) &&
       baselineRunningSnapshot !== previousRunningTruth;
@@ -176,8 +183,11 @@ export async function monitorTmuxRun(params: TmuxRunMonitorParams) {
       (sawActivity || sawPaneChange || sawPromptSubmission) &&
       now - lastPaneChangeAt >= params.idleTimeoutMs
     ) {
+      const completedSnapshot =
+        deriveLatestPromptInteractionSnapshot(previousSnapshot) ||
+        deriveInteractionText(baselineSnapshot, previousSnapshot);
       await params.onCompleted({
-        snapshot: deriveInteractionText(baselineSnapshot, previousSnapshot),
+        snapshot: completedSnapshot,
         fullSnapshot: previousSnapshot,
         initialSnapshot: baselineSnapshot,
       });

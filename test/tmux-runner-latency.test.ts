@@ -641,6 +641,81 @@ describe("tmux runner latency behavior", () => {
     ]);
   });
 
+  test("monitorTmuxRun uses the latest prompt boundary when the baseline cannot overlap", async () => {
+    const snapshots = [
+      [
+        "Previous answer from an older request.",
+        "",
+        "Done.",
+        "",
+        "› new request",
+        "",
+        "New draft line.",
+        "",
+        "• Working... (1s • esc to interrupt)",
+      ].join("\n"),
+      [
+        "Previous answer from an older request.",
+        "",
+        "Done.",
+        "",
+        "› new request",
+        "",
+        "New final line.",
+      ].join("\n"),
+      [
+        "Previous answer from an older request.",
+        "",
+        "Done.",
+        "",
+        "› new request",
+        "",
+        "New final line.",
+      ].join("\n"),
+    ];
+    let captureIndex = 0;
+    const runningSnapshots: string[] = [];
+    const completedSnapshots: string[] = [];
+
+    const fakeTmux = {
+      async capturePane() {
+        const snapshot = snapshots[Math.min(captureIndex, snapshots.length - 1)] ?? "";
+        captureIndex += 1;
+        return snapshot;
+      },
+    } as unknown as TmuxClient;
+
+    await monitorTmuxRun({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      prompt: undefined,
+      promptSubmitDelayMs: 1,
+      captureLines: 80,
+      updateIntervalMs: 5,
+      idleTimeoutMs: 15,
+      noOutputTimeoutMs: 1_000,
+      maxRuntimeMs: 10_000,
+      startedAt: Date.now(),
+      initialSnapshot: "unrelated stale baseline",
+      detachedAlready: false,
+      onRunning: async (update) => {
+        runningSnapshots.push(update.snapshot);
+      },
+      onDetached: async () => undefined,
+      onCompleted: async (update) => {
+        completedSnapshots.push(update.snapshot);
+      },
+    });
+
+    expect(runningSnapshots).toEqual([
+      ["New draft line.", "", "• Working... (1s • esc to interrupt)"].join("\n"),
+      "New final line.",
+    ]);
+    expect(completedSnapshots).toEqual(["New final line."]);
+    expect(runningSnapshots.join("\n")).not.toContain("Previous answer");
+    expect(completedSnapshots.join("\n")).not.toContain("Previous answer");
+  });
+
   test("monitorTmuxRun uses the post-submit pane as the streaming baseline", async () => {
     let literalVisible = false;
     let entered = false;

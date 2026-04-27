@@ -2,6 +2,9 @@ import {
   cleanInteractionSnapshot,
   cleanRunningInteractionSnapshot,
   collapseBlankLines,
+  looksLikeClaudeSnapshot,
+  looksLikeCodexSnapshot,
+  looksLikeGeminiSnapshot,
   normalizePaneText,
   splitNormalizedLines,
   trimBlankLines,
@@ -104,6 +107,48 @@ export function deriveRunningInteractionText(previousSnapshot: string, currentSn
 
 export function deriveRunningInteractionSnapshot(currentSnapshot: string) {
   return cleanRunningInteractionSnapshot(currentSnapshot);
+}
+
+function getPromptMarker(lines: string[]) {
+  if (looksLikeCodexSnapshot(lines)) {
+    return /^\s*›\s/;
+  }
+  if (looksLikeClaudeSnapshot(lines)) {
+    return /^\s*❯/;
+  }
+  if (looksLikeGeminiSnapshot(lines)) {
+    return /^\s*>\s/;
+  }
+
+  return null;
+}
+
+function sliceFromLastPromptBlock(raw: string) {
+  const lines = splitNormalizedLines(raw);
+  const marker = getPromptMarker(lines);
+  if (!marker) {
+    return "";
+  }
+
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (!marker.test((lines[index] ?? "").trimStart())) {
+      continue;
+    }
+
+    return lines.slice(index).join("\n");
+  }
+
+  return "";
+}
+
+export function deriveLatestPromptInteractionSnapshot(currentSnapshot: string) {
+  const promptTail = sliceFromLastPromptBlock(currentSnapshot);
+  return promptTail ? cleanInteractionSnapshot(promptTail) : "";
+}
+
+export function deriveLatestPromptRunningInteractionSnapshot(currentSnapshot: string) {
+  const promptTail = sliceFromLastPromptBlock(currentSnapshot);
+  return promptTail ? cleanRunningInteractionSnapshot(promptTail) : "";
 }
 
 export function deriveInteractionText(initialSnapshot: string, currentSnapshot: string) {

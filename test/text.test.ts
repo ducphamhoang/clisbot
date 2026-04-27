@@ -4,6 +4,8 @@ import {
   cleanInteractionSnapshot,
   cleanRunningInteractionSnapshot,
   deriveBoundedRunningRewritePreview,
+  deriveLatestPromptInteractionSnapshot,
+  deriveLatestPromptRunningInteractionSnapshot,
   deriveMeaningfulPaneSnapshot,
   deriveInteractionText,
   deriveRunningInteractionText,
@@ -190,6 +192,25 @@ This project maps channel messages into tmux-backed agents.
         "\n",
       ),
     );
+  });
+
+  test("derives the current codex prompt tail without older pane content", () => {
+    const snapshot = [
+      "Previous answer from an older request.",
+      "",
+      "Done.",
+      "",
+      "› new request",
+      "",
+      "New draft line.",
+      "",
+      "• Working... (2m 4s • esc to interrupt)",
+    ].join("\n");
+
+    expect(deriveLatestPromptRunningInteractionSnapshot(snapshot)).toBe(
+      ["New draft line.", "", "• Working... (2m 4s • esc to interrupt)"].join("\n"),
+    );
+    expect(deriveLatestPromptInteractionSnapshot(snapshot)).toBe("New draft line.");
   });
 
   test("deriveRunningInteractionText ignores pane redraw content that is not a real append", () => {
