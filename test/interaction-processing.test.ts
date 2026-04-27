@@ -1648,6 +1648,57 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(observedPrompt).toContain("<user>\nupdate clisbot.json\n</user>");
   });
 
+  test("rebuilds route-queued prompt envelopes when the queued item starts", async () => {
+    let observedPrompt = "";
+    let buildCount = 0;
+
+    await processChannelInteraction({
+      agentService: {
+        isAwaitingFollowUpRouting: async () => true,
+        enqueuePrompt: (_target: AgentSessionTarget, prompt: string | (() => string)) => {
+          observedPrompt = renderCapturedPrompt(prompt);
+          return {
+            positionAhead: 1,
+            result: Promise.resolve({
+              status: "completed",
+              agentId: "default",
+              sessionKey: createTarget().sessionKey,
+              sessionName: "session",
+              workspacePath: "/tmp/workspace",
+              snapshot: "done",
+              fullSnapshot: "done",
+              initialSnapshot: "",
+            }),
+          };
+        },
+        recordConversationReply: async () => undefined,
+      } as any,
+      sessionTarget: createTarget(),
+      identity: createIdentity(),
+      senderId: "U123",
+      text: "follow up after the active run",
+      agentPromptText: "stale prompt envelope",
+      agentPromptBuilder: (text) => {
+        buildCount += 1;
+        return `fresh prompt envelope ${buildCount}: ${text}`;
+      },
+      route: createRoute({
+        responseMode: "message-tool",
+        additionalMessageMode: "queue",
+        streaming: "off",
+      }),
+      maxChars: 4000,
+      postText: async (text) => [text],
+      reconcileText: async (_chunks, text) => [text],
+    });
+
+    expect(buildCount).toBe(1);
+    expect(observedPrompt).toBe(
+      "fresh prompt envelope 1: follow up after the active run",
+    );
+    expect(observedPrompt).not.toBe("stale prompt envelope");
+  });
+
   test("does not post a pane final settlement when message-tool mode has streaming off and no tool final arrives", async () => {
     const posted: string[] = [];
     const reconciled: string[] = [];

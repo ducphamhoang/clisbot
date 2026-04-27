@@ -1351,13 +1351,16 @@ export async function processChannelInteraction<TChunk>(params: {
     !sessionBusy;
   const queueByMode = !explicitQueueMessage && params.route.additionalMessageMode === "queue" && sessionBusy;
   const forceQueuedDelivery = typeof explicitQueueMessage === "string" || queueByMode;
-  const delayedPromptText = () =>
-    explicitQueueMessage
-      ? params.agentPromptBuilder
-        ? params.agentPromptBuilder(explicitQueueMessage)
-        : explicitQueueMessage
-      : params.agentPromptText ?? params.text;
   const delayedPromptQueueText = explicitQueueMessage ?? params.text;
+  const delayedPromptText = () => {
+    if (forceQueuedDelivery && params.agentPromptBuilder) {
+      return params.agentPromptBuilder(delayedPromptQueueText);
+    }
+    if (explicitQueueMessage) {
+      return explicitQueueMessage;
+    }
+    return params.agentPromptText ?? params.text;
+  };
   const isSensitiveCommand = slashCommand?.type === "bash";
 
   if (isSensitiveCommand && !auth.canUseShell) {
