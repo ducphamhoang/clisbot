@@ -7,6 +7,7 @@ import {
   resolveTelegramBotId,
 } from "../config/channel-bots.ts";
 import { buildAgentPromptText } from "../channels/agent-prompt.ts";
+import { resolveConfigTimezone } from "../config/timezone.ts";
 import type { ChannelIdentity } from "../channels/channel-identity.ts";
 import type { SurfaceRoute } from "../channels/route-policy.ts";
 import { resolveSlackConversationRoute } from "../channels/slack/route-config.ts";
@@ -109,6 +110,12 @@ function resolveSlackLoopCliContext(params: LoopCliContextParams): LoopCliContex
         cliTool,
         responseMode: route.responseMode,
         streaming: route.streaming,
+        timezone: resolveConfigTimezone({
+          config: params.loadedConfig.raw,
+          agentId: sessionTarget.agentId,
+          routeTimezone: route.timezone,
+          botTimezone: route.botTimezone,
+        }).timezone,
       }),
   };
 }
@@ -181,6 +188,12 @@ function resolveTelegramLoopCliContext(params: LoopCliContextParams): LoopCliCon
         cliTool,
         responseMode: route.responseMode,
         streaming: route.streaming,
+        timezone: resolveConfigTimezone({
+          config: params.loadedConfig.raw,
+          agentId: sessionTarget.agentId,
+          routeTimezone: route.timezone,
+          botTimezone: route.botTimezone,
+        }).timezone,
       }),
   };
 }

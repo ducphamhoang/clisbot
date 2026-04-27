@@ -277,7 +277,8 @@ Important behavior:
 - with leading interval syntax, place `--force` immediately after the interval token
 - with `every ...` syntax, place `--force` immediately after the interval clause
 - wall-clock schedules must use `HH:MM` in 24-hour format and wait until the next matching local time instead of firing immediately
-- wall-clock schedules resolve timezone from route override first, then `control.loop.defaultTimezone`, then host timezone
+- wall-clock schedules resolve timezone from the effective timezone resolver: one-off loop override, route/topic, agent, bot, `app.timezone`, legacy fallbacks, then host fallback only when config is missing
+- chat `/loop` wall-clock creation persists immediately and returns the resolved timezone, local next run, UTC next run, and exact cancel command so a wrong timezone can be fixed quickly
 - managed loops are created with ids, bounded by `control.loop.maxRunsPerLoop`, and capped globally by `control.loop.maxActiveLoops`
 - managed loops use `skip-if-busy`, so a tick is dropped instead of stacking more queued work when the session is already busy
 - managed loops persist in session state and are restored after restart
@@ -288,12 +289,8 @@ Timezone config examples:
 
 ```json
 {
-  "control": {
-    "loop": {
-      "maxRunsPerLoop": 20,
-      "maxActiveLoops": 10,
-      "defaultTimezone": "Asia/Ho_Chi_Minh"
-    }
+  "app": {
+    "timezone": "Asia/Ho_Chi_Minh"
   }
 }
 ```
@@ -319,7 +316,9 @@ Timezone config examples:
 }
 ```
 
-- route `timezone` overrides `control.loop.defaultTimezone`
+- agent `timezone` overrides `app.timezone` for that assistant/workspace
+- route `timezone` overrides app/agent timezone for that surface
+- use `clisbot timezone set <iana>` for the app default, `clisbot agents set-timezone --agent <id> <iana>` for one assistant/workspace, and `clisbot routes set-timezone ... <iana>` for one surface
 - once a wall-clock loop is created, its effective timezone is persisted on that loop record
 - if the service is already running, restart it after changing channel enablement
 - `clisbot routes` and `clisbot routes --help` print setup guidance for Slack ids, Telegram group or topic ids, allowlists, and routed auth docs

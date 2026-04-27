@@ -144,7 +144,33 @@ export function renderLoopStatusSchedule(loop: IntervalLoopStatus | StoredInterv
   return `interval: \`${formatLoopIntervalShort(loop.intervalMs)}\``;
 }
 
-export function renderLoopStartedMessage(params: {
+function formatLoopLocalDateTime(timestampMs: number, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestampMs));
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")} ${timezone}`;
+}
+
+function renderCalendarFirstRunLine(params: {
+  nextRunAt?: number;
+  timezone?: string;
+}) {
+  const nextRunAt = params.nextRunAt ?? 0;
+  const utc = new Date(nextRunAt).toISOString();
+  if (!params.timezone) {
+    return `next run: \`${utc}\``;
+  }
+  return `next run: \`${formatLoopLocalDateTime(nextRunAt, params.timezone)}\` (${utc})`;
+}
+
+type LoopStartedMessageParams = {
   mode: "times" | "interval" | "calendar";
   count?: number;
   intervalMs?: number;
@@ -152,27 +178,37 @@ export function renderLoopStartedMessage(params: {
   timezone?: string;
   nextRunAt?: number;
   maintenancePrompt: boolean;
+  cancelCommand?: string;
   loopId?: string;
   maxRuns?: number;
   sessionLoopCount?: number;
   globalLoopCount?: number;
   warning?: string;
-  cancelCommand?: string;
   firstRunNote?: string;
-}) {
-  if (params.mode === "times") {
-    const count = params.count ?? 1;
-    return [
-      `Started loop for ${count} iteration${count === 1 ? "" : "s"}.`,
-      params.maintenancePrompt ? "prompt: `LOOP.md`" : "prompt: custom",
-      "Runs are queued immediately in order.",
-    ].join("\n");
-  }
+};
 
+function renderTimezoneCorrectionLine(params: LoopStartedMessageParams) {
+  if (params.mode !== "calendar" || !params.cancelCommand || !params.loopId) {
+    return undefined;
+  }
+  return `If timezone is wrong: cancel with \`${params.cancelCommand} ${params.loopId}\`, ask me to set the correct timezone, then create this loop again.`;
+}
+
+function renderTimesLoopStartedMessage(params: LoopStartedMessageParams) {
+  const count = params.count ?? 1;
+  return [
+    `Started loop for ${count} iteration${count === 1 ? "" : "s"}.`,
+    params.maintenancePrompt ? "prompt: `LOOP.md`" : "prompt: custom",
+    "Runs are queued immediately in order.",
+  ].join("\n");
+}
+
+function renderRecurringLoopStartedMessage(params: LoopStartedMessageParams) {
   const scheduleText =
     params.mode === "calendar"
       ? params.scheduleText ?? "scheduled"
       : `every ${formatLoopIntervalShort(params.intervalMs ?? 0)}`;
+  const timezoneCorrectionLine = renderTimezoneCorrectionLine(params);
 
   return [
     `Started loop \`${params.loopId ?? ""}\` ${scheduleText}.`,
@@ -185,12 +221,23 @@ export function renderLoopStartedMessage(params: {
     ...(params.cancelCommand && params.loopId
       ? [`cancel: \`${params.cancelCommand} ${params.loopId}\``]
       : []),
+    ...(timezoneCorrectionLine ? [timezoneCorrectionLine] : []),
     ...(params.warning ? [`warning: ${params.warning}`] : []),
     params.firstRunNote ??
       (params.mode === "calendar"
-        ? `The first run is scheduled for \`${new Date(params.nextRunAt ?? 0).toISOString()}\`.`
+        ? renderCalendarFirstRunLine({
+            nextRunAt: params.nextRunAt,
+            timezone: params.timezone,
+          })
         : "The first run starts now."),
   ].join("\n");
+}
+
+export function renderLoopStartedMessage(params: LoopStartedMessageParams) {
+  if (params.mode === "times") {
+    return renderTimesLoopStartedMessage(params);
+  }
+  return renderRecurringLoopStartedMessage(params);
 }
 
 export function summarizeLoopPrompt(text: string, maintenancePrompt: boolean) {

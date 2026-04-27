@@ -42,6 +42,7 @@ import {
   renderStatusSummary,
 } from "./runtime-summary-rendering.ts";
 import { listRunnerSessions, type RunnerSessionSummary } from "./runner-debug-state.ts";
+import { resolveConfigTimezone } from "../config/timezone.ts";
 export {
   renderRuntimeDiagnosticsSummary,
   renderStartSummary,
@@ -90,6 +91,11 @@ export type RuntimeOperatorSummary = {
     adminPrincipals: string[];
     ownerClaimWindowMinutes: number;
   };
+  timezoneSummary: {
+    effective: string;
+    source: string;
+    appTimezone?: string;
+  };
   agentSummaries: AgentOperatorSummary[];
   channelSummaries: ChannelOperatorSummary[];
   activeRuns: Array<{
@@ -119,6 +125,7 @@ function deriveAgentTool(
   }
 
   const resolved = new AgentService(loadedConfig).getResolvedAgentConfig(agentId);
+
   return {
     cliTool: inferAgentCliToolId(resolved.runner.command) ?? resolved.runner.command,
     startupOptions: resolved.runner.args,
@@ -275,12 +282,19 @@ export async function getRuntimeOperatorSummary(params: {
     },
   ] satisfies ChannelOperatorSummary[];
 
+  const timezone = resolveConfigTimezone({ config: loadedConfig.raw });
+
   return {
     loadedConfig,
     ownerSummary: {
       ownerPrincipals: loadedConfig.raw.app.auth.roles.owner?.users ?? [],
       adminPrincipals: loadedConfig.raw.app.auth.roles.admin?.users ?? [],
       ownerClaimWindowMinutes: loadedConfig.raw.app.auth.ownerClaimWindowMinutes,
+    },
+    timezoneSummary: {
+      effective: timezone.timezone,
+      source: timezone.source,
+      appTimezone: loadedConfig.raw.app.timezone,
     },
     agentSummaries,
     channelSummaries,

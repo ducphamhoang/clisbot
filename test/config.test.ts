@@ -183,6 +183,9 @@ describe("loadConfig", () => {
     const config = buildTemplateConfig();
 
     config.meta.schemaVersion = "0.1.43";
+    delete config.app.timezone;
+    config.app.control.loop.defaultTimezone = "Asia/Ho_Chi_Minh";
+    config.bots.defaults.timezone = "UTC";
     delete config.bots.slack.default.dmPolicy;
     config.bots.slack.defaults.directMessages = {
       "dm:*": {
@@ -237,7 +240,12 @@ describe("loadConfig", () => {
 
     const loaded = await loadConfigWithoutEnvResolution(configPath);
 
-    expect(loaded.raw.meta.schemaVersion).toBe("0.1.44");
+    expect(loaded.raw.meta.schemaVersion).toBe("0.1.45");
+    expect(loaded.raw.app.timezone).toBe("Asia/Ho_Chi_Minh");
+    expect(loaded.raw.app.control.loop.defaultTimezone).toBeUndefined();
+    expect(loaded.raw.bots.defaults.timezone).toBeUndefined();
+    expect(loaded.raw.bots.slack.defaults.timezone).toBeUndefined();
+    expect(loaded.raw.bots.telegram.defaults.timezone).toBeUndefined();
     expect(loaded.raw.bots.slack.default.directMessages["*"]?.policy).toBe("allowlist");
     expect(loaded.raw.bots.slack.default.directMessages["U_DEV"]?.enabled).toBe(true);
     expect(loaded.raw.bots.slack.default.directMessages["U_DEV"]?.policy).toBe("pairing");
@@ -252,7 +260,12 @@ describe("loadConfig", () => {
 
     const rewrittenConfig = JSON.parse(readFileSync(configPath, "utf8"));
     const backups = readdirSync(join(tempDir, "backups"));
-    expect(rewrittenConfig.meta.schemaVersion).toBe("0.1.44");
+    expect(rewrittenConfig.meta.schemaVersion).toBe("0.1.45");
+    expect(rewrittenConfig.app.timezone).toBe("Asia/Ho_Chi_Minh");
+    expect(rewrittenConfig.app.control.loop.defaultTimezone).toBeUndefined();
+    expect(rewrittenConfig.bots.defaults.timezone).toBeUndefined();
+    expect(rewrittenConfig.bots.slack.defaults.timezone).toBeUndefined();
+    expect(rewrittenConfig.bots.telegram.defaults.timezone).toBeUndefined();
     expect(rewrittenConfig.bots.slack.default.groups["*"].policy).toBe("open");
     expect(backups).toHaveLength(1);
     expect(backups[0]).toContain("clisbot.json.0.1.43.");
@@ -261,11 +274,41 @@ describe("loadConfig", () => {
     expect(backupConfig.bots.slack.default.groups["groups:*"].policy).toBe("disabled");
     expect(warnings).toEqual([
       expect.stringContaining("backup 0.1.43 config to"),
-      "clisbot config upgrade: preparing 0.1.43 -> 0.1.44",
-      "clisbot config upgrade: dry-run validating 0.1.44 config",
-      expect.stringContaining("applying 0.1.44 config to"),
-      expect.stringContaining("applied 0.1.43 -> 0.1.44; backup:"),
+      "clisbot config upgrade: preparing 0.1.43 -> 0.1.45",
+      "clisbot config upgrade: dry-run validating 0.1.45 config",
+      expect.stringContaining("applying 0.1.45 config to"),
+      expect.stringContaining("applied 0.1.43 -> 0.1.45; backup:"),
     ]);
+  });
+
+  test("migrates 0.1.44 timezone defaults into app timezone", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-config-"));
+    const configPath = join(tempDir, "clisbot.json");
+    const config = buildTemplateConfig();
+
+    config.meta.schemaVersion = "0.1.44";
+    delete config.app.timezone;
+    config.bots.defaults.timezone = "Asia/Ho_Chi_Minh";
+    config.bots.slack.defaults.timezone = "America/Los_Angeles";
+    config.bots.telegram.defaults.timezone = "Asia/Singapore";
+    config.bots.telegram.default.timezone = "Asia/Tokyo";
+
+    await Bun.write(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfigWithoutEnvResolution(configPath);
+    const rewrittenConfig = JSON.parse(readFileSync(configPath, "utf8"));
+    const backups = readdirSync(join(tempDir, "backups"));
+
+    expect(loaded.raw.meta.schemaVersion).toBe("0.1.45");
+    expect(loaded.raw.app.timezone).toBe("Asia/Ho_Chi_Minh");
+    expect(loaded.raw.bots.defaults.timezone).toBeUndefined();
+    expect(loaded.raw.bots.slack.defaults.timezone).toBeUndefined();
+    expect(loaded.raw.bots.telegram.defaults.timezone).toBeUndefined();
+    expect(loaded.raw.bots.telegram.default.timezone).toBe("Asia/Tokyo");
+    expect(rewrittenConfig.app.timezone).toBe("Asia/Ho_Chi_Minh");
+    expect(rewrittenConfig.bots.telegram.default.timezone).toBe("Asia/Tokyo");
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toContain("clisbot.json.0.1.44.");
   });
 
   test("preserves current-schema disabled wildcard sender policy", async () => {

@@ -883,6 +883,11 @@ export class TelegramPollingService {
               responseMode: route.responseMode,
               streaming: route.streaming,
               protectedControlMutationRule,
+              timezone: this.agentService.resolveEffectiveTimezone({
+                agentId: route.agentId,
+                routeTimezone: route.timezone,
+                botTimezone: route.botTimezone,
+              }).timezone,
             }),
           protectedControlMutationRule,
           transformSessionInputText: enrichPromptText,

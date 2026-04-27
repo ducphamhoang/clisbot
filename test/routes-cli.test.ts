@@ -115,6 +115,15 @@ describe("routes cli", () => {
       "capture-pane",
     ]);
     await runRoutesCli([
+      "set-timezone",
+      "--channel",
+      "telegram",
+      "topic:-1001234567890:42",
+      "--bot",
+      "default",
+      "America/Los_Angeles",
+    ]);
+    await runRoutesCli([
       "set-agent",
       "--channel",
       "telegram",
@@ -134,6 +143,7 @@ describe("routes cli", () => {
       allowBots: false,
       policy: "open",
       responseMode: "capture-pane",
+      timezone: "America/Los_Angeles",
       agentId: "support",
     });
   });

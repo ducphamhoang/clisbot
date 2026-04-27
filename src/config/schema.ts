@@ -582,6 +582,7 @@ const agentRunnerOverrideSchema = z.object({
 
 const agentOverrideSchema = z.object({
   workspace: z.string().optional(),
+  timezone: timezoneSchema.optional(),
   responseMode: responseModeSchema.optional(),
   additionalMessageMode: additionalMessageModeSchema.optional(),
   auth: agentAuthOverrideSchema.optional(),
@@ -733,6 +734,7 @@ export const clisbotConfigSchema = z.object({
     schemaVersion: CURRENT_SCHEMA_VERSION,
   }),
   app: z.object({
+    timezone: timezoneSchema.optional(),
     session: appSessionSchema.default({
       mainKey: "main",
       identityLinks: {},

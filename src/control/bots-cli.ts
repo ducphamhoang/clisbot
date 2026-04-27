@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { readEditableConfig, writeEditableConfig } from "../config/config-file.ts";
+import { parseTimezone } from "../config/timezone.ts";
 import type { ClisbotConfig } from "../config/schema.ts";
 import { ensureBotDirectMessageWildcardRoute } from "../config/direct-message-routes.ts";
 import {
@@ -120,6 +121,9 @@ function renderBotsHelp() {
     `  ${renderCliCommand("bots get-agent --channel <slack|telegram> [--bot <id>]")}`,
     `  ${renderCliCommand("bots set-agent --channel <slack|telegram> [--bot <id>] --agent <id>")}`,
     `  ${renderCliCommand("bots clear-agent --channel <slack|telegram> [--bot <id>]")}`,
+    `  ${renderCliCommand("bots get-timezone --channel <slack|telegram> [--bot <id>]")}`,
+    `  ${renderCliCommand("bots set-timezone --channel <slack|telegram> [--bot <id>] <iana-timezone>")}`,
+    `  ${renderCliCommand("bots clear-timezone --channel <slack|telegram> [--bot <id>]")}`,
     `  ${renderCliCommand("bots get-credentials-source --channel <slack|telegram> [--bot <id>]")}`,
     `  ${renderCliCommand("bots set-credentials --channel telegram [--bot <id>] --bot-token <ENV_NAME|${ENV_NAME}|literal> [--persist]")}`,
     `  ${renderCliCommand("bots set-credentials --channel slack [--bot <id>] --app-token <ENV_NAME|${ENV_NAME}|literal> --bot-token <ENV_NAME|${ENV_NAME}|literal> [--persist]")}`,
@@ -131,6 +135,7 @@ function renderBotsHelp() {
     "  - `--agent` binds an existing agent as the bot fallback agent",
     "  - `--cli` with `--bot-type` creates a new agent using the same id as the bot",
     "  - if you want an extra agent without adding another provider bot, create it with `agents add ...` and then point this bot at it with `set-agent`",
+    "  - prefer app, agent, or route timezone first; bot timezone is an advanced concrete-bot fallback",
     "  - raw token input without `--persist` requires a running clisbot runtime",
     "  - normal shared-route admission now follows the bot's `group:*` default plus any exact `group:<id>` override",
   ].join("\n");
@@ -146,6 +151,23 @@ function parseProvider(args: string[]) {
 
 function getBotId(args: string[]) {
   return parseOptionValue(args, "--bot") ?? "default";
+}
+
+function findLastPositionalArg(args: string[]) {
+  let value: string | undefined;
+  const flagsWithValue = new Set(["--channel", "--bot", "--agent", "--app-token", "--bot-token"]);
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (flagsWithValue.has(arg)) {
+      index += 1;
+      continue;
+    }
+    if (arg?.startsWith("--")) {
+      continue;
+    }
+    value = arg;
+  }
+  return value;
 }
 
 function getSlackBots(config: ClisbotConfig) {
@@ -589,6 +611,35 @@ async function getOrSetBotAgent(args: string[], action: "get-agent" | "set-agent
   console.log(`config: ${configPath}`);
 }
 
+async function getSetClearBotTimezone(
+  args: string[],
+  action: "get-timezone" | "set-timezone" | "clear-timezone",
+) {
+  const provider = parseProvider(args);
+  const botId = getBotId(args);
+  const { config, configPath } = await readEditableConfig(getEditableConfigPath());
+  const bot = ensureProviderBot(config, provider, botId);
+
+  if (action === "get-timezone") {
+    console.log(`${provider}/${botId} timezone: ${bot.timezone ?? "(inherit)"}`);
+    console.log(`config: ${configPath}`);
+    return;
+  }
+
+  if (action === "clear-timezone") {
+    delete bot.timezone;
+    await writeEditableConfig(configPath, config);
+    console.log(`cleared timezone for ${provider}/${botId}`);
+    console.log(`config: ${configPath}`);
+    return;
+  }
+
+  bot.timezone = parseTimezone(parseOptionValue(args, "--timezone") ?? findLastPositionalArg(args));
+  await writeEditableConfig(configPath, config);
+  console.log(`set timezone for ${provider}/${botId} to ${bot.timezone}`);
+  console.log(`config: ${configPath}`);
+}
+
 function ensureDefaultDmRoute(config: ClisbotConfig, provider: Provider, botId: string) {
   return ensureBotDirectMessageWildcardRoute(config, provider, botId);
 }
@@ -690,6 +741,11 @@ export async function runBotsCli(
 
   if (action === "get-agent" || action === "set-agent" || action === "clear-agent") {
     await getOrSetBotAgent(args.slice(1), action);
+    return;
+  }
+
+  if (action === "get-timezone" || action === "set-timezone" || action === "clear-timezone") {
+    await getSetClearBotTimezone(args.slice(1), action);
     return;
   }
 

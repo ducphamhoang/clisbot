@@ -4,6 +4,8 @@
 
 `clisbot loops` is the operator-facing control surface for creating, inspecting, and cancelling loop work with the same parser family used by channel `/loop`.
 
+It is also the source of truth that AI agents should inspect when users ask to create, schedule, repeat, remind, or run something later or periodically.
+
 Examples:
 
 - `clisbot loops list`
@@ -71,6 +73,10 @@ Examples:
 
 - recurring interval and wall-clock loops created from the CLI are persisted first into the routed session entry
 - CLI creation accepts the same loop expression families as `/loop`: interval, forced interval, times/count, and calendar wall-clock schedules
+- if no wall-clock loop has been created successfully yet, the first wall-clock create command returns `confirmation_required` and does not persist a loop
+- the confirmation-required output includes the proposed schedule, resolved timezone, next run, and the exact retry command with `--confirm`
+- a confirmed retry creates the loop only when `--confirm` is present
+- AI agents should not infer first-loop state; they should run the loops CLI and follow the confirmation output exactly
 - the live runtime periodically reconciles persisted loop state, so a running service can pick up new operator-created recurring loops without a restart
 - if runtime is stopped, recurring CLI-created loops activate on the next `clisbot start`
 - one-shot count loops run synchronously inside the CLI because the top-level operator process still has no shared queue IPC with the long-lived runtime

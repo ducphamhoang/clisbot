@@ -510,6 +510,32 @@ Examples:
 - CLI creation accepts the same expression families as `/loop`: interval, forced interval, times/count, and calendar schedules
 - omit the prompt body to load `LOOP.md` from the target workspace for maintenance loops
 - count/times loops run synchronously in the CLI process today; recurring loops are persisted for the runtime scheduler
+- the first wall-clock loop create attempt returns confirmation-required output and does not persist a loop until rerun with `--confirm`
+- AI agents should inspect `clisbot loops --help` for schedule, loop, or reminder requests and follow the CLI output instead of guessing loop state
+
+## Timezone
+
+- `clisbot timezone get`
+- `clisbot timezone set Asia/Ho_Chi_Minh`
+- `clisbot timezone clear`
+- `clisbot timezone doctor`
+- `clisbot agents get-timezone --agent default`
+- `clisbot agents set-timezone --agent support-us America/Los_Angeles`
+- `clisbot agents clear-timezone --agent support-us`
+- `clisbot routes get-timezone --channel telegram group:-1001234567890 --bot default`
+- `clisbot routes set-timezone --channel telegram group:-1001234567890 --bot default Asia/Ho_Chi_Minh`
+- `clisbot routes clear-timezone --channel telegram topic:-1001234567890:4 --bot default`
+- `clisbot bots get-timezone --channel telegram --bot default`
+- `clisbot bots set-timezone --channel telegram --bot default Asia/Ho_Chi_Minh`
+- `clisbot bots clear-timezone --channel telegram --bot default`
+
+Timezone guidance:
+
+- app timezone is the normal default; prefer `clisbot timezone set <iana>` when the whole install should use one timezone
+- agent timezone is for one assistant/workspace that mostly serves a different timezone
+- route timezone is for one Slack channel, Telegram group, or topic that has different local time from its app or agent default
+- bot timezone is advanced fallback for a concrete provider bot; do not use provider-default timezone fields
+- CLI first wall-clock loop creation prints the resolved timezone before persisting; if it is wrong, set timezone first, then create again
 
 ## First-Run Flows
 

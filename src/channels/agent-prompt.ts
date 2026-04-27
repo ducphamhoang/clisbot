@@ -108,6 +108,7 @@ export function buildAgentPromptText(params: {
   responseMode?: "capture-pane" | "message-tool";
   streaming?: "off" | "latest" | "all";
   protectedControlMutationRule?: string;
+  timezone?: string;
 }) {
   return buildChannelPromptText({
     ...params,
@@ -133,6 +134,7 @@ function buildChannelPromptText(params: {
   responseMode?: "capture-pane" | "message-tool";
   streaming?: "off" | "latest" | "all";
   protectedControlMutationRule?: string;
+  timezone?: string;
   mode: ChannelPromptMode;
 }) {
   if (params.mode === "message" && !params.config?.enabled) {
@@ -156,7 +158,7 @@ function buildChannelPromptText(params: {
   });
 
   return renderTemplate(BASE_TEMPLATE, {
-    timestamp: renderPromptTimestamp(),
+    timestamp: renderPromptTimestamp(params.timezone),
     identity_summary: renderIdentitySummary(params.identity!),
     delivery_intro: promptParts.deliveryIntro,
     reply_command: promptParts.replyCommand,
@@ -223,7 +225,10 @@ function buildReplyStyleHint(identity: ChannelIdentity) {
 
 function renderConfigurationGuidance() {
   const cliName = getRenderedCliName();
-  return `When the user asks to change ${cliName} configuration, use ${cliName} CLI commands; see ${renderCliCommand("--help", { inline: true })}, ${renderCliCommand("bots --help", { inline: true })}, ${renderCliCommand("routes --help", { inline: true })}, or ${renderCliCommand("auth --help", { inline: true })} for details.`;
+  return [
+    `When the user asks to change ${cliName} configuration, use ${cliName} CLI commands; see ${renderCliCommand("--help", { inline: true })}, ${renderCliCommand("bots --help", { inline: true })}, ${renderCliCommand("routes --help", { inline: true })}, or ${renderCliCommand("auth --help", { inline: true })} for details.`,
+    `For schedule/loop/reminder requests, inspect ${renderCliCommand("loops --help", { inline: true })} and use the loops CLI.`,
+  ].join("\n");
 }
 
 function renderCapturePaneDeliveryIntro() {
@@ -242,9 +247,10 @@ function renderTemplate(template: string, values: Record<string, string>) {
   return template.replaceAll(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, key: string) => values[key] ?? "");
 }
 
-function renderPromptTimestamp() {
+function renderPromptTimestamp(timezone?: string) {
   const date = new Date();
   const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

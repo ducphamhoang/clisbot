@@ -41,6 +41,7 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
         lastTouchedAt: new Date().toISOString(),
       },
       app: {
+        timezone: defaultTimezone,
         session: {
           mainKey: "main",
           identityLinks: {},
@@ -76,7 +77,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
           loop: {
             maxRunsPerLoop: 20,
             maxActiveLoops: 10,
-            defaultTimezone,
           },
           runtimeMonitor: {
             restartBackoff: defaultRuntimeMonitorRestartBackoff,
@@ -109,7 +109,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
             mode: "auto",
             participationTtlMin: 5,
           },
-          timezone: defaultTimezone,
         },
         slack: {
           defaults: {
@@ -170,7 +169,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
               mode: "auto",
               participationTtlMin: 5,
             },
-            timezone: defaultTimezone,
           },
           default: {
             enabled: slackEnabled,
@@ -235,7 +233,6 @@ export function renderDefaultConfigTemplate(options: DefaultChannelBootstrapOpti
               mode: "auto",
               participationTtlMin: 5,
             },
-            timezone: defaultTimezone,
             polling: {
               timeoutSeconds: 20,
               retryDelayMs: 1000,

@@ -14,9 +14,9 @@ import {
 import type { IntervalLoopStatus } from "../agents/loop-state.ts";
 import {
   LOOP_APP_FLAG,
+  computeNextCalendarLoopRunAtMs,
   formatCalendarLoopSchedule,
   parseLoopSlashCommand,
-  resolveLoopTimezone,
   type ParsedLoopSlashCommand,
 } from "../agents/loop-command.ts";
 import { resolveAgentTarget } from "../agents/resolved-target.ts";
@@ -27,12 +27,14 @@ import {
   loadConfigWithoutEnvResolution,
   resolveSessionStorePath,
 } from "../config/load-config.ts";
+import { parseTimezone, resolveConfigTimezone } from "../config/timezone.ts";
 import { getRuntimeStatus } from "./runtime-process.ts";
 import { resolveLoopCliContext } from "./loop-cli-context.ts";
 import {
   hasFlag,
   hasLoopContext,
   parseAddressing,
+  parseOptionValue,
   resolveLoopSubtargetId,
   stripLoopContextArgs,
   type LoopCliAddressing,
@@ -57,6 +59,7 @@ import { sleep } from "../shared/process.ts";
 export { renderLoopsHelp } from "./loops-cli-rendering.ts";
 
 const LOOP_BUSY_RETRY_MS = 250;
+const LOOP_CONFIRM_FLAG = "--confirm";
 
 type LoadedLoopControlState = Awaited<ReturnType<typeof loadLoopControlState>>;
 type LoopCliContext = ReturnType<typeof resolveLoopCliContext>;
@@ -70,7 +73,9 @@ type LoopCreateRequest = {
   resolvedTarget: ReturnType<typeof resolveAgentTarget>;
   maxRunsPerLoop: number;
   maxActiveLoops: number;
-  defaultTimezone?: string;
+  expression: string;
+  confirm: boolean;
+  loopTimezone?: string;
 };
 type LoopCounts = {
   sessionLoopCount: number;
@@ -339,9 +344,13 @@ async function executeCountLoop(params: {
   console.log(`Completed ${params.count} iteration${params.count === 1 ? "" : "s"}.`);
 }
 
+function stripConfirmFlag(args: string[]) {
+  return args.filter((arg) => arg !== LOOP_CONFIRM_FLAG);
+}
+
 function parseCreateExpression(rawArgs: string[], explicitCreateSubcommand: boolean) {
   const expressionArgs = stripLoopContextArgs(
-    explicitCreateSubcommand ? rawArgs.slice(1) : rawArgs,
+    stripConfirmFlag(explicitCreateSubcommand ? rawArgs.slice(1) : rawArgs),
   );
   const expression = expressionArgs.join(" ").trim();
   if (!expression) {
@@ -356,6 +365,14 @@ function parseCreateCommand(expression: string) {
     throw new Error(parsed.error);
   }
   return parsed;
+}
+
+function parseLoopTimezone(args: string[]) {
+  const timezone = parseOptionValue(args, "--timezone");
+  if (!timezone) {
+    return undefined;
+  }
+  return parseTimezone(timezone, "--timezone");
 }
 
 async function enforceLoopCreateLimits(
@@ -391,9 +408,10 @@ async function resolveLoopCreateRequest(
   rawArgs: string[],
   explicitCreateSubcommand: boolean,
 ): Promise<LoopCreateRequest> {
-  const parsed = parseCreateCommand(
-    parseCreateExpression(rawArgs, explicitCreateSubcommand),
-  );
+  const confirm = hasFlag(rawArgs, LOOP_CONFIRM_FLAG);
+  const loopTimezone = parseLoopTimezone(rawArgs);
+  const expression = parseCreateExpression(rawArgs, explicitCreateSubcommand);
+  const parsed = parseCreateCommand(expression);
   let addressing = parseAddressing(rawArgs);
   if (addressing.channel === "telegram" && addressing.threadId) {
     throw new Error("Telegram loop commands use `--topic-id`, not `--thread-id`.");
@@ -411,6 +429,20 @@ async function resolveLoopCreateRequest(
     workspacePath: provisionalResolvedTarget.workspacePath,
     promptText: parsed.promptText,
   });
+  if (parsed.mode === "calendar" && !confirm && !(await hasSuccessfulCalendarLoop(state))) {
+    return {
+      addressing,
+      context: provisionalContext,
+      parsed,
+      resolvedPrompt,
+      resolvedTarget: provisionalResolvedTarget,
+      maxRunsPerLoop,
+      maxActiveLoops,
+      expression,
+      confirm,
+      loopTimezone,
+    };
+  }
   addressing = await prepareLoopCreateAddressing({
     configPath: state.configPath,
     rawArgs,
@@ -439,7 +471,9 @@ async function resolveLoopCreateRequest(
     resolvedTarget,
     maxRunsPerLoop,
     maxActiveLoops,
-    defaultTimezone: loopConfig.defaultTimezone,
+    expression,
+    confirm,
+    loopTimezone,
   };
 }
 
@@ -502,10 +536,13 @@ async function createCalendarLoop(base: LoopCreateBase) {
   }
 
   const metadata = buildRecurringLoopPromptMetadata(base.request);
-  const timezone = resolveLoopTimezone(
-    base.request.context.route.timezone,
-    base.request.defaultTimezone,
-  ) ?? "UTC";
+  const timezone = resolveConfigTimezone({
+    config: base.state.loadedConfig.raw,
+    agentId: base.request.context.sessionTarget.agentId,
+    routeTimezone: base.request.context.route.timezone,
+    botTimezone: base.request.context.route.botTimezone,
+    loopTimezone: base.request.loopTimezone,
+  }).timezone;
   const loop = createStoredCalendarLoop({
     ...metadata,
     cadence: parsed.cadence,
@@ -538,6 +575,42 @@ async function createCalendarLoop(base: LoopCreateBase) {
     }),
   );
   return true;
+}
+
+async function hasSuccessfulCalendarLoop(state: LoadedLoopControlState) {
+  return (await state.sessionState.listIntervalLoops()).some((loop) => loop.kind === "calendar");
+}
+
+function renderCalendarConfirmation(params: {
+  request: LoopCreateRequest;
+  timezone: string;
+}) {
+  const parsed = params.request.parsed;
+  if (parsed.mode !== "calendar") {
+    return "";
+  }
+  const nextRunAt = computeNextCalendarLoopRunAtMs({
+    cadence: parsed.cadence,
+    dayOfWeek: parsed.dayOfWeek,
+    hour: parsed.hour,
+    minute: parsed.minute,
+    timezone: params.timezone,
+    nowMs: Date.now(),
+  });
+  const timezoneClause = params.request.loopTimezone ? ` --timezone ${params.request.loopTimezone}` : "";
+  const retryCommand = `${renderScopedCommand("loops create", params.request.addressing)}${timezoneClause} ${params.request.expression} ${LOOP_CONFIRM_FLAG}`;
+  return [
+    "confirmation_required: first wall-clock loop",
+    `proposed schedule: ${formatCalendarLoopSchedule(parsed)}`,
+    `timezone: ${params.timezone}`,
+    nextRunAt ? `next run: ${new Date(nextRunAt).toISOString()}` : "next run: unknown",
+    "",
+    "Confirm this timezone and schedule before creating the first wall-clock loop.",
+    `If timezone is wrong, set it first with ${renderCliCommand("timezone set <iana-timezone>", { inline: true })}.`,
+    "",
+    "If correct, rerun with:",
+    retryCommand,
+  ].join("\n");
 }
 
 async function createIntervalLoop(base: LoopCreateBase) {
@@ -607,6 +680,21 @@ async function createLoop(
       count: request.parsed.count,
       maintenancePrompt: request.resolvedPrompt.maintenancePrompt,
     });
+    return;
+  }
+  if (
+    request.parsed.mode === "calendar" &&
+    !request.confirm &&
+    !(await hasSuccessfulCalendarLoop(state))
+  ) {
+    const timezone = resolveConfigTimezone({
+      config: state.loadedConfig.raw,
+      agentId: request.context.sessionTarget.agentId,
+      routeTimezone: request.context.route.timezone,
+      botTimezone: request.context.route.botTimezone,
+      loopTimezone: request.loopTimezone,
+    }).timezone;
+    console.log(renderCalendarConfirmation({ request, timezone }));
     return;
   }
   await createRecurringLoop(state, request);

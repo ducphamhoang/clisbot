@@ -84,6 +84,8 @@ If this page and runtime ever disagree, runtime wins.
 Useful operator note:
 
 - encourage users to try `/queue help` and `/loop help` directly in chat when they need the live syntax summary for the current surface
+- chat `/loop` wall-clock creation is immediate to keep the conversational path low-friction; the creation response shows the resolved timezone, next run in local time plus UTC, and the exact cancel command
+- if the timezone is wrong, cancel the loop from that response, set the correct timezone, then create the loop again
 
 ## Shell
 

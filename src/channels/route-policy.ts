@@ -20,6 +20,7 @@ export type SurfaceRoute = {
   verbose: "off" | "minimal";
   followUp: FollowUpConfig;
   timezone?: string;
+  botTimezone?: string;
 };
 
 export type ResolvedSurfaceRouteStatus = "admitted" | "disabled" | "missing";
@@ -155,7 +156,8 @@ export function buildSurfaceRoute(params: BuildSurfaceRouteParams): SurfaceRoute
         defaultMinutes: 5,
       }),
     },
-    timezone: params.route?.timezone ?? params.channelConfig.timezone,
+    timezone: params.route?.timezone,
+    botTimezone: params.channelConfig.timezone,
   };
 }
 

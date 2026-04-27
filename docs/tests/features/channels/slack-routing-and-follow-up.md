@@ -412,7 +412,7 @@ Live proof on April 5, 2026:
 ### Preconditions
 
 - the routed Slack or Telegram surface uses a live agent route
-- `control.loop.defaultTimezone` is configured, or the route has an explicit timezone override
+- `app.timezone` is configured, or the route has an explicit timezone override
 
 ### Steps
 

@@ -10,11 +10,15 @@ Planned
 
 ## Why
 
-The runtime already resolves wall-clock loop timezone in a defined order:
+The runtime now resolves new wall-clock loop timezone in a defined order:
 
-- route override
-- `control.loop.defaultTimezone`
-- host timezone
+- one-off loop override
+- route/topic timezone
+- agent timezone
+- concrete bot timezone
+- `app.timezone`
+- legacy defaults
+- host timezone fallback
 
 This task remains valid for loop status and acknowledgement visibility, but the broader timezone configuration decision is now tracked separately in:
 
@@ -41,7 +45,7 @@ So the bug is not only scheduling logic. It is visibility and prompt truth.
 
 ## Current Truth
 
-- wall-clock loop timezone already resolves from route override, then `control.loop.defaultTimezone`, then host timezone
+- wall-clock loop timezone now resolves from one-off loop override, route/topic, agent, bot, `app.timezone`, legacy defaults, then host timezone
 - the effective timezone is already frozen onto the persisted wall-clock loop record at creation time
 - the remaining confusion appears to be operator and AI visibility, not only raw scheduler correctness
 - current Slack and Telegram message payloads do not provide a reliable sender timezone, so loop creation should not silently infer user timezone from each message

@@ -9,6 +9,7 @@ import { runLoopsCli } from "./control/loops-cli.ts";
 import { runMessageCli } from "./control/message-cli.ts";
 import { runRoutesCli } from "./control/routes-cli.ts";
 import { runRunnerCli } from "./control/runner-cli.ts";
+import { runTimezoneCli } from "./control/timezone-cli.ts";
 import { initConfig, start } from "./control/runtime-bootstrap-cli.ts";
 import {
   logs,
@@ -104,6 +105,11 @@ async function runBuiltinCommand(command: ReturnType<typeof parseCliArgs>) {
 async function runControlCommand(command: ReturnType<typeof parseCliArgs>) {
   if (command.name === "channels") {
     await runChannelsCli(command.args);
+    return true;
+  }
+
+  if (command.name === "timezone") {
+    await runTimezoneCli(command.args);
     return true;
   }
 

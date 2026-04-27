@@ -636,13 +636,20 @@ describe("processChannelInteraction sensitive command gating", () => {
           startedAt,
           detachedAt,
         }),
+        resolveEffectiveTimezone: () => ({
+          timezone: "America/Los_Angeles",
+          source: "agent",
+        }),
         recordConversationReply: async () => undefined,
       } as any,
       sessionTarget: createTarget(),
       identity: createIdentity(),
       senderId: "U123",
       text: "/status",
-      route: createRoute(),
+      route: createRoute({
+        timezone: "Asia/Ho_Chi_Minh",
+        botTimezone: "UTC",
+      }),
       maxChars: 4000,
       postText: async (text) => {
         posted.push(text);
@@ -664,6 +671,9 @@ describe("processChannelInteraction sensitive command gating", () => {
     expect(posted[0]).toContain("principalFormat: `slack:<nativeUserId>`");
     expect(posted[0]).toContain("principalExample: `slack:U123`");
     expect(posted[0]).toContain("run.state: `detached`");
+    expect(posted[0]).toContain("timezone.effective: `America/Los_Angeles`");
+    expect(posted[0]).toContain("timezone.route: `Asia/Ho_Chi_Minh`");
+    expect(posted[0]).toContain("timezone.bot: `UTC`");
     expect(posted[0]).toContain(`run.startedAt: \`${new Date(startedAt).toISOString()}\``);
     expect(posted[0]).toContain(`run.detachedAt: \`${new Date(detachedAt).toISOString()}\``);
     expect(posted[0]).toContain("appRole: `member`");
@@ -683,6 +693,10 @@ describe("processChannelInteraction sensitive command gating", () => {
         getConversationFollowUpState: async () => ({}),
         getSessionRuntime: async () => ({
           state: "idle",
+        }),
+        resolveEffectiveTimezone: () => ({
+          timezone: "UTC",
+          source: "app",
         }),
         recordConversationReply: async () => undefined,
       } as any,
@@ -1422,7 +1436,6 @@ describe("processChannelInteraction sensitive command gating", () => {
         getLoopConfig: () => ({
           maxRunsPerLoop: 20,
           maxActiveLoops: 10,
-          defaultTimezone: "UTC",
         }),
         createIntervalLoop: async (params: { protectedControlMutationRule?: string }) => {
           observedProtectedRule = params.protectedControlMutationRule;
@@ -3489,9 +3502,12 @@ describe("processChannelInteraction agent prompt text", () => {
         getLoopConfig: () => ({
           maxRunsPerLoop: 20,
           maxActiveLoops: 10,
-          defaultTimezone: "UTC",
         }),
         getWorkspacePath: () => "/tmp/workspace",
+        resolveEffectiveTimezone: ({ routeTimezone }: { routeTimezone?: string }) => ({
+          timezone: routeTimezone ?? "UTC",
+          source: routeTimezone ? "route" : "app",
+        }),
         createCalendarLoop: async ({
           cadence,
           timezone,
@@ -3573,7 +3589,9 @@ describe("processChannelInteraction agent prompt text", () => {
     expect(observedTimezone).toBe("Asia/Ho_Chi_Minh");
     expect(posted[0]).toContain("Started loop `loopcal1` every day at 07:00.");
     expect(posted[0]).toContain("timezone: `Asia/Ho_Chi_Minh`");
-    expect(posted[0]).toContain("The first run is scheduled for `2026-04-13T00:00:00.000Z`.");
+    expect(posted[0]).toContain("next run: `2026-04-13 07:00 Asia/Ho_Chi_Minh` (2026-04-13T00:00:00.000Z)");
+    expect(posted[0]).toContain("cancel: `/loop cancel loopcal1`");
+    expect(posted[0]).toContain("If timezone is wrong: cancel with `/loop cancel loopcal1`");
   });
 
   test("loop maintenance mode reads LOOP.md when no prompt is provided", async () => {

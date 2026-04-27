@@ -332,6 +332,23 @@ describe("agents cli", () => {
     expect(output.join("\n")).toContain("cleared additionalMessageMode for work");
   });
 
+  test("sets and clears agent timezone override", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    console.log = (() => {}) as typeof console.log;
+
+    await runAgentsCli(["add", "work", "--cli", "claude"]);
+    await runAgentsCli(["set-timezone", "--agent", "work", "America/Los_Angeles"]);
+
+    let rawConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
+    expect(rawConfig.agents.list[0]?.timezone).toBe("America/Los_Angeles");
+
+    await runAgentsCli(["clear-timezone", "--agent", "work"]);
+    rawConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
+    expect(rawConfig.agents.list[0]?.timezone).toBeUndefined();
+  });
+
   test("lists agent responseMode state", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-agents-cli-"));
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;

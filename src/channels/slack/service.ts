@@ -729,6 +729,11 @@ export class SlackSocketService {
             responseMode: params.route.responseMode,
             streaming: params.route.streaming,
             protectedControlMutationRule,
+            timezone: this.agentService.resolveEffectiveTimezone({
+              agentId: params.route.agentId,
+              routeTimezone: params.route.timezone,
+              botTimezone: params.route.botTimezone,
+            }).timezone,
           }),
         protectedControlMutationRule,
         transformSessionInputText: enrichPromptText,

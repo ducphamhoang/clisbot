@@ -1,4 +1,5 @@
 import { readEditableConfig, writeEditableConfig } from "../config/config-file.ts";
+import { parseTimezone } from "../config/timezone.ts";
 import type {
   BotRouteConfig,
   ClisbotConfig,
@@ -83,9 +84,15 @@ const ROUTE_ARGUMENT_FLAGS = new Set([
   "--mode",
   "--minutes",
   "--user",
+  "--timezone",
 ]);
 
 function findRouteArgument(args: string[]) {
+  return findPositionalArgs(args)[0];
+}
+
+function findPositionalArgs(args: string[]) {
+  const positional: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (!arg) {
@@ -98,9 +105,9 @@ function findRouteArgument(args: string[]) {
     if (arg.startsWith("--")) {
       continue;
     }
-    return arg;
+    positional.push(arg);
   }
-  return undefined;
+  return positional;
 }
 
 function parseBoolean(value: string | undefined, fallback?: boolean) {
@@ -662,6 +669,16 @@ async function getSetClearRouteField(args: string[], action: string) {
     delete route.additionalMessageMode;
     await writeEditableConfig(configPath, config);
     console.log(`cleared additionalMessageMode for ${provider}/${botId}/${parsed.routeId}`);
+  } else if (action === "get-timezone") {
+    console.log(`${provider}/${botId}/${parsed.routeId} timezone: ${route.timezone ?? "(inherit)"}`);
+  } else if (action === "set-timezone") {
+    route.timezone = parseTimezone(parseOptionValue(args, "--timezone") ?? findPositionalArgs(args)[1]);
+    await writeEditableConfig(configPath, config);
+    console.log(`set timezone for ${provider}/${botId}/${parsed.routeId} to ${route.timezone}`);
+  } else if (action === "clear-timezone") {
+    delete route.timezone;
+    await writeEditableConfig(configPath, config);
+    console.log(`cleared timezone for ${provider}/${botId}/${parsed.routeId}`);
   }
 
   console.log(`config: ${configPath}`);
@@ -758,7 +775,10 @@ export async function runRoutesCli(args: string[]) {
     action === "clear-response-mode" ||
     action === "get-additional-message-mode" ||
     action === "set-additional-message-mode" ||
-    action === "clear-additional-message-mode"
+    action === "clear-additional-message-mode" ||
+    action === "get-timezone" ||
+    action === "set-timezone" ||
+    action === "clear-timezone"
   ) {
     await getSetClearRouteField(rest, action);
     return;

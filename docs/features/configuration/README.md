@@ -17,6 +17,15 @@ For surface access, the important split is:
 
 inside each bot config.
 
+For timezone, the important mental model is:
+
+- `app.timezone`: default timezone for this install
+- `agents.list[].timezone`: override when one assistant persona or workspace has a regional context
+- route `timezone`: override when one group, channel, DM, or topic has a regional context
+- persisted loop `timezone`: execution snapshot for an existing wall-clock loop, not user-facing config
+
+Do not require new users to know IANA timezone values before first start. Fresh bootstrap may infer host timezone and write `app.timezone`, but start/status output must show what was inferred and how to change it.
+
 ## State
 
 Active
@@ -101,6 +110,38 @@ Shared allowlist failures are denied before runner ingress with:
 - exact DM routes may carry admission config as well as behavior overrides
 - the deny message says `group` on purpose because the chosen human model is one-person vs many-people, not provider-specific surface labels
 
+## Timezone Model
+
+Target canonical config uses `app.timezone` as the app-wide default.
+
+`app.control.loop.defaultTimezone` is legacy config only. Migration should move it to `app.timezone`, remove it from the rewritten config document, and keep runtime read compatibility for old config files that were not migrated.
+
+`bots.defaults.timezone`, `bots.slack.defaults.timezone`, and `bots.telegram.defaults.timezone` are also legacy default-level timezone fields. Migration should move their default intent into `app.timezone` when needed, then remove those fields from the rewritten config document so they cannot shadow app or agent timezone later.
+
+Effective timezone for prompt timestamps and new wall-clock loop creation resolves in this order:
+
+1. explicit one-off loop timezone
+2. route or topic timezone
+3. agent timezone
+4. bot timezone
+5. `app.timezone`
+6. legacy `app.control.loop.defaultTimezone`
+7. legacy `bots.defaults.timezone`
+8. legacy `bots.<provider>.defaults.timezone`
+9. host timezone
+
+Guide and help should teach timezone in product order, not raw resolver order:
+
+1. app default
+2. agent persona/workspace override
+3. current surface override
+4. one-off loop override
+5. bot advanced override
+
+Persisted loop records keep their stored `timezone` so existing wall-clock loops do not shift when config changes.
+
+Operator CLI wall-clock creation uses confirmation-required output for the first wall-clock loop before persisting it. Chat `/loop` creation intentionally stays lower-friction and persists immediately. For chat creation, the response must show the resolved timezone, next run in local time plus UTC, and the exact cancel command so the user can quickly cancel, set the correct app, agent, or surface timezone, then create the loop again if the timezone is wrong.
+
 ## 0.1.43 Compatibility
 
 Released `0.1.43` stored older route keys such as:
@@ -116,7 +157,7 @@ The loader now backs up the original config and normalizes them into the canonic
 - `groups["*"]`
 - Slack raw ids such as `groups["C123"]` and `groups["G123"]`
 
-That keeps upgrade behavior smooth for existing installs. The backup is written beside the config under `backups/`, for example `~/.clisbot/backups/clisbot.json.0.1.43.<timestamp>`, before the current config is rewritten as `0.1.44`.
+That keeps upgrade behavior smooth for existing installs. The backup is written beside the config under `backups/`, for example `~/.clisbot/backups/clisbot.json.0.1.43.<timestamp>`, before the current config is rewritten as `0.1.45`.
 
 The upgrade logs each stage:
 
@@ -155,7 +196,7 @@ The released `0.1.43` snapshot is preserved here for migration review:
 - session storage and session key policy
 - runner defaults and session-id capture/resume policy
 - runtime monitor, cleanup, and loop defaults
-- app, agent, bot, provider-default, and route timezone defaults
+- app timezone default, agent/bot/route timezone overrides, and legacy default-level timezone migration into `app.timezone`
 - persisted auth policy shape
 
 ## Non-Goals

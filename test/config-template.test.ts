@@ -17,7 +17,9 @@ describe("renderDefaultConfigTemplate", () => {
 
     expect("channels" in config).toBe(false);
     expect(config.app.auth.defaultRole).toBe("member");
+    expect(config.app.timezone).toBeTruthy();
     expect(config.app.control.configReload.watch).toBe(true);
+    expect(config.app.control.loop.defaultTimezone).toBeUndefined();
     expect(config.bots.defaults.allowBots).toBe(false);
     expect(config.bots.slack.defaults.enabled).toBe(false);
     expect(config.bots.slack.defaults.dmPolicy).toBe("pairing");
@@ -53,6 +55,9 @@ describe("renderDefaultConfigTemplate", () => {
     expect(config.agents.defaults.defaultAgentId).toBe("default");
     expect(config.agents.defaults.auth.defaultRole).toBe("member");
     expect(JSON.stringify(config)).not.toContain("privilegeCommands");
+    expect(config.bots.defaults.timezone).toBeUndefined();
+    expect(config.bots.slack.defaults.timezone).toBeUndefined();
+    expect(config.bots.telegram.defaults.timezone).toBeUndefined();
     expect(text).toContain("\"channelPolicy\"");
     expect(text).toContain("\"groupPolicy\"");
     expect(text).toContain("\"dmPolicy\"");
@@ -115,7 +120,7 @@ describe("renderDefaultConfigTemplate", () => {
     const parsed = JSON.parse(text);
     const config = clisbotConfigSchema.parse(parsed);
 
-    expect(config.meta.schemaVersion).toBe("0.1.44");
+    expect(config.meta.schemaVersion).toBe("0.1.45");
     expect(Object.keys(config)).toEqual(["meta", "app", "bots", "agents"]);
     expect(config.bots.slack.defaults.defaultBotId).toBe("default");
     expect(config.bots.telegram.defaults.defaultBotId).toBe("default");
@@ -129,7 +134,7 @@ describe("renderDefaultConfigTemplate", () => {
     const editable = await readEditableConfig(
       new URL("../config/clisbot.json.template", import.meta.url).pathname,
     );
-    expect(editable.config.meta.schemaVersion).toBe("0.1.44");
+    expect(editable.config.meta.schemaVersion).toBe("0.1.45");
     expect(editable.config.bots.slack.default.directMessages["*"]?.policy).toBe("pairing");
     expect(editable.config.bots.slack.default.groups["*"]?.policy).toBe("open");
   });

@@ -67,6 +67,7 @@ import {
   resolveTelegramDirectMessageConfig,
 } from "../config/channel-bots.ts";
 import { resolveSharedGroupsWildcardRoute } from "../config/group-routes.ts";
+import { resolveConfigTimezone } from "../config/timezone.ts";
 
 type StreamUpdate = RunUpdate;
 
@@ -83,7 +84,6 @@ type ManagedIntervalLoop = {
 type LoopConfig = {
   maxRunsPerLoop: number;
   maxActiveLoops: number;
-  defaultTimezone?: string;
   legacyMaxTimes?: number;
 };
 
@@ -396,8 +396,22 @@ export class AgentService {
     return {
       maxRunsPerLoop: raw.maxRunsPerLoop ?? raw.legacyMaxTimes ?? 50,
       maxActiveLoops: raw.maxActiveLoops ?? 10,
-      defaultTimezone: raw.defaultTimezone,
     };
+  }
+
+  resolveEffectiveTimezone(params: {
+    agentId?: string;
+    routeTimezone?: string;
+    botTimezone?: string;
+    loopTimezone?: string;
+  } = {}) {
+    return resolveConfigTimezone({
+      config: this.loadedConfig.raw,
+      agentId: params.agentId,
+      routeTimezone: params.routeTimezone,
+      botTimezone: params.botTimezone,
+      loopTimezone: params.loopTimezone,
+    });
   }
 
   async createIntervalLoop(params: {

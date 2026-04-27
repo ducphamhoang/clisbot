@@ -80,6 +80,13 @@ describe("parseCliArgs", () => {
     });
   });
 
+  test("parses timezone subcommands", () => {
+    expect(parseCliArgs(["bun", "src/main.ts", "timezone", "get"])).toEqual({
+      name: "timezone",
+      args: ["get"],
+    });
+  });
+
   test("parses auth subcommands", () => {
     expect(parseCliArgs(["bun", "src/main.ts", "auth", "show", "app"])).toEqual({
       name: "auth",

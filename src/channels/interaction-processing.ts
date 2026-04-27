@@ -22,7 +22,6 @@ import {
   LOOP_APP_FLAG,
   LOOP_FORCE_FLAG,
   MIN_LOOP_INTERVAL_MS,
-  resolveLoopTimezone,
 } from "../agents/loop-command.ts";
 import {
   renderLoopStartedMessage as renderManagedLoopStartedMessage,
@@ -83,6 +82,7 @@ export type ChannelInteractionRoute = {
   verbose: "off" | "minimal";
   followUp: FollowUpConfig;
   timezone?: string;
+  botTimezone?: string;
 };
 
 export type ChannelInteractionIdentity = ChannelIdentity;
@@ -212,6 +212,11 @@ function renderRouteStatusMessage(params: {
     sessionLoops: ReturnType<AgentService["listIntervalLoops"]>;
     globalLoopCount: number;
   };
+  timezone: {
+    effective: string;
+    route?: string;
+    bot?: string;
+  };
 }) {
   const lines = [
     "Status",
@@ -256,7 +261,9 @@ function renderRouteStatusMessage(params: {
     `mayBypassSharedSenderPolicy: \`${params.auth.mayBypassSharedSenderPolicy}\``,
     `mayManageProtectedResources: \`${params.auth.mayManageProtectedResources}\``,
     `canUseShell: \`${params.auth.canUseShell}\``,
-    `timezone: \`${params.route.timezone ?? "(inherit host/app)"}\``,
+    `timezone.effective: \`${params.timezone.effective}\``,
+    `timezone.route: \`${params.timezone.route ?? "(inherit)"}\``,
+    `timezone.bot: \`${params.timezone.bot ?? "(inherit)"}\``,
     `followUp.mode: \`${params.followUpState.overrideMode ?? params.route.followUp.mode}\``,
     `followUp.windowMinutes: \`${formatFollowUpTtlMinutes(params.route.followUp.participationTtlMs)}\``,
     `run.state: \`${params.runtimeState.state}\``,
@@ -509,7 +516,7 @@ function renderLoopUsage() {
     "- `/loop /codereview 3 times`",
     "- `/loop status`",
     `- \`/loop cancel\`, \`/loop cancel <id>\`, \`/loop cancel --all\`, \`/loop cancel --all ${LOOP_APP_FLAG}\``,
-    "- wall-clock loop timezone resolves from route override, then `control.loop.defaultTimezone`, then host timezone",
+    "- wall-clock loop timezone resolves from route/topic, agent, bot, app timezone, then legacy defaults and host timezone",
   ].join("\n");
 }
 
@@ -544,10 +551,16 @@ function renderLoopStatusMessage(params: {
 }
 
 function resolveEffectiveLoopTimezone(params: {
+  agentService: AgentService;
+  agentId: string;
   routeTimezone?: string;
-  defaultTimezone?: string;
+  botTimezone?: string;
 }) {
-  return resolveLoopTimezone(params.routeTimezone, params.defaultTimezone);
+  return params.agentService.resolveEffectiveTimezone({
+    agentId: params.agentId,
+    routeTimezone: params.routeTimezone,
+    botTimezone: params.botTimezone,
+  }).timezone;
 }
 
 function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
@@ -1355,6 +1368,16 @@ export async function processChannelInteraction<TChunk>(params: {
             sessionLoops,
             globalLoopCount: params.agentService.getActiveIntervalLoopCount?.() ?? 0,
           },
+          timezone: {
+            effective: resolveEffectiveLoopTimezone({
+              agentService: params.agentService,
+              agentId: params.sessionTarget.agentId,
+              routeTimezone: params.route.timezone,
+              botTimezone: params.route.botTimezone,
+            }),
+            route: params.route.timezone,
+            bot: params.route.botTimezone,
+          },
         }),
       );
       await params.agentService.recordConversationReply(params.sessionTarget);
@@ -1802,8 +1825,10 @@ export async function processChannelInteraction<TChunk>(params: {
 
     if (slashCommand.params.mode === "calendar") {
       const effectiveTimezone = resolveEffectiveLoopTimezone({
+        agentService: params.agentService,
+        agentId: params.sessionTarget.agentId,
         routeTimezone: params.route.timezone,
-        defaultTimezone: loopConfig.defaultTimezone,
+        botTimezone: params.route.botTimezone,
       });
       const createdLoop = await params.agentService.createCalendarLoop({
         target: params.sessionTarget,

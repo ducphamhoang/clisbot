@@ -43,6 +43,9 @@ export function renderRoutesHelp() {
     `  ${renderCliCommand("routes get-additional-message-mode --channel <slack|telegram> <route-id> [--bot <id>]")}`,
     `  ${renderCliCommand("routes set-additional-message-mode --channel <slack|telegram> <route-id> [--bot <id>] --mode <queue|steer>")}`,
     `  ${renderCliCommand("routes clear-additional-message-mode --channel <slack|telegram> <route-id> [--bot <id>]")}`,
+    `  ${renderCliCommand("routes get-timezone --channel <slack|telegram> <route-id> [--bot <id>]")}`,
+    `  ${renderCliCommand("routes set-timezone --channel <slack|telegram> <route-id> [--bot <id>] <iana-timezone>")}`,
+    `  ${renderCliCommand("routes clear-timezone --channel <slack|telegram> <route-id> [--bot <id>]")}`,
     "",
     "Notes:",
     `  - Canonical CLI ids are ${renderCanonicalRouteIdList()}.`,
@@ -59,7 +62,7 @@ export function renderRoutesHelp() {
     "  - In enabled multi-user surfaces, owner/admin bypass allowlist by default, but `blockUsers` still wins.",
     "  - If a sender is not in `allowUsers` on a multi-user route, the bot replies: `You are not allowed to use this bot in this group. Ask a bot owner or admin to add you to `allowUsers` for this surface.`",
     "  - Use `bots set-agent ...` when the whole bot should change fallback agent; use `routes set-agent ...` only when one route needs a different agent.",
-    "  - Wall-clock loop timezone resolves from route override first, so route `timezone` is worth checking before blaming loop scheduling.",
+    "  - Use route timezone only when one Slack/Telegram surface needs different wall-clock time from the app or agent default.",
     "",
     "Examples:",
     `  ${renderCliCommand("routes add --channel telegram group:-1001234567890 --bot alerts --require-mention false --allow-bots true --policy allowlist")}`,
@@ -70,5 +73,6 @@ export function renderRoutesHelp() {
     `  ${renderCliCommand("routes add-block-user --channel telegram dm:* --bot alerts --user 1276408333")}`,
     `  ${renderCliCommand("routes add-allow-user --channel slack group:C1234567890 --bot default --user U_OWNER")}`,
     `  ${renderCliCommand("routes add-block-user --channel telegram group:-1001234567890 --bot default --user 1276408333")}`,
+    `  ${renderCliCommand("routes set-timezone --channel telegram group:-1001234567890 --bot default Asia/Ho_Chi_Minh")}`,
   ].join("\n");
 }

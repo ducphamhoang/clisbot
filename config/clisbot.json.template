@@ -1,9 +1,10 @@
 {
   "meta": {
-    "schemaVersion": "0.1.44",
+    "schemaVersion": "0.1.45",
     "lastTouchedAt": "2026-04-24T06:21:29.693Z"
   },
   "app": {
+    "timezone": "UTC",
     "session": {
       "mainKey": "main",
       "identityLinks": {},
@@ -48,8 +49,7 @@
       },
       "loop": {
         "maxRunsPerLoop": 20,
-        "maxActiveLoops": 10,
-        "defaultTimezone": "UTC"
+        "maxActiveLoops": 10
       },
       "runtimeMonitor": {
         "restartBackoff": {
@@ -117,8 +117,7 @@
       "followUp": {
         "mode": "auto",
         "participationTtlMin": 5
-      },
-      "timezone": "UTC"
+      }
     },
     "slack": {
       "defaults": {
@@ -183,8 +182,7 @@
         "followUp": {
           "mode": "auto",
           "participationTtlMin": 5
-        },
-        "timezone": "UTC"
+        }
       },
       "default": {
         "enabled": false,
@@ -254,7 +252,6 @@
           "mode": "auto",
           "participationTtlMin": 5
         },
-        "timezone": "UTC",
         "polling": {
           "timeoutSeconds": 20,
           "retryDelayMs": 1000

@@ -1,4 +1,5 @@
 import type { BotRouteConfig, TelegramBotConfig } from "./schema.ts";
+import { getHostTimezone } from "./timezone.ts";
 import {
   DIRECT_MESSAGE_WILDCARD_ROUTE_ID,
   createDirectMessageRouteShell,
@@ -11,8 +12,8 @@ import {
   normalizeSharedGroupRouteId,
 } from "./group-routes.ts";
 
-export const RELEASED_SCHEMA_VERSION = "0.1.43";
-export const CURRENT_SCHEMA_VERSION = "0.1.44";
+export const CURRENT_SCHEMA_VERSION = "0.1.45";
+const CONFIG_UPGRADE_MAX_SCHEMA_VERSION = "0.1.44";
 
 type Provider = "slack" | "telegram";
 
@@ -22,6 +23,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function cloneRecord(value: unknown) {
   return isRecord(value) ? { ...value } : {};
+}
+
+function parseVersionParts(schemaVersion: string | undefined) {
+  const raw = schemaVersion?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  const parts = raw.split(".").map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part) || part < 0)) {
+    return undefined;
+  }
+  return parts as [number, number, number];
+}
+
+function isAtMostVersion(schemaVersion: string | undefined, maxVersion: string) {
+  const current = parseVersionParts(schemaVersion);
+  const max = parseVersionParts(maxVersion);
+  if (!current || !max) {
+    return !schemaVersion;
+  }
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index] < max[index]) {
+      return true;
+    }
+    if (current[index] > max[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function readTimezone(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function mergeAudienceEntries(...sources: Array<unknown>) {
@@ -289,6 +323,40 @@ function normalizeProviderDefaults(provider: Provider, providerConfig: Record<st
   providerConfig.defaults = defaults;
 }
 
+function migrateTimezoneDefaults(config: Record<string, unknown>) {
+  const app = cloneRecord(config.app);
+  const control = cloneRecord(app.control);
+  const loop = cloneRecord(control.loop);
+  const bots = cloneRecord(config.bots);
+  const botDefaults = cloneRecord(bots.defaults);
+  const slack = cloneRecord(bots.slack);
+  const telegram = cloneRecord(bots.telegram);
+  const slackDefaults = cloneRecord(slack.defaults);
+  const telegramDefaults = cloneRecord(telegram.defaults);
+
+  app.timezone = readTimezone(app.timezone) ??
+    readTimezone(loop.defaultTimezone) ??
+    readTimezone(botDefaults.timezone) ??
+    readTimezone(slackDefaults.timezone) ??
+    readTimezone(telegramDefaults.timezone) ??
+    getHostTimezone();
+
+  delete loop.defaultTimezone;
+  delete botDefaults.timezone;
+  delete slackDefaults.timezone;
+  delete telegramDefaults.timezone;
+
+  control.loop = loop;
+  app.control = control;
+  bots.defaults = botDefaults;
+  slack.defaults = slackDefaults;
+  telegram.defaults = telegramDefaults;
+  bots.slack = slack;
+  bots.telegram = telegram;
+  config.app = app;
+  config.bots = bots;
+}
+
 function normalizeProviderBots(params: {
   provider: Provider;
   providerConfig: Record<string, unknown>;
@@ -324,8 +392,8 @@ function updateSchemaVersion(config: Record<string, unknown>) {
   };
 }
 
-export function isReleasedSchemaVersion(schemaVersion: string | undefined) {
-  return !schemaVersion || schemaVersion.trim() === RELEASED_SCHEMA_VERSION;
+export function shouldUpgradeConfigSchema(schemaVersion: string | undefined) {
+  return isAtMostVersion(schemaVersion, CONFIG_UPGRADE_MAX_SCHEMA_VERSION);
 }
 
 export function normalizeConfigDocumentShape(input: unknown) {
@@ -337,7 +405,7 @@ export function normalizeConfigDocumentShape(input: unknown) {
   const schemaVersion = isRecord(config.meta) && typeof config.meta.schemaVersion === "string"
     ? config.meta.schemaVersion
     : undefined;
-  const legacyExactAdmission = isReleasedSchemaVersion(schemaVersion);
+  const legacyExactAdmission = shouldUpgradeConfigSchema(schemaVersion);
 
   const bots = cloneRecord(config.bots);
   const slack = cloneRecord(bots.slack);
@@ -359,6 +427,9 @@ export function normalizeConfigDocumentShape(input: unknown) {
   bots.slack = slack;
   bots.telegram = telegram;
   config.bots = bots;
+  if (legacyExactAdmission) {
+    migrateTimezoneDefaults(config);
+  }
   updateSchemaVersion(config);
   return config;
 }

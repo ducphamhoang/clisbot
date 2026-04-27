@@ -62,6 +62,14 @@ function renderOwnerSummaryLines(summary: RuntimeOperatorSummary) {
   return lines;
 }
 
+function renderTimezoneSummaryLines(summary: RuntimeOperatorSummary) {
+  return [
+    "Timezone:",
+    `  - effective=${summary.timezoneSummary.effective} source=${summary.timezoneSummary.source} app=${summary.timezoneSummary.appTimezone ?? "(unset)"}`,
+    `  - change app default with ${renderCliCommand("timezone set <iana-timezone>", { inline: true })}; use agent/route timezone only for scoped overrides`,
+  ];
+}
+
 function hasConfiguredPrivilegedPrincipal(summary: RuntimeOperatorSummary) {
   return (
     summary.ownerSummary.ownerPrincipals.length > 0 ||
@@ -417,6 +425,8 @@ export function renderStartSummary(summary: RuntimeOperatorSummary) {
   const lines = [
     ...renderOwnerSummaryLines(summary),
     "",
+    ...renderTimezoneSummaryLines(summary),
+    "",
     ...renderAgentSummaryLines(summary),
     ...renderChannelSummaryLines(summary),
   ];
@@ -475,6 +485,8 @@ export function renderStatusSummary(summary: RuntimeOperatorSummary) {
   const lines = [
     `stats agents=${summary.configuredAgents} bootstrapped=${summary.bootstrappedAgents} pendingBootstrap=${summary.bootstrapPendingAgents} tmuxSessions=${summary.runningTmuxSessions}`,
     ...renderOwnerSummaryLines(summary),
+    "",
+    ...renderTimezoneSummaryLines(summary),
     "",
     ...renderAgentSummaryLines(summary),
     ...renderChannelSummaryLines(summary),

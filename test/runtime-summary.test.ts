@@ -255,6 +255,11 @@ describe("runtime summaries", () => {
         adminPrincipals: [],
         ownerClaimWindowMinutes: 30,
       },
+      timezoneSummary: {
+        effective: "UTC",
+        source: "app",
+        appTimezone: "UTC",
+      },
       agentSummaries: [],
       channelSummaries: [],
       activeRuns: [],

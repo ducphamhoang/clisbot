@@ -4,8 +4,8 @@ import { collapseHomePath, expandHomePath } from "../shared/paths.ts";
 import { applyDynamicPathDefaults, assertNoLegacyPrivilegeCommands } from "./config-document.ts";
 import {
   CURRENT_SCHEMA_VERSION,
-  isReleasedSchemaVersion,
   normalizeConfigDocumentShape,
+  shouldUpgradeConfigSchema,
 } from "./config-migration.ts";
 import { normalizeConfigDirectMessageRoutes } from "./direct-message-routes.ts";
 import { normalizeConfigGroupRoutes } from "./group-routes.ts";
@@ -51,7 +51,7 @@ export async function upgradeEditableConfigFileIfNeeded(configPath: string) {
   const rawConfig = JSON.parse(originalText);
   const fromVersion = readSchemaVersion(rawConfig);
 
-  if (!isReleasedSchemaVersion(fromVersion)) {
+  if (!shouldUpgradeConfigSchema(fromVersion)) {
     return { upgraded: false as const };
   }
 

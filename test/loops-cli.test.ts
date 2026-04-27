@@ -149,6 +149,52 @@ describe("loops cli", () => {
     expect(help).toContain("forced interval: `1m --force check CI` or `check CI every 1m --force`");
     expect(help).toContain("times: `3 check CI` or `check CI 3 times`");
     expect(help).toContain("omit the prompt to load `LOOP.md` from the target workspace");
+    expect(help).toContain("first wall-clock loop returns `confirmation_required`");
+  });
+
+  test("first wall-clock loop requires --confirm before persisting", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-loops-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    const storePath = join(tempDir, "sessions.json");
+    const config = enableSlackChannelRoute(
+      buildConfig({
+        socketPath: join(tempDir, "clisbot.sock"),
+        storePath,
+        workspaceTemplate: join(tempDir, "workspaces", "{agentId}"),
+      }),
+      "C1",
+    );
+    config.app.timezone = "Asia/Ho_Chi_Minh";
+    writeFileSync(process.env.CLISBOT_CONFIG_PATH, JSON.stringify(config, null, 2));
+    writeFileSync(storePath, JSON.stringify({}, null, 2));
+
+    const logs: string[] = [];
+    console.log = ((value?: unknown) => {
+      logs.push(String(value ?? ""));
+    }) as typeof console.log;
+
+    await runLoopsCli([
+      "create",
+      "--channel",
+      "slack",
+      "--target",
+      "group:C1",
+      "--timezone",
+      "America/Los_Angeles",
+      "every",
+      "day",
+      "at",
+      "07:00",
+      "check",
+      "CI",
+    ]);
+
+    expect(logs.join("\n")).toContain("confirmation_required: first wall-clock loop");
+    expect(logs.join("\n")).toContain("timezone: America/Los_Angeles");
+    expect(logs.join("\n")).toContain("--confirm");
+    const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, unknown>;
+    expect(Object.keys(store)).toHaveLength(0);
   });
 
   test("list and status render the same active loop inventory", async () => {
@@ -548,6 +594,7 @@ describe("loops cli", () => {
       "07:00",
       "check",
       "CI",
+      "--confirm",
     ]);
 
     const createdOutput = logs.join("\n");
@@ -628,6 +675,7 @@ describe("loops cli", () => {
       "at",
       "07:00",
       "standup",
+      "--confirm",
     ]);
 
     const output = logs.join("\n");
@@ -692,6 +740,7 @@ describe("loops cli", () => {
       "07:00",
       "check",
       "CI",
+      "--confirm",
     ]);
 
     expect(slackCalls).toHaveLength(1);
@@ -760,6 +809,7 @@ describe("loops cli", () => {
       "09:00",
       "check",
       "inbox",
+      "--confirm",
     ]);
 
     expect(slackCalls.some((call) => call.url.endsWith("/conversations.open"))).toBe(true);
