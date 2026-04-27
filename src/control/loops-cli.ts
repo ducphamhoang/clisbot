@@ -484,9 +484,12 @@ function buildLoopSurfaceBinding(request: LoopCreateRequest) {
     botId: context.botId,
     conversationKind: context.identity.conversationKind,
     channelId: context.identity.channelId,
+    channelName: context.identity.channelName,
     chatId: context.identity.chatId,
+    chatName: context.identity.chatName,
     threadTs: context.identity.threadTs,
     topicId: context.identity.topicId,
+    topicName: context.identity.topicName,
   };
 }
 

@@ -14,6 +14,7 @@ import { SessionStore } from "../src/agents/session-store.ts";
 import { RunnerService } from "../src/agents/runner-service.ts";
 import { MID_RUN_RECOVERY_CONTINUE_PROMPT } from "../src/agents/run-recovery.ts";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
+import { recordSurfaceDirectoryIdentity } from "../src/channels/surface-directory.ts";
 
 const RUNNER_GENERATED_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -1988,6 +1989,19 @@ describe("AgentService session identity", () => {
       agentId: "default",
       sessionKey: "agent:default:slack:channel:c4:thread:loop-policy",
     };
+    await recordSurfaceDirectoryIdentity({
+      stateDir: loadedConfig.stateDir,
+      identity: {
+        platform: "slack",
+        conversationKind: "channel",
+        senderId: "U123",
+        senderName: "Alice Smith",
+        senderHandle: "alice",
+        channelId: "c4",
+        channelName: "release-ops",
+        threadTs: "loop-policy",
+      },
+    });
 
     await service.createIntervalLoop({
       target,
@@ -2014,7 +2028,10 @@ describe("AgentService session identity", () => {
     }
 
     expect(transcript.snapshot).toContain("check deploy");
-    expect(transcript.snapshot).toContain("- sender: slack:U123 [slack:U123]");
+    expect(transcript.snapshot).toContain("- sender: Alice Smith [slack:U123, @alice]");
+    expect(transcript.snapshot).toContain(
+      '- surface: Slack channel "release-ops", thread loop-policy [slack:channel:c4:thread:loop-policy]',
+    );
     expect(transcript.snapshot).toContain("- message: scheduled loop ");
     expect(transcript.snapshot).toContain("To send a user-visible progress update or final reply, use the following CLI command:");
     expect(transcript.snapshot).toContain("use that command to send progress updates and the final reply back to the conversation");

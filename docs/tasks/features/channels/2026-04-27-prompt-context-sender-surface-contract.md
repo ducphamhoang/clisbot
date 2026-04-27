@@ -23,9 +23,9 @@ Queue, steering, and loop are message delivery situations. They should share the
 
 Done
 
-## Current Prompt Contract
+## Previous Prompt Contract
 
-Current normal prompt template in `src/channels/agent-prompt.ts`:
+Previous normal prompt template in `src/channels/agent-prompt.ts`:
 
 ```text
 <system>
@@ -82,7 +82,7 @@ Current `capture-pane` delivery intro:
 channel auto-delivery remains enabled for this conversation; do not send user-facing progress updates or the final response with `clisbot message send`
 ```
 
-Current steering prompt template:
+Previous steering prompt template:
 
 ```text
 <system>
@@ -105,7 +105,7 @@ Current message:
 <message_body>
 ```
 
-Current mention-only fallback when the user tags the bot without message text:
+Previous mention-only fallback when the user tags the bot without message text:
 
 ```text
 The user explicitly mentioned you without any additional text. Review the recent context in <scope> and respond to the latest unresolved request. If the next step is still unclear, ask one short clarifying question.
@@ -118,15 +118,15 @@ When the user asks to change clisbot configuration, use clisbot CLI commands; se
 For schedule/loop/reminder requests, inspect `clisbot loops --help` and use the loops CLI.
 ```
 
-## Current Gaps
+## Resolved Gaps
 
-- Normal prompts expose a human-readable `identity_summary`, but not a stable structured sender/surface/permission contract.
-- Slack currently has sender id in prompt flow, but not a resolved sender display name unless added by a future lookup.
-- Telegram already has sender display/handle in inbound payload, but it is not treated as a reusable sender directory record.
-- Steering prompts currently lose sender, surface, permission-check guidance, delivery context, and configuration guidance.
-- Queue entries currently preserve `text` and `createdAt`, but not the sender that created the queue item.
-- Loop records have `createdBy` and `surfaceBinding`, but the rebuilt loop prompt does not restore sender identity.
-- Recent-context replay is useful, but it should stay inside the user body and should not replace the top-level sender/surface context for the current message.
+- Normal prompts now render stable structured sender/surface/permission context instead of the old mixed `identity_summary`.
+- Slack prompt flow now has sender/surface ids and opportunistic display lookup through `users.info` and `conversations.info`.
+- Telegram sender display/handle, group title, and available topic title metadata are recorded as reusable directory records.
+- Steering prompts now keep the steering instruction and include compact sender/surface context plus permission guidance.
+- Queue entries preserve the sender that created the queue item and rebuild the prompt envelope when the item starts.
+- Loop records restore sender/surface display identity and rebuild prompt context from canonical prompt text.
+- Recent-context replay stays inside the user body and does not replace the top-level sender/surface context for the current message.
 - Auth docs/help already use `principal` in several places. Keep `principal` as the public auth identity term and explain the format clearly in the glossary.
 
 ## Target Prompt Contract
@@ -284,7 +284,7 @@ Rules:
 
 ## Target Loop Prompt
 
-Loop ticks should restore the sender that created the loop. The model may need to know this is scheduled.
+Loop ticks should restore the sender and surface that created the loop. The model may need to know this is scheduled.
 
 ```text
 Message context:
@@ -298,7 +298,7 @@ Rules:
 
 - Rename the durable loop record type from `StoredIntervalLoop` to `StoredLoop` in this task scope.
 - Rename the durable session-store field from `intervalLoops` to `loops`, with loader compatibility for existing `intervalLoops` data.
-- Store canonical loop body plus sender metadata.
+- Store canonical loop body plus sender and surface display metadata.
 - Rebuild prompt context fresh on every loop tick.
 - Existing loops without sender metadata continue running.
 - Existing `createdBy` maps to `sender.providerId`.
@@ -484,15 +484,18 @@ Rules:
 - Directory never stores raw provider payloads.
 - Directory never stores message text.
 - Directory lookup fails open.
-- Telegram inbound sender display and handle should still be stored opportunistically because the same path can serve Slack once Slack lookup is added.
+- Directory updates preserve existing display names and handles when a later event only carries stable ids.
+- Telegram inbound sender display and handle should still be stored opportunistically because the same path also serves Slack display lookup.
+- Runtime prompt builders may read the directory to fill display names missing from the current provider payload; lookup failure falls back to the raw prompt context.
 
 Provider enrichment:
 
 - Slack sender display can come from `users.info`.
 - Slack surface displayName can come from `conversations.info`.
+- Slack sender display lookup needs `users:read`; Slack surface display lookup needs the matching conversation read scope for the surface type: `channels:read`, `groups:read`, `im:read`, or `mpim:read`.
 - Telegram sender display and handle can come from inbound message payloads.
 - Telegram group title can come from inbound payload or `getChat`.
-- Telegram topic title can come from service events, clisbot-created topic result, explicit config, or fallback.
+- Telegram topic title can come from service events, topic-creation metadata, clisbot-created topic result, explicit config, cached directory data, or fallback.
 - Telegram cannot reliably infer sender timezone from normal Bot API messages.
 
 ## Shared Builder
@@ -542,6 +545,7 @@ No separate hand-written prompt wrapper for steering, queue, or loop.
 - New loop records use `sender` directly and do not introduce a separate `StoredSender` concept.
 - Legacy loop records with only `promptText` still run.
 - Unknown sender is handled explicitly and does not crash prompt generation.
+- Unknown or unavailable surface context renders as unavailable instead of inventing a platform surface.
 - Permission guidance includes the exact `auth get-permissions --sender` command inline.
 - Public auth help/docs consistently use `principal` for the reusable auth identity format.
 - Permission output uses effective-only `allowed + explanation` by default.

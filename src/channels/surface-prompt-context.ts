@@ -107,7 +107,6 @@ function buildSlackSurface(identity: ChannelIdentity): SurfacePromptContext["sur
     surfaceId: `${baseSurfaceId}:thread:${identity.threadTs}`,
     providerId: identity.threadTs,
     kind,
-    displayName: identity.channelName,
     parent: {
       surfaceId: baseSurfaceId,
       providerId: identity.channelId,

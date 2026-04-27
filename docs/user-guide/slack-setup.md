@@ -39,7 +39,7 @@ Practical recommendation:
 3. create a Slack app from manifest
 4. after import, create the app-level Socket Mode token manually
 
-The manifest covers the bot-facing scopes and event subscriptions.
+The manifest covers the bot-facing scopes and event subscriptions, including `users:read` plus the `*:read` conversation scopes that let prompt context show readable sender and channel names.
 The app-level Socket Mode token is still a separate Slack step.
 
 ## Quick Path

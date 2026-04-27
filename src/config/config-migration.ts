@@ -11,6 +11,7 @@ import {
   createTelegramGroupRouteShell,
   normalizeSharedGroupRouteId,
 } from "./group-routes.ts";
+import { migrateLegacyConfigShape } from "./legacy-config-migration.ts";
 
 export const CURRENT_SCHEMA_VERSION = "0.1.45";
 const CONFIG_UPGRADE_MAX_SCHEMA_VERSION = "0.1.44";
@@ -402,6 +403,7 @@ export function normalizeConfigDocumentShape(input: unknown) {
   }
 
   const config = { ...input };
+  migrateLegacyConfigShape(config);
   const schemaVersion = isRecord(config.meta) && typeof config.meta.schemaVersion === "string"
     ? config.meta.schemaVersion
     : undefined;

@@ -6,7 +6,18 @@ Fix Slack routed prompt assembly so injected prompt context includes a truthful 
 
 ## Status
 
-Planned
+Done
+
+## Outcome
+
+Slack routed prompt assembly now opportunistically resolves sender and surface display metadata through Slack API lookups:
+
+- `users.info` fills `senderName` and `senderHandle` for the current sender when available.
+- `conversations.info` fills `channelName` for the current surface when available.
+- The Slack manifest now includes `users:read` for `users.info` plus `channels:read`, `groups:read`, `im:read`, and `mpim:read` for `conversations.info` across public channels, private channels, DMs, and MPIMs.
+- Prompt rendering prefers grounded display names over raw ids, while falling back to stable ids if lookup fails or scopes are unavailable.
+- Slack recent-conversation replay now stores sender display/handle when lookup succeeds.
+- Regression coverage exercises the accepted `SlackSocketService.handleInboundMessage` path, not only the prompt renderer.
 
 ## Why
 
@@ -24,15 +35,15 @@ This is a prompt-truthfulness issue at the Slack channel surface, not just a sty
 - audit Slack routed identity construction and recent-conversation replay storage
 - carry a truthful Slack sender display name into the injected agent prompt when Slack provides one
 - keep fallback behavior safe when Slack does not provide a stable name
-- review whether the same sender-name gap exists in DM, channel, and thread paths
+- cover routed Slack DM, channel, and thread prompt paths through the shared identity construction
 - add regression coverage for Slack prompt context and recent-message replay sender labels
 
-## Current Truth
+## Resolved Truth
 
-- Telegram already passes `senderName` into routed identity and recent-conversation replay state
-- Slack routed identity currently appears to pass `senderId` but not `senderName`
-- Slack recent-conversation replay currently stores `senderId` without `senderName`
-- agent prompt rendering and recent replay both already know how to use `senderName` when it exists
+- Telegram already passes `senderName` into routed identity and recent-conversation replay state.
+- Slack routed identity now passes `senderId`, `senderName`, and `senderHandle` when Slack lookup provides them.
+- Slack recent-conversation replay now stores `senderId`, `senderName`, and `senderHandle` when available.
+- Agent prompt rendering and recent replay both prefer `senderName` when it exists.
 
 ## Non-Goals
 
@@ -42,11 +53,11 @@ This is a prompt-truthfulness issue at the Slack channel surface, not just a sty
 
 ## Subtasks
 
-- [ ] trace which Slack event fields can provide a safe sender display name for routed prompts
-- [ ] add `senderName` through Slack identity construction and recent replay append paths
-- [ ] make sure prompt injection prefers grounded sender names over raw ids when both exist
-- [ ] add regression tests for Slack thread or channel replay lines and prompt identity summaries
-- [ ] review user-facing wording to keep neutral address when no grounded name exists
+- [x] trace which Slack event fields can provide a safe sender display name for routed prompts
+- [x] add `senderName` through Slack identity construction and recent replay append paths
+- [x] make sure prompt injection prefers grounded sender names over raw ids when both exist
+- [x] add regression tests for Slack accepted prompt path and prompt identity summaries
+- [x] review user-facing wording to keep neutral address when no grounded name exists
 
 ## Exit Criteria
 

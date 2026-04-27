@@ -29,6 +29,7 @@ import {
   hasTelegramBotMention,
   isReplyToTelegramBot,
   isTelegramBotOriginatedMessage,
+  resolveTelegramTopicName,
   stripTelegramBotMention,
   type TelegramMessage,
   type TelegramUpdate,
@@ -57,7 +58,10 @@ import {
 } from "../../config/channel-bots.ts";
 import type { ResolvedTelegramBotConfig } from "../../config/channel-bots.ts";
 import { buildAgentPromptText } from "../agent-prompt.ts";
-import { recordSurfaceDirectoryIdentity } from "../surface-directory.ts";
+import {
+  buildSurfacePromptContextWithDirectory,
+  recordSurfaceDirectoryIdentity,
+} from "../surface-directory.ts";
 import { buildMentionOnlyFollowUpPrompt } from "../mention-follow-up.ts";
 import { prependRecentConversationContext } from "../../shared/recent-message-context.ts";
 import { DEFAULT_PROTECTED_CONTROL_RULE } from "../../auth/defaults.ts";
@@ -820,6 +824,7 @@ export class TelegramPollingService {
         chatName: message.chat.title?.trim() || undefined,
         topicId:
           routeInfo.topicId != null ? String(routeInfo.topicId) : undefined,
+        topicName: resolveTelegramTopicName(message),
       };
       void recordSurfaceDirectoryIdentity({
         stateDir: this.loadedConfig.stateDir,
@@ -840,6 +845,12 @@ export class TelegramPollingService {
         typeof message.date === "number" && Number.isFinite(message.date)
           ? message.date * 1000
           : Date.now();
+      const promptContext = await buildSurfacePromptContextWithDirectory({
+        stateDir: this.loadedConfig.stateDir,
+        identity,
+        agentId: route.agentId,
+        time: promptTime,
+      });
       const agentPromptText = buildAgentPromptText({
         text: enrichPromptText(text),
         identity,
@@ -850,6 +861,7 @@ export class TelegramPollingService {
         protectedControlMutationRule,
         agentId: route.agentId,
         time: promptTime,
+        promptContext,
       });
       const timingContext = {
         platform: "telegram" as const,
@@ -899,12 +911,17 @@ export class TelegramPollingService {
               protectedControlMutationRule,
               agentId: route.agentId,
               time: Date.now(),
+              promptContext: {
+                ...promptContext,
+                time: new Date().toISOString(),
+              },
               timezone: this.agentService.resolveEffectiveTimezone({
                 agentId: route.agentId,
                 routeTimezone: route.timezone,
                 botTimezone: route.botTimezone,
               }).timezone,
             }),
+          promptContext,
           protectedControlMutationRule,
           transformSessionInputText: enrichPromptText,
           onPromptAccepted: async () => {

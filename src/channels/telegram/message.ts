@@ -53,8 +53,14 @@ export type TelegramMessage = {
   photo?: TelegramPhotoSize[];
   voice?: TelegramVoice;
   audio?: TelegramAudio;
+  forum_topic_created?: {
+    name?: string;
+  };
   reply_to_message?: {
     from?: TelegramUser;
+    forum_topic_created?: {
+      name?: string;
+    };
   };
 };
 
@@ -114,6 +120,14 @@ export function isTelegramBotOriginatedMessage(message: TelegramMessage) {
 
 export function isReplyToTelegramBot(message: TelegramMessage, botUserId?: number) {
   return Boolean(botUserId && message.reply_to_message?.from?.id === botUserId);
+}
+
+export function resolveTelegramTopicName(message: TelegramMessage) {
+  return (
+    message.forum_topic_created?.name?.trim() ||
+    message.reply_to_message?.forum_topic_created?.name?.trim() ||
+    undefined
+  );
 }
 
 function escapeRegExp(raw: string) {

@@ -32,6 +32,7 @@ import {
   renderLoopStartNotification,
   type SurfaceNotificationsConfig,
 } from "../channels/surface-notifications.ts";
+import { buildSurfacePromptContextWithDirectory } from "../channels/surface-directory.ts";
 import {
   buildConfiguredTargetFromIdentity,
   resolveConfiguredSurfaceModeTarget,
@@ -762,7 +763,10 @@ export class AgentService {
       await this.notifyManagedLoopStart(managed.target, nextLoopState);
     }
 
-    const promptText = this.buildManagedLoopPrompt(managed.target.agentId, nextLoopState);
+    const promptText = await this.buildManagedLoopPrompt(
+      managed.target.agentId,
+      nextLoopState,
+    );
     const { result } = this.enqueuePrompt(
       managed.target,
       promptText,
@@ -999,7 +1003,7 @@ export class AgentService {
     return nowMs + loop.intervalMs;
   }
 
-  private buildManagedLoopPrompt(agentId: string, loop: StoredLoop) {
+  private async buildManagedLoopPrompt(agentId: string, loop: StoredLoop) {
     if (!loop.canonicalPromptText || !loop.surfaceBinding) {
       return loop.promptText;
     }
@@ -1016,6 +1020,14 @@ export class AgentService {
             resolveChannelIdentityBotId(identity),
           );
     const { responseMode, streaming } = this.resolveLoopSurfaceModes(identity);
+    const promptTime = Date.now();
+    const promptContext = await buildSurfacePromptContextWithDirectory({
+      stateDir: this.loadedConfig.stateDir,
+      identity,
+      agentId,
+      time: promptTime,
+      scheduledLoopId: loop.id,
+    });
 
     return buildAgentPromptText({
       text: loop.canonicalPromptText,
@@ -1026,7 +1038,8 @@ export class AgentService {
       streaming,
       protectedControlMutationRule: loop.protectedControlMutationRule,
       agentId,
-      time: Date.now(),
+      time: promptTime,
+      promptContext,
       scheduledLoopId: loop.id,
     });
   }
@@ -1042,9 +1055,12 @@ export class AgentService {
       senderName: sender?.displayName,
       senderHandle: sender?.handle,
       channelId: binding.channelId,
+      channelName: binding.channelName,
       chatId: binding.chatId,
+      chatName: binding.chatName,
       threadTs: binding.threadTs,
       topicId: binding.topicId,
+      topicName: binding.topicName,
     };
   }
 

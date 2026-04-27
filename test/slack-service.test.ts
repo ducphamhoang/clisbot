@@ -19,8 +19,15 @@ function createLoadedConfig() {
     allowBots: false,
     agentId: "default",
   };
+  const runtimeConfig = {
+    ...config,
+    session: {
+      ...config.app.session,
+      dmScope: config.bots.defaults.dmScope,
+    },
+  };
   return {
-    raw: config,
+    raw: runtimeConfig,
   } as any;
 }
 
@@ -156,5 +163,144 @@ describe("SlackSocketService shared audience enforcement", () => {
 
     expect(completed).toEqual(["evt-3"]);
     expect(apiCalls).toEqual([]);
+  });
+
+  test("enriches accepted prompts with Slack sender and channel display names", async () => {
+    let capturedPrompt = "";
+
+    await (SlackSocketService.prototype as any).handleInboundMessage.call(
+      {
+        shouldDropMismatchedSlackEvent: () => false,
+        processedEventsStore: {
+          getStatus: async () => null,
+          markProcessing: async () => undefined,
+          markCompleted: async () => undefined,
+          clear: async () => undefined,
+        },
+        loadedConfig: createLoadedConfig(),
+        markMessageSeen: () => false,
+        botUserId: "U_SELF",
+        botId: "default",
+        botLabel: "clisbot",
+        botCredentials: {
+          botToken: "bot-token",
+        },
+        app: {
+          client: {
+            users: {
+              info: async () => ({
+                user: {
+                  name: "alice",
+                  profile: {
+                    real_name: "Alice Smith",
+                  },
+                },
+              }),
+            },
+            conversations: {
+              info: async () => ({
+                channel: {
+                  name: "release-ops",
+                },
+              }),
+              history: async () => ({
+                messages: [],
+              }),
+            },
+          },
+        },
+        resolveThreadTs: async () => "111.555",
+        getBotConfig: () => ({
+          agentPrompt: {
+            enabled: true,
+            maxProgressMessages: 3,
+            requireFinalResponse: true,
+          },
+          ackReaction: "",
+          typingReaction: "",
+          processingStatus: {
+            enabled: false,
+            status: "Working...",
+            loadingMessages: [],
+          },
+        }),
+        getSlackMaxChars: () => 4000,
+        processingIndicators: {
+          acquire: async () => ({
+            setLifecycle: async () => undefined,
+            release: async () => undefined,
+          }),
+        },
+        activityStore: {
+          record: async () => undefined,
+        },
+        agentService: {
+          appendRecentConversationMessage: async () => undefined,
+          getConversationFollowUpState: async () => ({}),
+          getWorkspacePath: () => "/tmp",
+          getRecentConversationReplayMessages: async () => [],
+          getSessionDiagnostics: async () => ({}),
+          isAwaitingFollowUpRouting: async () => false,
+          canSteerActiveRun: async () => true,
+          getSessionRuntime: async () => ({}),
+          enqueuePrompt: (_target: unknown, prompt: string | (() => string)) => {
+            capturedPrompt = typeof prompt === "function" ? prompt() : prompt;
+            return {
+              positionAhead: 0,
+              result: Promise.resolve({
+                status: "completed",
+                snapshot: "",
+              }),
+            };
+          },
+          markRecentConversationProcessed: async () => undefined,
+          recordConversationReply: async () => undefined,
+          resolveEffectiveTimezone: () => ({
+            timezone: "UTC",
+          }),
+        },
+      },
+      {
+        body: { event_id: "evt-4" },
+        event: {
+          channel: "C123",
+          user: "U123",
+          ts: "111.555",
+          text: "hello",
+        },
+        conversationKind: "channel",
+        route: {
+          agentId: "default",
+          policy: "open",
+          requireMention: false,
+          allowBots: false,
+          allowUsers: [],
+          blockUsers: [],
+          commandPrefixes: {
+            slash: ["\\"],
+            bash: ["!"],
+          },
+          streaming: "off",
+          response: "final",
+          responseMode: "message-tool",
+          additionalMessageMode: "steer",
+          surfaceNotifications: {
+            queueStart: "none",
+            loopStart: "none",
+          },
+          verbose: "off",
+          followUp: {
+            mode: "auto",
+            participationTtlMs: 5 * 60 * 1000,
+          },
+        },
+        wasMentioned: false,
+      },
+    );
+
+    expect(capturedPrompt).toContain("- sender: Alice Smith [slack:U123, @alice]");
+    expect(capturedPrompt).toContain(
+      '- surface: Slack channel "release-ops", thread 111.555 [slack:channel:C123:thread:111.555]',
+    );
   });
 });

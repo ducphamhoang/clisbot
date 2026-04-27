@@ -10,7 +10,16 @@ export type StoredLoopSender = {
 
 export type StoredLoopSurfaceBinding = Pick<
   ChannelIdentity,
-  "platform" | "botId" | "conversationKind" | "channelId" | "chatId" | "threadTs" | "topicId"
+  | "platform"
+  | "botId"
+  | "conversationKind"
+  | "channelId"
+  | "channelName"
+  | "chatId"
+  | "chatName"
+  | "threadTs"
+  | "topicId"
+  | "topicName"
 > & {
   accountId?: string;
 };

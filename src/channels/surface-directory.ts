@@ -1,6 +1,9 @@
 import { dirname, join } from "node:path";
 import type { ChannelIdentity } from "./channel-identity.ts";
-import { buildSurfacePromptContext } from "./surface-prompt-context.ts";
+import {
+  buildSurfacePromptContext,
+  type SurfacePromptContext,
+} from "./surface-prompt-context.ts";
 import { ensureDir, fileExists, readTextFile, writeTextFile } from "../shared/fs.ts";
 
 type Platform = "slack" | "telegram";
@@ -89,24 +92,87 @@ function upsertSurface(
 ) {
   const platform = platformFromSurfaceId(surface.surfaceId);
   if (surface.parent) {
+    const existingParent = directory.surfaces[surface.parent.surfaceId];
     directory.surfaces[surface.parent.surfaceId] = {
+      ...existingParent,
       surfaceId: surface.parent.surfaceId,
       platform,
       kind: surface.parent.surfaceId.includes(":group:") ? "group" : "channel",
-      providerId: surface.parent.providerId,
-      displayName: surface.parent.displayName,
+      providerId: surface.parent.providerId ?? existingParent?.providerId,
+      displayName: surface.parent.displayName ?? existingParent?.displayName,
       updatedAt: now,
     };
   }
+  const existingSurface = directory.surfaces[surface.surfaceId];
   directory.surfaces[surface.surfaceId] = {
+    ...existingSurface,
     surfaceId: surface.surfaceId,
     platform,
     kind: surface.kind,
-    providerId: surface.providerId,
-    displayName: surface.displayName,
-    parentSurfaceId: surface.parent?.surfaceId,
+    providerId: surface.providerId ?? existingSurface?.providerId,
+    displayName: surface.displayName ?? existingSurface?.displayName,
+    parentSurfaceId: surface.parent?.surfaceId ?? existingSurface?.parentSurfaceId,
     updatedAt: now,
   };
+}
+
+function enrichSender(
+  sender: SurfacePromptContext["sender"],
+  directory: SurfaceDirectoryShape,
+) {
+  if (!sender) {
+    return undefined;
+  }
+  const record = directory.senders[sender.senderId];
+  if (!record) {
+    return sender;
+  }
+  return {
+    ...sender,
+    displayName: sender.displayName ?? record.displayName,
+    handle: sender.handle ?? record.handle,
+  };
+}
+
+function enrichSurface(
+  surface: SurfacePromptContext["surface"],
+  directory: SurfaceDirectoryShape,
+): SurfacePromptContext["surface"] {
+  const record = directory.surfaces[surface.surfaceId];
+  const parentRecord = surface.parent
+    ? directory.surfaces[surface.parent.surfaceId]
+    : undefined;
+  const parent = surface.parent
+    ? {
+        ...surface.parent,
+        displayName: surface.parent.displayName ?? parentRecord?.displayName,
+      }
+    : undefined;
+  return {
+    ...surface,
+    displayName: surface.displayName ?? record?.displayName,
+    parent,
+  };
+}
+
+export async function buildSurfacePromptContextWithDirectory(params: {
+  stateDir: string;
+  identity: ChannelIdentity;
+  agentId?: string;
+  time?: number | string | Date;
+  scheduledLoopId?: string;
+}): Promise<SurfacePromptContext> {
+  const context = buildSurfacePromptContext(params);
+  try {
+    const directory = await readDirectory(resolveDirectoryPath(params.stateDir));
+    return {
+      ...context,
+      sender: enrichSender(context.sender, directory),
+      surface: enrichSurface(context.surface, directory),
+    };
+  } catch {
+    return context;
+  }
 }
 
 export async function recordSurfaceDirectoryIdentity(params: {
@@ -120,9 +186,13 @@ export async function recordSurfaceDirectoryIdentity(params: {
     const now = Date.now();
 
     if (context.sender) {
+      const existingSender = directory.senders[context.sender.senderId];
       directory.senders[context.sender.senderId] = {
+        ...existingSender,
         ...context.sender,
         platform: params.identity.platform,
+        displayName: context.sender.displayName ?? existingSender?.displayName,
+        handle: context.sender.handle ?? existingSender?.handle,
         updatedAt: now,
       };
     }

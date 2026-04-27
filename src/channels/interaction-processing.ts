@@ -71,6 +71,7 @@ import type { ProcessingIndicatorLifecycle } from "./processing-indicator.ts";
 import type { ChannelIdentity } from "./channel-identity.ts";
 import { resolveChannelIdentityBotId } from "./channel-identity.ts";
 import type { StoredLoopSender } from "../agents/loop-state.ts";
+import type { SurfacePromptContext } from "./surface-prompt-context.ts";
 
 export type ChannelInteractionRoute = {
   agentId: string;
@@ -570,9 +571,12 @@ function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
     botId: resolveChannelIdentityBotId(identity),
     conversationKind: identity.conversationKind,
     channelId: identity.channelId,
+    channelName: identity.channelName,
     chatId: identity.chatId,
+    chatName: identity.chatName,
     threadTs: identity.threadTs,
     topicId: identity.topicId,
+    topicName: identity.topicName,
   };
 }
 
@@ -1246,6 +1250,7 @@ export async function processChannelInteraction<TChunk>(params: {
   text: string;
   agentPromptText?: string;
   agentPromptBuilder?: (text: string) => string;
+  promptContext?: SurfacePromptContext;
   protectedControlMutationRule?: string;
   route: ChannelInteractionRoute;
   maxChars: number;
@@ -1993,6 +1998,12 @@ export async function processChannelInteraction<TChunk>(params: {
         identity: params.identity,
         agentId: params.route.agentId,
         time: Date.now(),
+        promptContext: params.promptContext
+          ? {
+              ...params.promptContext,
+              time: new Date().toISOString(),
+            }
+          : undefined,
         protectedControlMutationRule: params.protectedControlMutationRule,
       }),
     );
@@ -2015,6 +2026,12 @@ export async function processChannelInteraction<TChunk>(params: {
           identity: params.identity,
           agentId: params.route.agentId,
           time: Date.now(),
+          promptContext: params.promptContext
+            ? {
+                ...params.promptContext,
+                time: new Date().toISOString(),
+              }
+            : undefined,
           protectedControlMutationRule: params.protectedControlMutationRule,
         }),
       );

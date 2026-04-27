@@ -80,6 +80,36 @@ describe("agent prompt envelope", () => {
     expect(prompt).toContain("<user>\nplease investigate\n</user>");
   });
 
+  test("renders Slack sender and channel display names when available", () => {
+    const prompt = buildAgentPromptText({
+      text: "please investigate",
+      identity: {
+        platform: "slack",
+        conversationKind: "channel",
+        senderId: "U123",
+        senderName: "Alice Smith",
+        senderHandle: "alice",
+        channelId: "C123",
+        channelName: "release-ops",
+        threadTs: "171234.5678",
+      },
+      config: {
+        enabled: true,
+        maxProgressMessages: 3,
+        requireFinalResponse: true,
+      },
+      responseMode: "message-tool",
+      streaming: "all",
+      agentId: "default",
+      time: "2026-04-27T07:02:27.000Z",
+    });
+
+    expect(prompt).toContain("- sender: Alice Smith [slack:U123, @alice]");
+    expect(prompt).toContain(
+      '- surface: Slack channel "release-ops", thread 171234.5678 [slack:channel:C123:thread:171234.5678]',
+    );
+  });
+
   test("renders a Telegram topic reply command", () => {
     previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
     previousPromptCommand = process.env.CLISBOT_PROMPT_COMMAND;

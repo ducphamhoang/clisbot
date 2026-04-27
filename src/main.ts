@@ -33,7 +33,7 @@ const INTERNAL_CLI_NAME_FLAG = "--internal-cli-name";
 export function prepareCliArgv(argv: string[]) {
   const flagIndex = argv.findIndex((arg) => arg === INTERNAL_CLI_NAME_FLAG);
   if (flagIndex === -1) {
-    setRenderedCliName();
+    setRenderedCliName(process.env.CLISBOT_CLI_NAME);
     return argv;
   }
 

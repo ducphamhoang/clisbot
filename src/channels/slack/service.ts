@@ -19,7 +19,10 @@ import { ProcessedEventsStore } from "../processed-events-store.ts";
 import { ActivityStore } from "../../control/activity-store.ts";
 import { renderChannelInteraction } from "../../shared/transcript.ts";
 import { buildAgentPromptText } from "../agent-prompt.ts";
-import { recordSurfaceDirectoryIdentity } from "../surface-directory.ts";
+import {
+  buildSurfacePromptContextWithDirectory,
+  recordSurfaceDirectoryIdentity,
+} from "../surface-directory.ts";
 import { buildMentionOnlyFollowUpPrompt } from "../mention-follow-up.ts";
 import { prependRecentConversationContext } from "../../shared/recent-message-context.ts";
 import { DEFAULT_PROTECTED_CONTROL_RULE } from "../../auth/defaults.ts";
@@ -87,6 +90,86 @@ type SlackThreadTsCacheEntry = {
   threadTs: string | null;
   updatedAt: number;
 };
+
+type SlackDisplayIdentity = {
+  senderName?: string;
+  senderHandle?: string;
+  channelName?: string;
+};
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+async function resolveSlackSenderDisplay(
+  client: unknown,
+  userId?: string,
+): Promise<Pick<SlackDisplayIdentity, "senderName" | "senderHandle">> {
+  const users = (
+    client as { users?: { info?: (params: { user: string }) => Promise<unknown> } }
+  )?.users;
+  if (!userId || typeof users?.info !== "function") {
+    return {};
+  }
+  try {
+    const result = await users.info({ user: userId });
+    const user = (result as { user?: Record<string, unknown> })?.user;
+    const profile = user?.profile as Record<string, unknown> | undefined;
+    const senderName =
+      stringValue(profile?.real_name) ??
+      stringValue(profile?.display_name) ??
+      stringValue(user?.real_name) ??
+      stringValue(user?.name);
+    return {
+      senderName,
+      senderHandle: stringValue(user?.name),
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function resolveSlackChannelDisplay(
+  client: unknown,
+  channelId?: string,
+): Promise<Pick<SlackDisplayIdentity, "channelName">> {
+  const conversations = (
+    client as { conversations?: { info?: (params: { channel: string }) => Promise<unknown> } }
+  )?.conversations;
+  if (!channelId || typeof conversations?.info !== "function") {
+    return {};
+  }
+  try {
+    const result = await conversations.info({ channel: channelId });
+    const channel = (result as { channel?: Record<string, unknown> })?.channel;
+    return { channelName: stringValue(channel?.name) };
+  } catch {
+    return {};
+  }
+}
+
+async function resolveSlackDisplayIdentity(params: {
+  client: unknown;
+  userId?: string;
+  channelId?: string;
+}): Promise<SlackDisplayIdentity> {
+  const [sender, channel] = await Promise.all([
+    resolveSlackSenderDisplay(params.client, params.userId),
+    resolveSlackChannelDisplay(params.client, params.channelId),
+  ]);
+  return { ...sender, ...channel };
+}
+
+function mergeSlackDisplayIdentity(
+  current: SlackDisplayIdentity,
+  next: SlackDisplayIdentity,
+): SlackDisplayIdentity {
+  return {
+    senderName: current.senderName ?? next.senderName,
+    senderHandle: current.senderHandle ?? next.senderHandle,
+    channelName: current.channelName ?? next.channelName,
+  };
+}
 
 const SEEN_MESSAGE_TTL_MS = 60_000;
 const THREAD_TS_CACHE_TTL_MS = 60_000;
@@ -515,7 +598,15 @@ export class SlackSocketService {
       ? stripBotMention(event.text ?? "", this.botUserId)
       : `${event.text ?? ""}`.trim();
     const recentMessageMarker = messageTs?.trim();
+    const slackSenderId =
+      typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined;
+    let displayIdentity: SlackDisplayIdentity = {};
     if (recentMessageMarker && (rawText || explicitMention)) {
+      displayIdentity = await resolveSlackDisplayIdentity({
+        client: this.app.client,
+        userId: slackSenderId,
+        channelId,
+      });
       await this.agentService.appendRecentConversationMessage(sessionTarget, {
         marker: recentMessageMarker,
         text: parseAgentCommand(rawText, {
@@ -523,8 +614,9 @@ export class SlackSocketService {
         })
           ? ""
           : rawText,
-        senderId:
-          typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
+        senderId: slackSenderId,
+        senderName: displayIdentity.senderName,
+        senderHandle: displayIdentity.senderHandle,
         platform: "slack",
       });
     }
@@ -628,13 +720,29 @@ export class SlackSocketService {
     const cliTool =
       getAgentEntry(this.loadedConfig, params.route.agentId)?.cli ??
       this.loadedConfig.raw.agents.defaults.cli;
+    if (
+      !displayIdentity.senderName ||
+      !displayIdentity.senderHandle ||
+      !displayIdentity.channelName
+    ) {
+      displayIdentity = mergeSlackDisplayIdentity(
+        displayIdentity,
+        await resolveSlackDisplayIdentity({
+          client: this.app.client,
+          userId: slackSenderId,
+          channelId,
+        }),
+      );
+    }
     const identity = {
       platform: "slack" as const,
       botId: this.botId,
       conversationKind: params.conversationKind,
-      senderId:
-        typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
+      senderId: slackSenderId,
+      senderName: displayIdentity.senderName,
+      senderHandle: displayIdentity.senderHandle,
       channelId,
+      channelName: displayIdentity.channelName,
       threadTs,
     };
     void recordSurfaceDirectoryIdentity({
@@ -645,6 +753,12 @@ export class SlackSocketService {
       messageTs && Number.isFinite(Number(messageTs))
         ? Number(messageTs) * 1000
         : Date.now();
+    const promptContext = await buildSurfacePromptContextWithDirectory({
+      stateDir: this.loadedConfig.stateDir,
+      identity,
+      agentId: params.route.agentId,
+      time: promptTime,
+    });
     const auth = resolveChannelAuth({
       config: this.loadedConfig.raw,
       agentId: params.route.agentId,
@@ -663,6 +777,7 @@ export class SlackSocketService {
       protectedControlMutationRule,
       agentId: params.route.agentId,
       time: promptTime,
+      promptContext,
     });
     const timingContext = {
       platform: "slack" as const,
@@ -728,8 +843,7 @@ export class SlackSocketService {
         sessionTarget,
         identity,
         auth,
-        senderId:
-          typeof event.user === "string" ? event.user.trim().toUpperCase() : undefined,
+        senderId: slackSenderId,
         text,
         agentPromptText,
         agentPromptBuilder: (nextText) =>
@@ -743,12 +857,17 @@ export class SlackSocketService {
             protectedControlMutationRule,
             agentId: params.route.agentId,
             time: Date.now(),
+            promptContext: {
+              ...promptContext,
+              time: new Date().toISOString(),
+            },
             timezone: this.agentService.resolveEffectiveTimezone({
               agentId: params.route.agentId,
               routeTimezone: params.route.timezone,
               botTimezone: params.route.botTimezone,
             }).timezone,
           }),
+        promptContext,
         protectedControlMutationRule,
         transformSessionInputText: enrichPromptText,
         onPromptAccepted: recentMessageMarker
