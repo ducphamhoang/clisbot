@@ -21,6 +21,25 @@ function createLoopId() {
   return randomUUID().split("-")[0] ?? randomUUID();
 }
 
+export function buildStoredLoopSender(params: {
+  platform: "slack" | "telegram";
+  providerId: string;
+  displayName?: string;
+  handle?: string;
+}): StoredLoopSender | undefined {
+  const providerId = params.providerId.trim();
+  if (!providerId) {
+    return undefined;
+  }
+  const normalizedProviderId = params.platform === "slack" ? providerId.toUpperCase() : providerId;
+  return {
+    senderId: `${params.platform}:${normalizedProviderId}`,
+    providerId: normalizedProviderId,
+    displayName: params.displayName,
+    handle: params.handle,
+  };
+}
+
 function createStoredLoopBase(params: {
   nextRunAt: number;
   promptText: string;
@@ -65,12 +84,13 @@ function deriveLegacyLoopSender(params: {
   if (!providerId) {
     return undefined;
   }
-  return {
+  if (!params.surfaceBinding?.platform) {
+    return { providerId };
+  }
+  return buildStoredLoopSender({
+    platform: params.surfaceBinding.platform,
     providerId,
-    senderId: params.surfaceBinding?.platform
-      ? `${params.surfaceBinding.platform}:${params.surfaceBinding.platform === "slack" ? providerId.toUpperCase() : providerId}`
-      : undefined,
-  };
+  });
 }
 
 export function createStoredIntervalLoop(params: {

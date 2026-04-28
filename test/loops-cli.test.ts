@@ -138,9 +138,10 @@ describe("loops cli", () => {
   test("help covers routed create, cancel, and expression formats", () => {
     const help = renderLoopsHelp();
 
-    expect(help).toContain("clisbot loops create --channel slack --target group:C1234567890 --thread-id 1712345678.123456 every day at 07:00 check CI");
-    expect(help).toContain("clisbot loops create --channel slack --target group:C1234567890 --new-thread every day at 07:00 check CI");
-    expect(help).toContain("clisbot loops --channel slack --target group:C1234567890 --thread-id 1712345678.123456 3 review backlog");
+    expect(help).toContain("clisbot loops create --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --sender slack:U1234567890 every day at 07:00 check CI");
+    expect(help).toContain("clisbot loops create --help");
+    expect(help).toContain("clisbot loops create --channel slack --target group:C1234567890 --new-thread --sender slack:U1234567890 every day at 07:00 check CI");
+    expect(help).toContain("clisbot loops --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --sender slack:U1234567890 3 review backlog");
     expect(help).toContain("clisbot loops cancel --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --all");
     expect(help).toContain("Slack `--target` accepts `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids");
     expect(help).toContain("use `--thread-id` for an existing Slack thread ts");
@@ -149,7 +150,22 @@ describe("loops cli", () => {
     expect(help).toContain("forced interval: `1m --force check CI` or `check CI every 1m --force`");
     expect(help).toContain("times: `3 check CI` or `check CI 3 times`");
     expect(help).toContain("omit the prompt to load `LOOP.md` from the target workspace");
+    expect(help).toContain("`--sender <principal>` is required when creating loops");
     expect(help).toContain("first wall-clock loop returns `confirmation_required`");
+  });
+
+  test("create help documents required creator metadata", async () => {
+    const logs: string[] = [];
+    console.log = ((value?: unknown) => {
+      logs.push(String(value ?? ""));
+    }) as typeof console.log;
+
+    await runLoopsCli(["create", "--help"]);
+
+    const help = logs.join("\n");
+    expect(help).toContain("clisbot loops create");
+    expect(help).toContain("--sender <principal>");
+    expect(help).toContain("create without `--sender` fails by design");
   });
 
   test("first wall-clock loop requires --confirm before persisting", async () => {
@@ -180,6 +196,10 @@ describe("loops cli", () => {
       "slack",
       "--target",
       "group:C1",
+      "--sender",
+      "slack:U123",
+      "--sender-name",
+      "The Longbkit",
       "--timezone",
       "America/Los_Angeles",
       "every",
@@ -192,7 +212,46 @@ describe("loops cli", () => {
 
     expect(logs.join("\n")).toContain("confirmation_required: first wall-clock loop");
     expect(logs.join("\n")).toContain("timezone: America/Los_Angeles");
+    expect(logs.join("\n")).toContain("--sender slack:U123");
+    expect(logs.join("\n")).toContain("--sender-name 'The Longbkit'");
     expect(logs.join("\n")).toContain("--confirm");
+    const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, unknown>;
+    expect(Object.keys(store)).toHaveLength(0);
+  });
+
+  test("create without --sender fails before persisting", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-loops-cli-"));
+    previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    const storePath = join(tempDir, "sessions.json");
+    writeFileSync(
+      process.env.CLISBOT_CONFIG_PATH,
+      JSON.stringify(
+        enableSlackChannelRoute(
+          buildConfig({
+            socketPath: join(tempDir, "clisbot.sock"),
+            storePath,
+            workspaceTemplate: join(tempDir, "workspaces", "{agentId}"),
+          }),
+          "C1",
+        ),
+        null,
+        2,
+      ),
+    );
+    writeFileSync(storePath, JSON.stringify({}, null, 2));
+
+    await expect(runLoopsCli([
+      "create",
+      "--channel",
+      "slack",
+      "--target",
+      "group:C1",
+      "5m",
+      "check",
+      "CI",
+    ])).rejects.toThrow("Loop creation requires --sender <principal>");
+
     const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, unknown>;
     expect(Object.keys(store)).toHaveLength(0);
   });
@@ -591,6 +650,12 @@ describe("loops cli", () => {
       "group:C1",
       "--thread-id",
       "100",
+      "--sender",
+      "slack:U123",
+      "--sender-name",
+      "The Longbkit",
+      "--sender-handle",
+      "longbkit",
       "every",
       "day",
       "at",
@@ -607,12 +672,27 @@ describe("loops cli", () => {
 
     const createdStore = JSON.parse(readFileSync(storePath, "utf8")) as Record<
       string,
-      { loops?: Array<{ id: string; kind?: string; promptSummary?: string }> }
+      {
+        loops?: Array<{
+          id: string;
+          kind?: string;
+          promptSummary?: string;
+          createdBy?: string;
+          sender?: { senderId?: string; providerId?: string; displayName?: string; handle?: string };
+        }>;
+      }
     >;
     const sessionEntry = createdStore["agent:default:slack:channel:c1:thread:100"];
     expect(sessionEntry?.loops).toHaveLength(1);
     expect(sessionEntry?.loops?.[0]?.kind).toBe("calendar");
     expect(sessionEntry?.loops?.[0]?.promptSummary).toBe("check CI");
+    expect(sessionEntry?.loops?.[0]?.createdBy).toBe("U123");
+    expect(sessionEntry?.loops?.[0]?.sender).toEqual({
+      senderId: "slack:U123",
+      providerId: "U123",
+      displayName: "The Longbkit",
+      handle: "longbkit",
+    });
 
     const loopId = sessionEntry?.loops?.[0]?.id;
     expect(loopId).toBeTruthy();
@@ -673,6 +753,8 @@ describe("loops cli", () => {
       "-1001",
       "--topic-id",
       "42",
+      "--sender",
+      "telegram:1276408333",
       "every",
       "weekday",
       "at",
@@ -737,6 +819,8 @@ describe("loops cli", () => {
       "--target",
       "group:C1",
       "--new-thread",
+      "--sender",
+      "slack:U123",
       "every",
       "day",
       "at",
@@ -806,6 +890,8 @@ describe("loops cli", () => {
       "--target",
       "dm:U123",
       "--new-thread",
+      "--sender",
+      "slack:U123",
       "every",
       "day",
       "at",

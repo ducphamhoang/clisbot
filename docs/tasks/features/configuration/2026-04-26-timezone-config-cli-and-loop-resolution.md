@@ -301,7 +301,7 @@ Default behavior:
 Optional one-off override:
 
 ```bash
-clisbot loops create --channel telegram --target group:-1001234567890 --timezone America/Los_Angeles every day at 07:00 check tickets
+clisbot loops create --channel telegram --target -1001234567890 --sender telegram:1276408333 --timezone America/Los_Angeles every day at 07:00 check tickets
 ```
 
 Do not add slash `/loop --timezone ...` in the first pass unless needed. In chat, the model can understand natural language such as "7am LA time" and pass the timezone through the CLI/tooling path.

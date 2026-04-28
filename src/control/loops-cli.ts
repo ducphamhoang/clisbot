@@ -4,6 +4,7 @@ import {
   type AgentSessionTarget,
 } from "../agents/agent-service.ts";
 import {
+  buildStoredLoopSender,
   createStoredCalendarLoop,
   createStoredIntervalLoop,
   renderLoopStartedMessage,
@@ -41,6 +42,7 @@ import {
 } from "./loop-cli-addressing.ts";
 import {
   renderLoopInventory,
+  renderLoopsCreateHelp,
   renderLoopsHelp,
   renderLoopStoreSummary,
   renderScopedCommand,
@@ -60,14 +62,19 @@ export { renderLoopsHelp } from "./loops-cli-rendering.ts";
 
 const LOOP_BUSY_RETRY_MS = 250;
 const LOOP_CONFIRM_FLAG = "--confirm";
+const LOOP_SENDER_FLAG = "--sender";
+const LOOP_SENDER_NAME_FLAG = "--sender-name";
+const LOOP_SENDER_HANDLE_FLAG = "--sender-handle";
 
 type LoadedLoopControlState = Awaited<ReturnType<typeof loadLoopControlState>>;
 type LoopCliContext = ReturnType<typeof resolveLoopCliContext>;
 type LoopPromptResolution = Awaited<ReturnType<typeof resolveLoopPromptText>>;
+type LoopCreator = NonNullable<ReturnType<typeof buildStoredLoopSender>>;
 type LoopCreateRequest = {
   addressing: LoopCliAddressing;
   context: LoopCliContext;
   deliveryContext?: LoopCliContext;
+  creator: LoopCreator;
   parsed: ParsedLoopSlashCommand;
   resolvedPrompt: LoopPromptResolution;
   resolvedTarget: ReturnType<typeof resolveAgentTarget>;
@@ -348,9 +355,33 @@ function stripConfirmFlag(args: string[]) {
   return args.filter((arg) => arg !== LOOP_CONFIRM_FLAG);
 }
 
+function stripLoopCreatorArgs(args: string[]) {
+  const remaining: string[] = [];
+  const creatorFlags = new Set([
+    LOOP_SENDER_FLAG,
+    LOOP_SENDER_NAME_FLAG,
+    LOOP_SENDER_HANDLE_FLAG,
+  ]);
+  for (let index = 0; index < args.length; index += 1) {
+    const current = args[index];
+    if (current === "--") {
+      remaining.push(...args.slice(index));
+      break;
+    }
+    if (creatorFlags.has(current)) {
+      index += 1;
+      continue;
+    }
+    remaining.push(current);
+  }
+  return remaining;
+}
+
 function parseCreateExpression(rawArgs: string[], explicitCreateSubcommand: boolean) {
   const expressionArgs = stripLoopContextArgs(
-    stripConfirmFlag(explicitCreateSubcommand ? rawArgs.slice(1) : rawArgs),
+    stripLoopCreatorArgs(
+      stripConfirmFlag(explicitCreateSubcommand ? rawArgs.slice(1) : rawArgs),
+    ),
   );
   const expression = expressionArgs.join(" ").trim();
   if (!expression) {
@@ -373,6 +404,52 @@ function parseLoopTimezone(args: string[]) {
     return undefined;
   }
   return parseTimezone(timezone, "--timezone");
+}
+
+function parseLoopCreator(args: string[], addressing: LoopCliAddressing): LoopCreator {
+  const sender = parseOptionValue(args, LOOP_SENDER_FLAG)?.trim();
+  if (!sender) {
+    throw new Error(
+      `Loop creation requires ${LOOP_SENDER_FLAG} <principal>, for example ${LOOP_SENDER_FLAG} telegram:1276408333 or ${LOOP_SENDER_FLAG} slack:U1234567890.`,
+    );
+  }
+  const [platform, ...providerParts] = sender.split(":");
+  const providerId = providerParts.join(":").trim();
+  if ((platform !== "slack" && platform !== "telegram") || !providerId) {
+    throw new Error(`${LOOP_SENDER_FLAG} must be a principal like telegram:<id> or slack:<user-id>.`);
+  }
+  if (addressing.channel && platform !== addressing.channel) {
+    throw new Error(`${LOOP_SENDER_FLAG} platform must match --channel ${addressing.channel}.`);
+  }
+  const creator = buildStoredLoopSender({
+    platform,
+    providerId,
+    displayName: parseOptionValue(args, LOOP_SENDER_NAME_FLAG),
+    handle: parseOptionValue(args, LOOP_SENDER_HANDLE_FLAG),
+  });
+  if (!creator) {
+    throw new Error(`${LOOP_SENDER_FLAG} must include a non-empty provider id.`);
+  }
+  return creator;
+}
+
+function quoteLoopCliValue(value: string) {
+  if (/^[A-Za-z0-9_@.:/-]+$/.test(value)) {
+    return value;
+  }
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function renderLoopCreatorArgs(creator: LoopCreator) {
+  return [
+    `${LOOP_SENDER_FLAG} ${quoteLoopCliValue(creator.senderId ?? creator.providerId ?? "")}`,
+    creator.displayName
+      ? `${LOOP_SENDER_NAME_FLAG} ${quoteLoopCliValue(creator.displayName)}`
+      : undefined,
+    creator.handle
+      ? `${LOOP_SENDER_HANDLE_FLAG} ${quoteLoopCliValue(creator.handle)}`
+      : undefined,
+  ].filter(Boolean).join(" ");
 }
 
 async function enforceLoopCreateLimits(
@@ -413,6 +490,7 @@ async function resolveLoopCreateRequest(
   const expression = parseCreateExpression(rawArgs, explicitCreateSubcommand);
   const parsed = parseCreateCommand(expression);
   let addressing = parseAddressing(rawArgs);
+  const creator = parseLoopCreator(rawArgs, addressing);
   if (addressing.channel === "telegram" && addressing.threadId) {
     throw new Error("Telegram loop commands use `--topic-id`, not `--thread-id`.");
   }
@@ -433,6 +511,7 @@ async function resolveLoopCreateRequest(
     return {
       addressing,
       context: provisionalContext,
+      creator,
       parsed,
       resolvedPrompt,
       resolvedTarget: provisionalResolvedTarget,
@@ -466,6 +545,7 @@ async function resolveLoopCreateRequest(
     addressing,
     context,
     deliveryContext,
+    creator,
     parsed,
     resolvedPrompt,
     resolvedTarget,
@@ -517,6 +597,8 @@ function buildRecurringLoopPromptMetadata(request: LoopCreateRequest) {
       ? ("LOOP.md" as const)
       : ("custom" as const),
     maintenancePrompt: request.resolvedPrompt.maintenancePrompt,
+    createdBy: request.creator.providerId,
+    sender: request.creator,
     surfaceBinding: buildLoopSurfaceBinding(request),
   };
 }
@@ -600,7 +682,8 @@ function renderCalendarConfirmation(params: {
     nowMs: Date.now(),
   });
   const timezoneClause = params.request.loopTimezone ? ` --timezone ${params.request.loopTimezone}` : "";
-  const retryCommand = `${renderScopedCommand("loops create", params.request.addressing)}${timezoneClause} ${params.request.expression} ${LOOP_CONFIRM_FLAG}`;
+  const senderClause = ` ${renderLoopCreatorArgs(params.request.creator)}`;
+  const retryCommand = `${renderScopedCommand("loops create", params.request.addressing)}${senderClause}${timezoneClause} ${params.request.expression} ${LOOP_CONFIRM_FLAG}`;
   return [
     "confirmation_required: first wall-clock loop",
     `proposed schedule: ${formatCalendarLoopSchedule(parsed)}`,
@@ -745,6 +828,10 @@ export async function runLoopsCli(args: string[]) {
   const subcommand = args[0];
   if (!subcommand || subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
     console.log(renderLoopsHelp());
+    return;
+  }
+  if (subcommand === "create" && (hasFlag(args, "--help") || hasFlag(args, "-h"))) {
+    console.log(renderLoopsCreateHelp());
     return;
   }
 

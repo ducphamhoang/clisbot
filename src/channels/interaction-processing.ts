@@ -26,6 +26,7 @@ import {
 import {
   renderLoopStartedMessage as renderManagedLoopStartedMessage,
   renderLoopStatusSchedule as renderManagedLoopStatusSchedule,
+  buildStoredLoopSender,
   resolveLoopPromptText as resolveManagedLoopPromptText,
   summarizeLoopPrompt as summarizeManagedLoopPrompt,
   validateLoopInterval as validateManagedLoopInterval,
@@ -581,18 +582,12 @@ function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
 }
 
 function buildLoopSender(identity: ChannelInteractionIdentity): StoredLoopSender | undefined {
-  const providerId = identity.senderId?.trim();
-  if (!providerId) {
-    return undefined;
-  }
-  return {
-    senderId: identity.platform === "slack"
-      ? `slack:${providerId.toUpperCase()}`
-      : `telegram:${providerId}`,
-    providerId,
+  return buildStoredLoopSender({
+    platform: identity.platform,
+    providerId: identity.senderId ?? "",
     displayName: identity.senderName,
     handle: identity.senderHandle,
-  };
+  });
 }
 
 async function executePromptDelivery<TChunk>(params: {

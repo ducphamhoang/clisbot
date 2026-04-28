@@ -11,11 +11,11 @@ Examples:
 - `clisbot loops list`
 - `clisbot loops status`
 - `clisbot loops status --channel slack --target group:C123 --thread-id 1712345678.123456`
-- `clisbot loops create --channel slack --target group:C123 --thread-id 1712345678.123456 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target group:C123 --new-thread every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target dm:U1234567890 --new-thread every day at 09:00 check inbox`
-- `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 5m check CI`
-- `clisbot loops --channel slack --target group:C123 --thread-id 1712345678.123456 3 review backlog`
+- `clisbot loops create --channel slack --target group:C123 --thread-id 1712345678.123456 --sender slack:U1234567890 every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target group:C123 --new-thread --sender slack:U1234567890 every day at 07:00 check CI`
+- `clisbot loops create --channel slack --target dm:U1234567890 --new-thread --sender slack:U1234567890 every day at 09:00 check inbox`
+- `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 --sender telegram:1276408333 5m check CI`
+- `clisbot loops --channel slack --target group:C123 --thread-id 1712345678.123456 --sender slack:U1234567890 3 review backlog`
 - `clisbot loops cancel abc123`
 - `clisbot loops cancel --channel slack --target group:C123 --thread-id 1712345678.123456 --all`
 - `clisbot loops cancel --all`
@@ -30,6 +30,8 @@ Examples:
 - `--topic-id` narrows a Telegram route to one topic id
 - omitting the sub-surface flag means the parent surface itself: Slack channel/group/DM or Telegram chat
 - `--new-thread` is Slack-only and creates a fresh thread anchor in the target channel/group/DM before the loop starts
+- `--sender <principal>` is required for loop creation and records the human creator as `slack:<user-id>` or `telegram:<user-id>`
+- `--sender-name <name>` and `--sender-handle <handle>` optionally store readable creator context for scheduled prompts
 - for Telegram forum groups, omitting `--topic-id` targets the parent chat surface; sends then follow Telegram's normal no-`message_thread_id` behavior, which is the General topic when that forum has one
 
 ## Scope
@@ -52,6 +54,7 @@ Examples:
 - `clisbot loops list` stays app-wide inventory
 - bare `clisbot loops status` stays app-wide inventory, while scoped `status --channel ... --target ...` answers the same session-scoped question as `/loop status`
 - recurring CLI-created loops are persisted into the same session store shape that channel `/loop` already uses
+- CLI loop creation fails without `--sender` so delayed work keeps a real creator instead of rendering sender as unavailable
 - omitting the prompt body keeps slash-command maintenance semantics by loading `LOOP.md` from the target workspace
 - `clisbot loops cancel --all` without a routed target is app-wide
 - scoped `clisbot loops cancel --all` clears one routed session
@@ -73,6 +76,7 @@ Examples:
 
 - recurring interval and wall-clock loops created from the CLI are persisted first into the routed session entry
 - CLI creation accepts the same loop expression families as `/loop`: interval, forced interval, times/count, and calendar wall-clock schedules
+- CLI creation requires `--sender <principal>` and persists creator metadata on recurring loops
 - if no wall-clock loop has been created successfully yet, the first wall-clock create command returns `confirmation_required` and does not persist a loop
 - the confirmation-required output includes the proposed schedule, resolved timezone, next run, and the exact retry command with `--confirm`
 - a confirmed retry creates the loop only when `--confirm` is present
