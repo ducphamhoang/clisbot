@@ -21,12 +21,12 @@ This document provides a high-level overview of the `clisbot` architecture, cons
 | Telegram             |              | status / logs        |
 | future API / Discord |              | channels / agents    |
 |                      |              | pairing / debug      |
-|                      |              | gated actions        |
+|                      |              | loop control         |
 | owns:                |              | owns:                |
 | - inbound messages   |              | - inspect            |
 | - thread / reply UX  |              | - intervene          |
 | - chat-first render  |              | - operator views     |
-| - transcript command |              | - operator intervention |
+| - transcript command |              | - runtime supervisor |
 +----------+-----------+              +----------+-----------+
            |                                     |
            +------------------+------------------+
@@ -63,10 +63,10 @@ This document provides a high-level overview of the `clisbot` architecture, cons
                     | - agent identity     |
                     | - session keys       |
                     | - workspaces         |
-                    | - queueing           |
+                    | - queueing / loops   |
                     | - lifecycle state    |
                     | - follow-up state    |
-                    | - memory / tools     |
+                    | - conversation replay|
                     +----------+-----------+
                                |
                                v
@@ -90,7 +90,8 @@ This document provides a high-level overview of the `clisbot` architecture, cons
                     |    tmux runner now   |
                     |----------------------|
                     | native CLI in tmux   |
-                    | Codex / Claude / ... |
+                    | Codex / Claude /     |
+                    | Gemini / ...         |
                     | session-id capture   |
                     | resume / relaunch    |
                     +----------+-----------+
@@ -120,6 +121,7 @@ Manages roles, permissions, and owner claims.
 ### 3. Control
 Operator-facing surface for system management.
 - **Owns**: Inspection, intervention, operator views, and manual session control.
+- **Runtime Supervisor**: Manages the clisbot process lifecycle, config reloading, and automatic channel recovery with backoff.
 - **Rule**: Must not behave like a user-facing conversation channel.
 
 ### 4. Configuration
@@ -128,12 +130,13 @@ The local control plane wiring the system together.
 
 ### 5. Agents
 The backend-agnostic layer for agent and session logic.
-- **Owns**: Agent identity, session keys, workspaces, queueing, and lifecycle state.
+- **Owns**: Agent identity, session keys, workspaces, queueing, loops (recurring automation), and lifecycle state.
+- **Conversation Replay**: Manages recent context to help agents maintain continuity.
 - **Rule**: Must not depend on runner-specific terms (like tmux panes).
 
 ### 6. Runners
 The backend-specific execution layer.
-- **Owns**: Normalizing backend quirks (tmux, ACP, SDKs) into a standard contract.
+- **Owns**: Normalizing backend quirks (tmux, ACP, SDKs) into a standard contract. Supports Codex, Claude, and Gemini native CLIs.
 - **Standard Contract**: `start`, `stop`, `submit input`, `capture snapshot`, `stream updates`, and `surface errors`.
 
 ## Core Design Principles
