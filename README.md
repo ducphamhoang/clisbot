@@ -118,7 +118,7 @@ If you want to try first without persisting the token yet, just remove `--persis
 Next steps:
 
 - For security, DMs default to pairing.
-- Existing `0.1.43` configs update directly to `0.1.45` automatically on first run. clisbot writes a backup first under `~/.clisbot/backups/`, then rewrites the config to the current shape.
+- Existing configs from any version before `0.1.45` update directly to `0.1.45` automatically on first run. clisbot writes a backup first under `~/.clisbot/backups/`, then rewrites the config to the current shape.
 - Shared Slack channels, Slack groups, Telegram groups, and Telegram topics are a separate gate: normal users need an explicit route such as `group:<id>` or `topic:<chatId>:<topicId>` before the bot will talk there. Legacy Slack `channel:<id>` input still works for compatibility.
 - After a shared surface is admitted, per-surface sender control comes from the bot's default shared rule `groups["*"]` plus any route-local `allowUsers` or `blockUsers`.
 - If the effective shared policy is `disabled`, the bot stays silent there for everyone, including owner/admin.
@@ -154,7 +154,7 @@ What happens next:
 
 ## Recent Release Highlights
 
-- `v0.1.45`: safer personal and team bots in real Slack and Telegram groups, automatic direct updates from `0.1.43`, more reliable scheduled loops, clearer sender and surface context, Telegram audio support, and stricter streaming/session isolation.
+- `v0.1.45`: safer personal and team bots in real Slack and Telegram groups, automatic direct updates from older installs, more reliable scheduled loops, clearer sender and surface context, Telegram audio support, and stricter streaming/session isolation.
 - `v0.1.43`: more durable runtime recovery, clearer routed follow-up controls, more truthful tmux prompt submission checks, better queued-start notifications, and safer Slack thread attachment behavior.
 - `v0.1.39`: the first large release of the current bot-first shape, with native Slack and Telegram rendering, cleaner first-run setup, stronger pairing/auth defaults, better long-running run visibility, and recurring `/loop` automation.
 

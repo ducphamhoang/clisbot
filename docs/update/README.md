@@ -38,7 +38,7 @@ Use [Release notes](../releases/README.md) as quick release info. For deeper que
 ## Current Stable Path
 
 ```text
-Path: 0.1.43 -> 0.1.45
+Path: any version before 0.1.45 -> 0.1.45
 Target: clisbot@0.1.45
 Update path: direct
 Manual action: none
@@ -49,3 +49,5 @@ Command: npm install -g clisbot@0.1.45 && clisbot restart
 Verify: clisbot status
 Release note: ../releases/v0.1.45.md
 ```
+
+This includes released `0.1.43` installs, older legacy installs before `0.1.43`, and internal `0.1.44` pre-release installs.
