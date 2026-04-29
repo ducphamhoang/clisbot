@@ -453,20 +453,26 @@ Important behavior:
 ## Runner Debugging
 
 - `clisbot runner list`
-- `clisbot runner inspect <session-name> [--lines <n>]`
+- `clisbot runner inspect <session-name>|--latest|--index <n> [--lines <n>]`
 - `clisbot runner watch <session-name> [--lines <n>] [--interval <duration>]`
+- `clisbot runner watch --index <n> [--lines <n>] [--interval <duration>] [--timeout <duration>]`
 - `clisbot runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]`
 - `clisbot runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]`
+- `clisbot inspect ...`
+- `clisbot watch ...`
 - `clisbot runner smoke ...`
 
 Important behavior:
 
-- main help promotes `clisbot runner list` and `clisbot runner watch --latest` as the fastest tmux debug entry points
+- main help promotes `clisbot runner list` and `clisbot watch --latest` as the fastest tmux debug entry points
 - `runner list` shows mapped `sessionId` plus a simple persisted state when available; tmux-only sessions are labeled `unmanaged`
 - `clisbot status` includes the newest five runner sessions by default; if there are more, it prints `(n) sessions more`
+- `runner list` prefixes each row with a 1-based index such as `[1]`; `inspect --index <n>` and `watch --index <n>` use that exact order
+- top-level `clisbot inspect` and `clisbot watch` are shorthand for `clisbot runner inspect` and `clisbot runner watch`
+- `inspect --latest` means the session with the newest admitted prompt
 - `watch --latest` means the session with the newest admitted prompt, not the newest tmux spawn
 - `watch --next` waits for the first newly admitted prompt after the command starts, then sticks to that session
-- `--lines` controls the pane tail window for both `inspect` and `watch`
+- `--lines` controls the pane tail window for both `inspect` and `watch`; `inspect` defaults to 100 lines
 - `--interval` controls polling cadence for `watch`
 - use raw tmux only when you need lower-level actions beyond this control surface
 

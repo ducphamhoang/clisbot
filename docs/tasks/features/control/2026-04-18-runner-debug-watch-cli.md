@@ -20,9 +20,13 @@ Raw tmux inspection works, but it is too slow and too implicit for common failur
 
 - `clisbot runner list`
 - `clisbot runner inspect <session-name>`
+- `clisbot runner inspect --latest`
+- `clisbot runner inspect --index <n>`
 - `clisbot runner watch <session-name>`
+- `clisbot runner watch --index <n>`
 - `clisbot runner watch --latest`
 - `clisbot runner watch --next`
+- `clisbot inspect ...` and `clisbot watch ...` shorthand
 - configurable `--lines`, `--interval`, and watch timeout
 - persisted `lastAdmittedPromptAt` metadata for fast latest or next selection
 
@@ -45,5 +49,5 @@ Shipped:
 
 - new runner control commands under `clisbot runner`
 - `lastAdmittedPromptAt` persisted per session entry
-- integration coverage with real tmux sessions for `list`, `inspect`, `watch --latest`, and `watch --next`
+- integration coverage with real tmux sessions for `list`, `inspect`, `inspect --latest`, index selection, shorthand commands, `watch --latest`, and `watch --next`
 - synced operator docs and runtime guide wording

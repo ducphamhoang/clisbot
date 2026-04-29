@@ -352,7 +352,7 @@ describe("runtime summaries", () => {
     expect(text).not.toContain("session-1");
     expect(text).toContain("(1) sessions more");
     expect(text).toContain("clisbot runner list");
-    expect(text).toContain("clisbot runner watch --latest");
+    expect(text).toContain("clisbot watch --latest");
   });
 
   test("distinguishes missing, not-bootstrapped, and bootstrapped bootstrap states", async () => {

@@ -90,11 +90,19 @@ clisbot runner list
 `clisbot status` now includes the newest five runner sessions by default, with a `(n) sessions more` tail when the socket has more than five.
 
 ```bash
-clisbot runner inspect <session-name> --lines 40
+clisbot runner inspect --latest
+```
+
+```bash
+clisbot runner inspect --index 1
 ```
 
 ```bash
 clisbot runner watch <session-name> --lines 20 --interval 1s
+```
+
+```bash
+clisbot runner watch --index 1 --lines 20 --interval 1s
 ```
 
 ```bash
@@ -107,9 +115,18 @@ clisbot runner watch --next --timeout 120s --lines 20 --interval 1s
 
 Meaning:
 
+- `inspect --latest`: snapshot from the session that most recently admitted a new prompt
 - `watch --latest`: session that most recently admitted a new prompt
 - `watch --next`: first newly admitted prompt after the command starts
+- `--index`: 1-based order shown by `clisbot runner list`
 - these commands choose sessions by logical prompt flow, not by tmux create time
+
+Top-level shorthand is also available:
+
+```bash
+clisbot inspect --latest
+clisbot watch --latest
+```
 
 Raw tmux remains available as the lower-level fallback:
 
@@ -149,7 +166,11 @@ clisbot runner list
 ```
 
 ```bash
-clisbot runner watch --latest --lines 20 --interval 1s
+clisbot inspect --latest
+```
+
+```bash
+clisbot watch --latest --lines 20 --interval 1s
 ```
 
 ```bash
@@ -228,7 +249,7 @@ trust_level = "trusted"
 - if the trust screen is still visible, inspect or attach to the tmux session and continue from there:
 
 ```bash
-clisbot runner inspect agent-default-main --lines 40
+clisbot inspect --index 1
 ```
 
 ```bash

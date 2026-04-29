@@ -149,6 +149,13 @@ export function parseCliArgs(argv: string[]): ParsedCliCommand {
     };
   }
 
+  if (command === "watch" || command === "inspect") {
+    return {
+      name: "runner",
+      args: [command, ...args.slice(1)],
+    };
+  }
+
   if (command === "pairing") {
     return {
       name: "pairing",
@@ -191,7 +198,7 @@ export function renderCliHelp() {
     `     ${renderCliCommand("start --cli codex --bot-type personal --telegram-bot-token \"$TELEGRAM_BOT_TOKEN\" --persist")}`,
     `     ${renderCliCommand("start --cli codex --bot-type team --slack-app-token SLACK_APP_TOKEN --slack-bot-token SLACK_BOT_TOKEN")}`,
     `  3. Use ${renderCliCommand("status", { inline: true })} to see runtime state and the most recent runner sessions.`,
-    `     Use ${renderCliCommand("runner watch --latest", { inline: true })} when you want to jump straight into the newest live pane.`,
+    `     Use ${renderCliCommand("watch --latest", { inline: true })} when you want to jump straight into the newest live pane.`,
     "",
     "Bot types:",
     "  personal  One human gets one dedicated long-lived assistant workspace and session path.",
@@ -206,7 +213,7 @@ export function renderCliHelp() {
     "Working hints:",
     `  Add extra workspaces with ${renderCliCommand("agents add <id> --cli <codex|claude|gemini>", { inline: true })}, then point traffic with ${renderCliCommand("bots set-agent ...", { inline: true })} or ${renderCliCommand("routes set-agent ...", { inline: true })}.`,
     `  For shared Slack/Telegram surfaces, the usual flow is ${renderCliCommand("routes add ...", { inline: true })} -> ${renderCliCommand("routes set-agent ...", { inline: true })} -> optional follow-up or allowlist tuning.`,
-    `  For fast runner debugging, start with ${renderCliCommand("runner list", { inline: true })} and ${renderCliCommand("runner watch --latest", { inline: true })}.`,
+    `  For fast runner debugging, start with ${renderCliCommand("runner list", { inline: true })} and ${renderCliCommand("watch --latest", { inline: true })}.`,
     "",
     "Usage:",
     `  ${renderCliCommand("start [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]")}`,
@@ -226,6 +233,8 @@ export function renderCliHelp() {
     `  ${renderCliCommand("agents <subcommand>")}`,
     `  ${renderCliCommand("auth <subcommand>")}`,
     `  ${renderCliCommand("runner <subcommand>")}`,
+    `  ${renderCliCommand("watch <session-name>|--latest|--index <n>")}`,
+    `  ${renderCliCommand("inspect <session-name>|--latest|--index <n>")}`,
     `  ${renderCliCommand("pairing <subcommand>")}`,
     `  ${renderCliCommand("init [--cli <codex|claude|gemini>] [--bot-type <personal|team>] [--persist]")}`,
     "              [--slack-account <id> --slack-app-token <ENV_NAME|${ENV_NAME}|literal> --slack-bot-token <ENV_NAME|${ENV_NAME}|literal>]...",
@@ -275,9 +284,9 @@ export function renderCliHelp() {
     `                     See ${renderCliCommand("agents --help", { inline: true })} for focused add/bootstrap help.`,
     `  auth               Manage app and agent auth roles, principals, and permissions in config. See ${renderCliCommand("auth --help", { inline: true })}.`,
     "  runner             Inspect tmux-backed runner sessions and validate runner smoke contracts.",
-    "                     list|inspect <session-name>|watch <session-name>|watch --latest|watch --next|smoke ...",
+    "                     list|inspect <session-name>|inspect --latest|inspect --index <n>|watch <session-name>|watch --latest|watch --next|watch --index <n>|smoke ...",
     `                     See ${renderCliCommand("runner --help", { inline: true })} for operator debug and smoke details.`,
-    `  runner shortcuts   ${renderCliCommand("runner list", { inline: true })} and ${renderCliCommand("runner watch --latest", { inline: true })} are the fastest tmux debug entry points.`,
+    `  runner shortcuts   ${renderCliCommand("watch --latest", { inline: true })} and ${renderCliCommand("inspect --latest", { inline: true })} are shorthand for runner debug commands.`,
     `  pairing            Run the pairing control CLI. See ${renderCliCommand("pairing --help", { inline: true })}.`,
     `  init               Seed ${configPath} and optionally create the first agent without starting clisbot.`,
     `                     See ${renderCliCommand("init --help", { inline: true })} for bootstrap-focused flags and examples.`,

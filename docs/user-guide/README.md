@@ -439,7 +439,7 @@ That page now holds:
 
 - turn execution timeout semantics
 - long-running session commands such as `/attach`, `/detach`, and `/watch`
-- runner debug commands such as `clisbot runner list|inspect|watch`
+- runner debug commands such as `clisbot runner list|inspect|watch` and the `clisbot inspect` / `clisbot watch` shorthand
 - dedicated tmux socket usage and raw tmux fallback commands
 - runtime state file locations and Codex trust troubleshooting
 - stale tmux cleanup behavior
@@ -451,5 +451,5 @@ That page now holds:
 - tmux session names now derive from session keys, so one agent can have multiple tmux sessions at once
 - the default session name template is `agents.defaults.session.name = "{sessionKey}"`
 - tmux session names are created by normalizing the rendered value into a tmux-safe name, replacing every non-alphanumeric character with `-`
-- prefer `clisbot runner list` and `clisbot runner watch --latest|--next` before dropping to raw tmux
+- prefer `clisbot runner list`, `clisbot inspect --latest`, and `clisbot watch --latest|--next` before dropping to raw tmux
 - if the Codex trust screen appears stale after attaching, press `Ctrl-L` inside the tmux session to redraw the pane

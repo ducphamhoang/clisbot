@@ -301,7 +301,7 @@ function renderRunnerSessionSummaryLines(summary: RuntimeOperatorSummary) {
       return `  - ${session.sessionName} live=${session.live ? "yes" : "no"} agent=${session.entry.agentId} state=${session.entry.runtime?.state ?? "no-runtime"} sessionKey=${session.entry.sessionKey} lastAdmittedPromptAt=${formatSessionTimestamp(session.entry.lastAdmittedPromptAt)}`;
     }),
     ...(hiddenCount > 0 ? [`  (${hiddenCount}) sessions more`] : []),
-    `  hint: ${renderCliCommand("runner list", { inline: true })} or ${renderCliCommand("runner watch --latest", { inline: true })}`,
+    `  hint: ${renderCliCommand("runner list", { inline: true })} or ${renderCliCommand("watch --latest", { inline: true })}`,
   ];
 }
 

@@ -9,6 +9,7 @@ export type RunnerSessionMetadata = {
 };
 
 export type RunnerSessionSummary = {
+  index?: number;
   sessionName: string;
   live: boolean;
   entry?: StoredSessionEntry;
@@ -68,7 +69,8 @@ export async function listRunnerSessions(
       }
       return left.localeCompare(right);
     })
-    .map((sessionName) => ({
+    .map((sessionName, index) => ({
+      index: index + 1,
       sessionName,
       live: true,
       entry: sessionByName.get(sessionName),

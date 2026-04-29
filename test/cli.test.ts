@@ -108,6 +108,14 @@ describe("parseCliArgs", () => {
       name: "runner",
       args: ["smoke", "--backend", "codex"],
     });
+    expect(parseCliArgs(["bun", "src/main.ts", "watch", "--index", "1"])).toEqual({
+      name: "runner",
+      args: ["watch", "--index", "1"],
+    });
+    expect(parseCliArgs(["bun", "src/main.ts", "inspect", "--latest"])).toEqual({
+      name: "runner",
+      args: ["inspect", "--latest"],
+    });
   });
 
   test("parses init", () => {
@@ -209,7 +217,7 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clisbot stop [--hard]");
     expect(help).toContain("clisbot status");
     expect(help).toContain("Use `clisbot status` to see runtime state and the most recent runner sessions.");
-    expect(help).toContain("clisbot runner watch --latest");
+    expect(help).toContain("clisbot watch --latest");
     expect(help).toContain("clisbot version");
     expect(help).toContain("clisbot logs [--lines N]");
     expect(help).toContain("clisbot update --help");
@@ -231,6 +239,8 @@ describe("renderCliHelp", () => {
     expect(help).toContain("clisbot auth <subcommand>");
     expect(help).toContain("clisbot auth --help");
     expect(help).toContain("clisbot runner <subcommand>");
+    expect(help).toContain("clisbot watch <session-name>|--latest|--index <n>");
+    expect(help).toContain("clisbot inspect <session-name>|--latest|--index <n>");
     expect(help).toContain("clisbot runner --help");
     expect(help).toContain("runner shortcuts");
     expect(help).toContain("clisbot pairing --help");

@@ -40,7 +40,9 @@ type SmokeCommandOptions = {
 };
 
 type RunnerInspectOptions = {
-  sessionName: string;
+  sessionName?: string;
+  latest: boolean;
+  index?: number;
   lines: number;
 };
 
@@ -48,6 +50,7 @@ type RunnerWatchOptions = {
   sessionName?: string;
   latest: boolean;
   next: boolean;
+  index?: number;
   lines: number;
   intervalMs: number;
   timeoutMs?: number;
@@ -118,6 +121,21 @@ function parsePositiveIntOption(
   return defaultValue;
 }
 
+function parseOptionalPositiveIntOption(args: string[], names: string[]) {
+  for (const name of names) {
+    const raw = parseSingleOption(args, name);
+    if (!raw) {
+      continue;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new CliCommandError(`Invalid value for ${name}: ${raw}`, 2);
+    }
+    return parsed;
+  }
+  return undefined;
+}
+
 function parsePositionalArgument(
   args: string[],
   optionNamesWithValues: string[] = [],
@@ -163,8 +181,9 @@ export function renderRunnerHelp() {
     `  ${renderCliCommand("runner")}`,
     `  ${renderCliCommand("runner --help")}`,
     `  ${renderCliCommand("runner list")}`,
-    `  ${renderCliCommand("runner inspect <session-name> [--lines <n>]")}`,
+    `  ${renderCliCommand("runner inspect <session-name>|--latest|--index <n> [--lines <n>]")}`,
     `  ${renderCliCommand("runner watch <session-name> [--lines <n>] [--interval <duration>]")}`,
+    `  ${renderCliCommand("runner watch --index <n> [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
     `  ${renderCliCommand("runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
     `  ${renderCliCommand("runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
     `  ${renderCliCommand("runner smoke --backend <codex|claude|gemini> --scenario <name> [--workspace <path>] [--agent <id>] [--artifact-dir <path>] [--timeout-ms <n>] [--keep-session] [--json]")}`,
@@ -172,7 +191,8 @@ export function renderRunnerHelp() {
     "",
     "Operator session debugging:",
     "  - `list` shows current tmux runner sessions, newest admitted turn first when known, plus stored sessionId/state when available",
-    "  - `inspect` captures one snapshot from a named tmux session",
+    "  - `inspect` captures one snapshot; default tail is 100 lines",
+    "  - `--index <n>` selects the 1-based order printed by `runner list`",
     "  - `watch --latest` follows the session that most recently admitted a new prompt",
     "  - `watch --next` waits for the next newly admitted prompt, then follows that session",
     "",
@@ -193,36 +213,40 @@ export function renderRunnerHelp() {
 }
 
 function parseInspectCommand(args: string[]): RunnerInspectOptions {
-  const sessionName = parsePositionalArgument(args, ["--lines", "-n"]);
-  if (!sessionName) {
+  const latest = hasFlag(args, "--latest");
+  const index = parseOptionalPositiveIntOption(args, ["--index"]);
+  const sessionName = parsePositionalArgument(args, ["--lines", "-n", "--index"]);
+  const selectorCount = [Boolean(sessionName), latest, index != null].filter(Boolean).length;
+  if (selectorCount !== 1) {
     throw new CliCommandError(
-      `Usage: ${renderCliCommand("runner inspect <session-name> [--lines <n>]")}`,
+      `Usage: ${renderCliCommand("runner inspect <session-name>|--latest|--index <n> [--lines <n>]")}`,
       2,
     );
   }
 
   return {
     sessionName,
-    lines: parsePositiveIntOption(args, ["--lines", "-n"], 40),
+    latest,
+    index,
+    lines: parsePositiveIntOption(args, ["--lines", "-n"], 100),
   };
 }
 
 function parseWatchCommand(args: string[]): RunnerWatchOptions {
   const latest = hasFlag(args, "--latest");
   const next = hasFlag(args, "--next");
-  if (latest && next) {
-    throw new CliCommandError("--latest and --next are mutually exclusive", 2);
+  const index = parseOptionalPositiveIntOption(args, ["--index"]);
+  const sessionName = parsePositionalArgument(args, ["--lines", "-n", "--interval", "--timeout", "--index"]);
+  const selectorCount = [Boolean(sessionName), latest, next, index != null].filter(Boolean).length;
+  if (selectorCount > 1) {
+    throw new CliCommandError("watch accepts only one of <session-name>, --latest, --next, or --index", 2);
   }
 
-  const sessionName = parsePositionalArgument(args, ["--lines", "-n", "--interval", "--timeout"]);
-  if ((latest || next) && sessionName) {
-    throw new CliCommandError("watch does not accept <session-name> with --latest or --next", 2);
-  }
-
-  if (!latest && !next && !sessionName) {
+  if (selectorCount === 0) {
     throw new CliCommandError(
       [
         `Usage: ${renderCliCommand("runner watch <session-name> [--lines <n>] [--interval <duration>]")}`,
+        `       ${renderCliCommand("runner watch --index <n> [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
         `       ${renderCliCommand("runner watch --latest [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
         `       ${renderCliCommand("runner watch --next [--lines <n>] [--interval <duration>] [--timeout <duration>]")}`,
       ].join("\n"),
@@ -234,6 +258,7 @@ function parseWatchCommand(args: string[]): RunnerWatchOptions {
     sessionName,
     latest,
     next,
+    index,
     lines: parsePositiveIntOption(args, ["--lines", "-n"], 20),
     intervalMs: parseDurationOption(args, "--interval", 1000) ?? 1000,
     timeoutMs: parseDurationOption(args, "--timeout", next ? 120_000 : undefined),
@@ -413,9 +438,10 @@ async function runListCli() {
 }
 
 function renderRunnerListSession(session: RunnerSessionSummary) {
+  const prefix = `- [${session.index ?? "?"}] sessionName: ${session.sessionName}`;
   if (!session.entry) {
     return [
-      `- sessionName: ${session.sessionName}`,
+      prefix,
       "  sessionId: none",
       "  state: unmanaged",
       "  live: yes",
@@ -423,7 +449,7 @@ function renderRunnerListSession(session: RunnerSessionSummary) {
   }
 
   return [
-    `- sessionName: ${session.sessionName}`,
+    prefix,
     `  agent: ${session.entry.agentId}`,
     `  sessionKey: ${session.entry.sessionKey}`,
     `  sessionId: ${session.entry.sessionId?.trim() || "none"}`,
@@ -433,13 +459,42 @@ function renderRunnerListSession(session: RunnerSessionSummary) {
   ].join("\n");
 }
 
+function resolveIndexedSession(sessions: RunnerSessionSummary[], index: number) {
+  const selected = sessions[index - 1];
+  if (!selected) {
+    throw new CliCommandError(
+      `No runner session at index ${index}. Run ${renderCliCommand("runner list", { inline: true })} to see valid indexes.`,
+      1,
+    );
+  }
+  return selected;
+}
+
 async function runInspectCli(args: string[]) {
   const options = parseInspectCommand(args);
-  const { tmux } = await loadRunnerContext();
-  if (!(await tmux.hasSession(options.sessionName))) {
-    throw new CliCommandError(`tmux session "${options.sessionName}" does not exist`, 1);
+  const context = await loadRunnerContext();
+  const sessionMetadata = buildRunnerSessionMetadata(context.loadedConfig, context.entries);
+  let sessionName = options.sessionName;
+
+  if (options.latest) {
+    const latest = resolveLatestSessionMetadata(sessionMetadata);
+    if (!latest) {
+      throw new CliCommandError(
+        `No admitted prompt is recorded yet. Use ${renderCliCommand("runner list", { inline: true })} or inspect a named session.`,
+        1,
+      );
+    }
+    sessionName = latest.sessionName;
   }
-  const snapshot = await tmux.capturePane(options.sessionName, options.lines);
+
+  if (options.index != null) {
+    sessionName = resolveIndexedSession(await listRunnerSessions(context.loadedConfig), options.index).sessionName;
+  }
+
+  if (!sessionName || !(await context.tmux.hasSession(sessionName))) {
+    throw new CliCommandError(`tmux session "${sessionName ?? "unknown"}" does not exist`, 1);
+  }
+  const snapshot = await context.tmux.capturePane(sessionName, options.lines);
   console.log(snapshot.trimEnd());
 }
 
@@ -457,6 +512,15 @@ async function resolveWatchSelection(options: RunnerWatchOptions) {
     return {
       sessionName: options.sessionName,
       metadata: sessionMetadata.find((item) => item.sessionName === options.sessionName) ?? null,
+      tmux: context.tmux,
+    };
+  }
+
+  if (options.index != null) {
+    const selected = resolveIndexedSession(await listRunnerSessions(context.loadedConfig), options.index);
+    return {
+      sessionName: selected.sessionName,
+      metadata: sessionMetadata.find((item) => item.sessionName === selected.sessionName) ?? null,
       tmux: context.tmux,
     };
   }

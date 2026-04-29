@@ -4,15 +4,19 @@
 
 `clisbot runner` now owns the operator-facing tmux debug surface for listing, inspecting, and watching live runner panes without dropping into raw tmux commands first.
 
-The main `clisbot --help` surface now promotes `runner list` and `runner watch --latest`, and `clisbot status` includes the newest five runner sessions by default.
+The main `clisbot --help` surface now promotes `runner list` and `watch --latest`, and `clisbot status` includes the newest five runner sessions by default.
 
 Examples:
 
 - `clisbot runner list`
-- `clisbot runner inspect agent-default-main --lines 40`
+- `clisbot runner inspect --latest`
+- `clisbot runner inspect --index 1`
 - `clisbot runner watch agent-default-main --lines 20 --interval 1s`
+- `clisbot runner watch --index 1 --lines 20 --interval 1s`
 - `clisbot runner watch --latest --lines 20 --interval 1s`
 - `clisbot runner watch --next --timeout 120s --lines 20 --interval 1s`
+- `clisbot watch --latest`
+- `clisbot inspect --latest`
 
 ## Scope
 
@@ -20,6 +24,7 @@ Examples:
 - capture one pane snapshot from a named session
 - watch one named session continuously
 - watch the session with the most recently admitted prompt
+- inspect or watch the session at the 1-based index printed by `runner list`
 - wait for the next newly admitted prompt, then watch that session
 
 ## Non-Goals
@@ -32,6 +37,8 @@ Examples:
 ## Invariants
 
 - `runner` is the operator control namespace; it does not redefine logical session ownership
+- top-level `clisbot watch` and `clisbot inspect` are shorthand for `clisbot runner watch` and `clisbot runner inspect`
+- `--index <n>` uses the exact 1-based order printed by `runner list`
 - `watch --latest` means the session with the newest admitted prompt, not the newest tmux process
 - `watch --next` waits for the next admitted prompt after the command starts, then sticks to that session
 - selection uses persisted session metadata first, then maps to the deterministic tmux session name derived from `sessionKey`
@@ -76,11 +83,14 @@ It is intentionally separate from `updatedAt` because:
 ### `clisbot runner inspect <session-name>`
 
 - captures one pane snapshot
-- `--lines <n>` controls the pane tail window
+- `--latest` selects the session whose logical conversation most recently admitted a new prompt
+- `--index <n>` selects the 1-based order printed by `runner list`
+- `--lines <n>` controls the pane tail window; default is `100`
 
 ### `clisbot runner watch <session-name>`
 
 - continuously captures the named pane
+- `--index <n>` selects the 1-based order printed by `runner list`
 - `--lines <n>` controls the pane tail window
 - `--interval <duration>` controls the polling cadence
 - `--timeout <duration>` bounds the watch window when desired

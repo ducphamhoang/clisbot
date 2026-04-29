@@ -83,8 +83,8 @@ async function createSessionWithOutput(tmux: TmuxClient, socketDir: string, sess
   await Bun.sleep(400);
 }
 
-async function runRunnerCliCommand(configPath: string, args: string[]) {
-  const subprocess = Bun.spawn([BUN_COMMAND, "run", "src/main.ts", "runner", ...args], {
+async function runCliCommand(configPath: string, args: string[]) {
+  const subprocess = Bun.spawn([BUN_COMMAND, "run", "src/main.ts", ...args], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
@@ -105,6 +105,10 @@ async function runRunnerCliCommand(configPath: string, args: string[]) {
     stderr,
     exitCode,
   };
+}
+
+async function runRunnerCliCommand(configPath: string, args: string[]) {
+  return runCliCommand(configPath, ["runner", ...args]);
 }
 
 afterEach(async () => {
@@ -158,17 +162,19 @@ describe("runner cli integration", () => {
 
     const result = await runRunnerCliCommand(configPath, ["list"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.indexOf("- sessionName: beta")).toBeLessThan(
-      result.stdout.indexOf("- sessionName: alpha"),
+    expect(result.stdout).toContain("- [1] sessionName: beta");
+    expect(result.stdout).toContain("- [2] sessionName: alpha");
+    expect(result.stdout.indexOf("sessionName: beta")).toBeLessThan(
+      result.stdout.indexOf("sessionName: alpha"),
     );
-    expect(result.stdout.indexOf("- sessionName: alpha")).toBeLessThan(
-      result.stdout.indexOf("- sessionName: gamma"),
+    expect(result.stdout.indexOf("sessionName: alpha")).toBeLessThan(
+      result.stdout.indexOf("sessionName: gamma"),
     );
     expect(result.stdout).toContain("sessionId: session-beta");
     expect(result.stdout).toContain("sessionId: none");
     expect(result.stdout).toContain("state: running");
     expect(result.stdout).toContain("state: idle");
-    expect(result.stdout).toContain("- sessionName: gamma\n  sessionId: none\n  state: unmanaged");
+    expect(result.stdout).toContain("sessionName: gamma\n  sessionId: none\n  state: unmanaged");
     expect(result.stdout).toContain("lastAdmittedPromptAt");
   }, 15000);
 
@@ -211,6 +217,52 @@ describe("runner cli integration", () => {
     expect(result.stdout).toContain("inspect output");
   }, 15000);
 
+  test("inspect supports --latest, --index, and 100 default lines", async () => {
+    const dir = createTempDir();
+    const { configPath, sessionStorePath, socketPath } = createConfig(dir);
+    const tmux = new TmuxClient(socketPath);
+    const now = Date.now();
+
+    const alphaOutput = [
+      "alpha inspect output",
+      ...Array.from({ length: 80 }, (_, index) => `alpha default line ${index + 1}`),
+    ].join("\n");
+    await createSessionWithOutput(tmux, dir, "alpha", alphaOutput);
+    await createSessionWithOutput(tmux, dir, "beta", "beta inspect output");
+    await writeSessionStore(sessionStorePath, [
+      {
+        agentId: "default",
+        sessionKey: "alpha",
+        workspacePath: join(dir, "workspaces", "default"),
+        runnerCommand: "codex",
+        lastAdmittedPromptAt: now - 10_000,
+        updatedAt: now - 10_000,
+      },
+      {
+        agentId: "default",
+        sessionKey: "beta",
+        workspacePath: join(dir, "workspaces", "default"),
+        runnerCommand: "codex",
+        lastAdmittedPromptAt: now - 1_000,
+        updatedAt: now - 1_000,
+      },
+    ]);
+
+    const latest = await runRunnerCliCommand(configPath, ["inspect", "--latest"]);
+    expect(latest.exitCode).toBe(0);
+    expect(latest.stdout).toContain("beta inspect output");
+    expect(latest.stdout).not.toContain("alpha inspect output");
+
+    const indexed = await runRunnerCliCommand(configPath, ["inspect", "--index", "2"]);
+    expect(indexed.exitCode).toBe(0);
+    expect(indexed.stdout).toContain("alpha inspect output");
+    expect(indexed.stdout).toContain("alpha default line 1");
+
+    const shorthand = await runCliCommand(configPath, ["inspect", "--index", "1"]);
+    expect(shorthand.exitCode).toBe(0);
+    expect(shorthand.stdout).toContain("beta inspect output");
+  }, 20000);
+
   test("watch --latest follows the session with the newest admitted prompt", async () => {
     const dir = createTempDir();
     const { configPath, sessionStorePath, socketPath } = createConfig(dir);
@@ -251,6 +303,49 @@ describe("runner cli integration", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("session: beta");
     expect(result.stdout).toContain("beta latest output");
+  }, 20000);
+
+  test("watch --index follows the runner list order", async () => {
+    const dir = createTempDir();
+    const { configPath, sessionStorePath, socketPath } = createConfig(dir);
+    const tmux = new TmuxClient(socketPath);
+    const now = Date.now();
+
+    await createSessionWithOutput(tmux, dir, "alpha", "alpha indexed output");
+    await createSessionWithOutput(tmux, dir, "beta", "beta indexed output");
+    await writeSessionStore(sessionStorePath, [
+      {
+        agentId: "default",
+        sessionKey: "alpha",
+        workspacePath: join(dir, "workspaces", "default"),
+        runnerCommand: "codex",
+        lastAdmittedPromptAt: now - 10_000,
+        updatedAt: now - 10_000,
+      },
+      {
+        agentId: "default",
+        sessionKey: "beta",
+        workspacePath: join(dir, "workspaces", "default"),
+        runnerCommand: "codex",
+        lastAdmittedPromptAt: now - 1_000,
+        updatedAt: now - 1_000,
+      },
+    ]);
+
+    const result = await runCliCommand(configPath, [
+      "watch",
+      "--index",
+      "2",
+      "--lines",
+      "20",
+      "--interval",
+      "200ms",
+      "--timeout",
+      "700ms",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("session: alpha");
+    expect(result.stdout).toContain("alpha indexed output");
   }, 20000);
 
   test("watch --next waits for the next admitted prompt and follows that session", async () => {
