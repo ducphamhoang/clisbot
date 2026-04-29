@@ -53,7 +53,9 @@ Durable one-shot queue control is being staged for the next release.
 
 ### Stability
 
-- None yet.
+- Fixed startup ready-pattern matching so stale prompt markers earlier in a tmux
+  pane do not let first-submit proceed before the currently launching runner is
+  actually ready.
 
 ### Security
 

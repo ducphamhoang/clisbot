@@ -319,7 +319,7 @@ export async function waitForTmuxSessionBootstrap(params: {
           };
         }
       }
-      if (readyRegex && !readyRegex.test(snapshot)) {
+      if (readyRegex && !snapshotHasActiveReadyPattern(snapshot, readyRegex)) {
         await sleep(SESSION_BOOTSTRAP_POLL_INTERVAL_MS);
         continue;
       }
@@ -658,6 +658,38 @@ function arePaneStatesEqual(left: TmuxPaneState, right: TmuxPaneState) {
     left.cursorX === right.cursorX &&
     left.cursorY === right.cursorY &&
     left.historySize === right.historySize
+  );
+}
+
+function snapshotHasActiveReadyPattern(snapshot: string, readyRegex: RegExp) {
+  const lines = splitNormalizedLines(snapshot);
+  let readyLineIndex = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (readyRegex.test(lines[index] ?? "")) {
+      readyLineIndex = index;
+    }
+  }
+
+  if (readyLineIndex < 0) {
+    return readyRegex.test(snapshot);
+  }
+
+  for (const rawLine of lines.slice(readyLineIndex + 1)) {
+    const line = rawLine.trim();
+    if (!line || isPromptMetadataLine(line)) {
+      continue;
+    }
+    return false;
+  }
+
+  return true;
+}
+
+function isPromptMetadataLine(line: string) {
+  return (
+    /^gpt-[\w.-]+\b/i.test(line) ||
+    /^model:\s*/i.test(line) ||
+    /^session:\s*/i.test(line)
   );
 }
 

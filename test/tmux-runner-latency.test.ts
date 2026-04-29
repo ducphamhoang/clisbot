@@ -178,6 +178,44 @@ describe("tmux runner latency behavior", () => {
     expect(captureCount).toBe(3);
   });
 
+  test("waitForTmuxSessionBootstrap ignores a stale prompt when newer startup output follows it", async () => {
+    let captureCount = 0;
+    const fakeTmux = {
+      async capturePane() {
+        captureCount += 1;
+        if (captureCount === 1) {
+          return [
+            "Previous answer",
+            "› old request",
+            "",
+            "Starting Codex...",
+          ].join("\n");
+        }
+        return [
+          "Previous answer",
+          "› old request",
+          "",
+          "Starting Codex...",
+          "",
+          "› ",
+          "gpt-5.4 high · /tmp/workspaces/codex",
+        ].join("\n");
+      },
+    } as unknown as TmuxClient;
+
+    const result = await waitForTmuxSessionBootstrap({
+      tmux: fakeTmux,
+      sessionName: "test-session",
+      captureLines: 80,
+      startupDelayMs: 500,
+      readyPattern: "(?:^|\\s)›\\s",
+    });
+
+    expect(result.status).toBe("ready");
+    expect(result.snapshot).toContain("gpt-5.4 high");
+    expect(captureCount).toBe(2);
+  });
+
   test("waitForTmuxSessionBootstrap stops early on a configured startup blocker", async () => {
     let captureCount = 0;
     const fakeTmux = {
