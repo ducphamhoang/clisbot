@@ -24,6 +24,7 @@ export type ParsedCliCommand =
   | { name: "loops"; args: string[] }
   | { name: "queues"; args: string[] }
   | { name: "message"; args: string[] }
+  | { name: "prompt"; args: string[] }
   | { name: "agents"; args: string[] }
   | { name: "auth"; args: string[] }
   | { name: "runner"; args: string[] }
@@ -134,6 +135,10 @@ export function parseCliArgs(argv: string[]): ParsedCliCommand {
       name: "message",
       args: args.slice(1),
     };
+  }
+
+  if (command === "prompt") {
+    return { name: "prompt", args: args.slice(1) };
   }
 
   if (command === "agents") {
@@ -299,6 +304,8 @@ export function renderCliHelp() {
     `                     See ${renderCliCommand("queues --help", { inline: true })} for scoped queue examples.`,
     "  message            Run provider message actions such as send, react, read, edit, delete, and pins.",
     `                     See ${renderCliCommand("message --help", { inline: true })} for channel-specific syntax.`,
+    "  prompt             Send a prompt directly to an agent and receive the response on stdout.",
+    `                     See ${renderCliCommand("prompt --help", { inline: true })} for agent, session-key, stream, and json options.`,
     "  agents             Manage configured agents, workspaces, bootstrap files, and per-agent mode overrides.",
     `                     See ${renderCliCommand("agents --help", { inline: true })} for focused add/bootstrap help.`,
     `  auth               Manage app and agent auth roles, principals, and permissions in config. See ${renderCliCommand("auth --help", { inline: true })}.`,
