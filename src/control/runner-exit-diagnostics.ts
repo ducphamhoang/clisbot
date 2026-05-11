@@ -13,7 +13,7 @@ function shellQuote(value: string) {
   if (/^[a-zA-Z0-9_./:@=-]+$/.test(value)) {
     return value;
   }
-  return `'${value.replaceAll("'", `'\"'\"'`)}'`;
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function buildCommandString(command: string, args: string[]) {
@@ -59,7 +59,7 @@ export function buildRunnerLaunchCommand(params: {
     `rm -f ${shellQuote(exitRecordPath)}`,
     runnerCommand,
     "status=$?",
-    `node -e ${shellQuote(exitWriterScript)} ${shellQuote(exitRecordPath)} ${shellQuote(params.sessionName)} "$status" ${shellQuote(runnerCommand)} || true`,
+    `${shellQuote(process.execPath)} -e ${shellQuote(exitWriterScript)} ${shellQuote(exitRecordPath)} ${shellQuote(params.sessionName)} "$status" ${shellQuote(runnerCommand)} || true`,
     'exit "$status"',
   ].join("; ");
 }
