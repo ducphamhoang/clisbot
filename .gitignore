@@ -5,3 +5,8 @@ dist
 .turbo
 *.log
 .env
+.pi
+.pi-lens
+.lean-ctx
+graphify-out
+src/graphify-out
