@@ -45,9 +45,13 @@ function senderIdFromIdentity(identity: ChannelIdentity) {
   if (!providerId) {
     return undefined;
   }
-  return identity.platform === "slack"
-    ? `slack:${providerId.toUpperCase()}`
-    : `telegram:${providerId}`;
+  if (identity.platform === "slack") {
+    return `slack:${providerId.toUpperCase()}`;
+  }
+  if (identity.platform === "terminal") {
+    return `terminal:${providerId}`;
+  }
+  return `telegram:${providerId}`;
 }
 
 function buildPermissionCheckCommand(params: {
@@ -84,6 +88,13 @@ function buildTelegramSurface(identity: ChannelIdentity): SurfacePromptContext["
     providerId: identity.chatId,
     kind,
     displayName: identity.chatName,
+  };
+}
+
+function buildTerminalSurface(identity: ChannelIdentity): SurfacePromptContext["surface"] {
+  return {
+    surfaceId: `terminal:dm:${identity.senderId?.trim() ?? ""}`,
+    kind: "dm",
   };
 }
 
@@ -135,7 +146,9 @@ export function buildSurfacePromptContext(params: {
       : undefined,
     surface: params.identity.platform === "slack"
       ? buildSlackSurface(params.identity)
-      : buildTelegramSurface(params.identity),
+      : params.identity.platform === "terminal"
+        ? buildTerminalSurface(params.identity)
+        : buildTelegramSurface(params.identity),
     permissionCheckCommand: buildPermissionCheckCommand({
       senderId,
       agentId: params.agentId,

@@ -81,6 +81,10 @@ export function resolveAuthPrincipal(identity: ChannelIdentity) {
     return normalizeAuthPrincipal(`slack:${senderId}`);
   }
 
+  if (identity.platform === "terminal") {
+    return normalizeAuthPrincipal(`terminal:${senderId}`);
+  }
+
   return normalizeAuthPrincipal(`telegram:${senderId}`);
 }
 
