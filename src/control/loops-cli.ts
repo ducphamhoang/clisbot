@@ -616,7 +616,7 @@ async function resolveLoopCreateRequest(
 function buildLoopSurfaceBinding(request: LoopCreateRequest) {
   const context = request.deliveryContext ?? request.context;
   return {
-    platform: context.identity.platform,
+    platform: context.identity.platform as "slack" | "telegram",
     botId: context.botId,
     conversationKind: context.identity.conversationKind,
     channelId: context.identity.channelId,

@@ -7,7 +7,6 @@ import {
 import { buildSteeringPromptText } from "../channels/agent-prompt.ts";
 import { buildSurfacePromptContext } from "../channels/surface-prompt-context.ts";
 import { loadConfig, type LoadedConfig } from "../config/load-config.ts";
-import { resolveConfigTimezone } from "../config/timezone.ts";
 import { renderCliCommand } from "../shared/cli-name.ts";
 
 type ParsedPromptCommand = {
@@ -123,10 +122,10 @@ export async function runPromptCli(
     process.env.CLISBOT_CONFIG_PATH,
   );
 
-  const agentService = new AgentService(loadedConfig.raw);
+  const agentService = new AgentService(loadedConfig);
   const sessionTarget: AgentSessionTarget = {
     agentId: command.agentId,
-    sessionKey: command.sessionKey ?? loadedConfig.raw.main?.sessionKey ?? command.agentId,
+    sessionKey: command.sessionKey ?? loadedConfig.raw.session.mainKey ?? command.agentId,
   };
 
   const route: ChannelInteractionRoute = {
@@ -154,11 +153,6 @@ export async function runPromptCli(
     time: now,
   });
 
-  const timezone = resolveConfigTimezone({
-    config: loadedConfig.raw,
-    agentId: command.agentId,
-  }).timezone;
-
   const agentPromptBuilder = (text: string) =>
     buildSteeringPromptText({
       text,
@@ -170,30 +164,36 @@ export async function runPromptCli(
 
   let capturedText = "";
 
-  await processChannelInteraction({
-    agentService,
-    sessionTarget,
-    identity,
-    text: command.message,
-    route,
-    agentPromptBuilder,
-    promptContext,
-    maxChars: Number.POSITIVE_INFINITY,
-    postText: async (text: string) => {
-      capturedText = text;
-      if (command.stream) {
-        process.stdout.write(text + "\n");
-      }
-      return [text];
-    },
-    reconcileText: async (_chunks: string[], text: string) => {
-      capturedText = text;
-      if (command.stream && text) {
-        process.stdout.write(text + "\n");
-      }
-      return [text];
-    },
-  });
+  try {
+    await processChannelInteraction({
+      agentService,
+      sessionTarget,
+      identity,
+      text: command.message,
+      route,
+      agentPromptBuilder,
+      promptContext,
+      maxChars: Number.POSITIVE_INFINITY,
+      postText: async (text: string) => {
+        capturedText = text;
+        if (command.stream && !command.json) {
+          process.stdout.write(text + "\n");
+        }
+        return [text];
+      },
+      reconcileText: async (_chunks: string[], text: string) => {
+        capturedText = text;
+        if (command.stream && !command.json && text) {
+          process.stdout.write(text + "\n");
+        }
+        return [text];
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`Error: ${msg}\n`);
+    process.exit(1);
+  }
 
   if (command.json) {
     deps.print(

@@ -220,8 +220,7 @@ function stripQueueArgs(args: string[]) {
 
 function buildQueueSurfaceBinding(context: LoopCliContext) {
   return {
-    platform: context.identity.platform,
-    botId: context.botId,
+    platform: context.identity.platform as "slack" | "telegram",
     conversationKind: context.identity.conversationKind,
     channelId: context.identity.channelId,
     channelName: context.identity.channelName,
