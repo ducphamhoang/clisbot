@@ -180,7 +180,11 @@ export function renderSurfacePromptText(surface: SurfacePromptContext["surface"]
     return "unavailable";
   }
 
-  const platform = surface.surfaceId.startsWith("slack:") ? "Slack" : "Telegram";
+  const platform = surface.surfaceId.startsWith("slack:")
+    ? "Slack"
+    : surface.surfaceId.startsWith("telegram:")
+      ? "Telegram"
+      : "Terminal";
   if (surface.parent) {
     const parentKind = surface.parent.surfaceId.includes(":group:") ? "group" : "channel";
     const childKind = surface.surfaceId.includes(":thread:") ? "thread" : surface.kind;

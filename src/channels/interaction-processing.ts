@@ -1,6 +1,6 @@
 import {
   ActiveRunInProgressError,
-  AgentService,
+  type AgentService,
   type AgentSessionTarget,
   type SessionDiagnostics,
 } from "../agents/agent-service.ts";
@@ -18,9 +18,7 @@ import {
 import {
   FORCE_LOOP_INTERVAL_MS,
   formatCalendarLoopSchedule,
-  formatLoopIntervalShort,
   LOOP_APP_FLAG,
-  LOOP_FORCE_FLAG,
   MIN_LOOP_INTERVAL_MS,
 } from "../agents/loop-command.ts";
 import {
@@ -575,6 +573,9 @@ function resolveEffectiveLoopTimezone(params: {
 }
 
 function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
+  if (identity.platform === "terminal") {
+    return undefined;
+  }
   return {
     platform: identity.platform,
     botId: resolveChannelIdentityBotId(identity),
@@ -590,6 +591,9 @@ function buildLoopSurfaceBinding(identity: ChannelInteractionIdentity) {
 }
 
 function buildLoopSender(identity: ChannelInteractionIdentity): StoredLoopSender | undefined {
+  if (identity.platform === "terminal") {
+    return undefined;
+  }
   return buildStoredLoopSender({
     platform: identity.platform,
     providerId: identity.senderId ?? "",

@@ -179,6 +179,11 @@ export async function recordSurfaceDirectoryIdentity(params: {
   stateDir: string;
   identity: ChannelIdentity;
 }) {
+  if (params.identity.platform === "terminal") {
+    return;
+  }
+  // Capture narrowed platform before entering async closure
+  const channelPlatform = params.identity.platform;
   const context = buildSurfacePromptContext({ identity: params.identity });
   const pathname = resolveDirectoryPath(params.stateDir);
   await withDirectoryLock(pathname, async () => {
@@ -190,7 +195,7 @@ export async function recordSurfaceDirectoryIdentity(params: {
       directory.senders[context.sender.senderId] = {
         ...existingSender,
         ...context.sender,
-        platform: params.identity.platform,
+        platform: channelPlatform,
         displayName: context.sender.displayName ?? existingSender?.displayName,
         handle: context.sender.handle ?? existingSender?.handle,
         updatedAt: now,

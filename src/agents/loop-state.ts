@@ -8,19 +8,23 @@ export type StoredLoopSender = {
   handle?: string;
 };
 
-export type StoredLoopSurfaceBinding = Pick<
-  ChannelIdentity,
-  | "platform"
-  | "botId"
-  | "conversationKind"
-  | "channelId"
-  | "channelName"
-  | "chatId"
-  | "chatName"
-  | "threadTs"
-  | "topicId"
-  | "topicName"
+export type StoredLoopSurfaceBinding = Omit<
+  Pick<
+    ChannelIdentity,
+    | "platform"
+    | "botId"
+    | "conversationKind"
+    | "channelId"
+    | "channelName"
+    | "chatId"
+    | "chatName"
+    | "threadTs"
+    | "topicId"
+    | "topicName"
+  >,
+  "platform"
 > & {
+  platform: "slack" | "telegram";
   accountId?: string;
 };
 
