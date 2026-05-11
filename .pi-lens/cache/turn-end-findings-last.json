@@ -1,4 +1,0 @@
-{
-  "signature": "src/control/loops-cli.ts::Unresolved from this turn — src/control/loops-cli.ts:\n🔴 STOP — 1 issue(s) must be fixed:\n  L89: 'LoopCounts' is declared but never used.\n    💡 Fix: Remove the unused declaration or rename with '_' prefix if intentionally unused.\n\nℹ️ Advisory — no action required this turn:\n⚠️ Newly unused exports in modified files — check if callers need updating (Knip):\n  src/control/loops-cli.ts:61 — renderLoopsHelp\n",
-  "sessionId": "lens-mp1e2r6o-4f6f5ca8"
-}

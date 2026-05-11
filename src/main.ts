@@ -15,18 +15,18 @@ import { runTimezoneCli } from "./control/timezone-cli.ts";
 import { runUpdateCli } from "./control/update-cli.ts";
 import { initConfig, start } from "./control/runtime-bootstrap-cli.ts";
 import {
-  logs,
-  printCliError,
-  restart,
-  serveForeground,
-  serveRuntimeMonitor,
-  status,
-  stop,
+	logs,
+	printCliError,
+	restart,
+	serveForeground,
+	serveRuntimeMonitor,
+	status,
+	stop,
 } from "./control/runtime-management-cli.ts";
 import {
-  assertSupportedPlatform,
-  getCliErrorExitCode,
-  printCommandOutcomeBanner,
+	assertSupportedPlatform,
+	getCliErrorExitCode,
+	printCommandOutcomeBanner,
 } from "./control/runtime-cli-shared.ts";
 import { setRenderedCliName } from "./shared/cli-name.ts";
 import { getClisbotVersion } from "./version.ts";
@@ -34,169 +34,175 @@ import { getClisbotVersion } from "./version.ts";
 const INTERNAL_CLI_NAME_FLAG = "--internal-cli-name";
 
 export function prepareCliArgv(argv: string[]) {
-  const flagIndex = argv.findIndex((arg) => arg === INTERNAL_CLI_NAME_FLAG);
-  if (flagIndex === -1) {
-    setRenderedCliName(process.env.CLISBOT_CLI_NAME);
-    return argv;
-  }
+	const flagIndex = argv.findIndex((arg) => arg === INTERNAL_CLI_NAME_FLAG);
+	if (flagIndex === -1) {
+		setRenderedCliName(process.env.CLISBOT_CLI_NAME);
+		return argv;
+	}
 
-  const cliName = argv[flagIndex + 1];
-  setRenderedCliName(cliName);
+	const cliName = argv[flagIndex + 1];
+	setRenderedCliName(cliName);
 
-  if (cliName == null) {
-    return argv.filter((arg) => arg !== INTERNAL_CLI_NAME_FLAG);
-  }
+	if (cliName == null) {
+		return argv.filter((arg) => arg !== INTERNAL_CLI_NAME_FLAG);
+	}
 
-  return argv.filter((_, index) => index !== flagIndex && index !== flagIndex + 1);
+	return argv.filter(
+		(_, index) => index !== flagIndex && index !== flagIndex + 1,
+	);
 }
 
 async function runBuiltinCommand(command: ReturnType<typeof parseCliArgs>) {
-  if (command.name === "help") {
-    console.log(renderCliHelp());
-    return true;
-  }
+	if (command.name === "help") {
+		console.log(renderCliHelp());
+		return true;
+	}
 
-  if (command.name === "version") {
-    console.log(getClisbotVersion());
-    return true;
-  }
+	if (command.name === "version") {
+		console.log(getClisbotVersion());
+		return true;
+	}
 
-  if (command.name === "init") {
-    await initConfig(command.args);
-    return true;
-  }
+	if (command.name === "init") {
+		await initConfig(command.args);
+		return true;
+	}
 
-  if (command.name === "serve-foreground") {
-    await serveForeground();
-    return true;
-  }
+	if (command.name === "serve-foreground") {
+		await serveForeground();
+		return true;
+	}
 
-  if (command.name === "serve-monitor") {
-    await serveRuntimeMonitor();
-    return true;
-  }
+	if (command.name === "serve-monitor") {
+		await serveRuntimeMonitor();
+		return true;
+	}
 
-  if (command.name === "start") {
-    await start(command.args);
-    return true;
-  }
+	if (command.name === "start") {
+		await start(command.args);
+		return true;
+	}
 
-  if (command.name === "restart") {
-    await restart();
-    await start();
-    return true;
-  }
+	if (command.name === "restart") {
+		await restart();
+		await start();
+		return true;
+	}
 
-  if (command.name === "stop") {
-    await stop(command.hard);
-    return true;
-  }
+	if (command.name === "stop") {
+		await stop(command.hard);
+		return true;
+	}
 
-  if (command.name === "status") {
-    await status();
-    return true;
-  }
+	if (command.name === "status") {
+		await status();
+		return true;
+	}
 
-  if (command.name === "logs") {
-    await logs(command.lines);
-    return true;
-  }
+	if (command.name === "logs") {
+		await logs(command.lines);
+		return true;
+	}
 
-  if (command.name === "update") {
-    await runUpdateCli(command.args);
-    return true;
-  }
+	if (command.name === "update") {
+		await runUpdateCli(command.args);
+		return true;
+	}
 
-  return false;
+	return false;
 }
 
 async function runControlCommand(command: ReturnType<typeof parseCliArgs>) {
-  if (command.name === "channels") {
-    await runChannelsCli(command.args);
-    return true;
-  }
+	if (command.name === "channels") {
+		await runChannelsCli(command.args);
+		return true;
+	}
 
-  if (command.name === "timezone") {
-    await runTimezoneCli(command.args);
-    return true;
-  }
+	if (command.name === "timezone") {
+		await runTimezoneCli(command.args);
+		return true;
+	}
 
-  if (command.name === "bots") {
-    await runBotsCli(command.args);
-    return true;
-  }
+	if (command.name === "bots") {
+		await runBotsCli(command.args);
+		return true;
+	}
 
-  if (command.name === "routes") {
-    await runRoutesCli(command.args);
-    return true;
-  }
+	if (command.name === "routes") {
+		await runRoutesCli(command.args);
+		return true;
+	}
 
-  if (command.name === "accounts") {
-    await runAccountsCli(command.args);
-    return true;
-  }
+	if (command.name === "accounts") {
+		await runAccountsCli(command.args);
+		return true;
+	}
 
-  if (command.name === "loops") {
-    await runLoopsCli(command.args);
-    return true;
-  }
+	if (command.name === "loops") {
+		await runLoopsCli(command.args);
+		return true;
+	}
 
-  if (command.name === "queues") {
-    await runQueuesCli(command.args);
-    return true;
-  }
+	if (command.name === "queues") {
+		await runQueuesCli(command.args);
+		return true;
+	}
 
-  if (command.name === "message") {
-    await runMessageCli(command.args);
-    return true;
-  }
+	if (command.name === "message") {
+		await runMessageCli(command.args);
+		return true;
+	}
 
-  if (command.name === "prompt") {
-    await runPromptCli(command.args);
-    return true;
-  }
+	if (command.name === "prompt") {
+		await runPromptCli(command.args);
+		return true;
+	}
 
-  if (command.name === "agents") {
-    await runAgentsCli(command.args);
-    return true;
-  }
+	if (command.name === "agents") {
+		await runAgentsCli(command.args);
+		return true;
+	}
 
-  if (command.name === "auth") {
-    await runAuthCli(command.args);
-    return true;
-  }
+	if (command.name === "auth") {
+		await runAuthCli(command.args);
+		return true;
+	}
 
-  if (command.name === "runner") {
-    await runRunnerCli(command.args);
-    return true;
-  }
+	if (command.name === "runner") {
+		await runRunnerCli(command.args);
+		return true;
+	}
 
-  if (command.name === "pairing") {
-    await runPairingCli(command.args);
-    return true;
-  }
+	if (command.name === "pairing") {
+		await runPairingCli(command.args);
+		return true;
+	}
 
-  return false;
+	return false;
 }
 
 async function main(command = parseCliArgs(prepareCliArgv(process.argv))) {
-  assertSupportedPlatform(command);
+	assertSupportedPlatform(command);
 
-  if (await runBuiltinCommand(command)) {
-    return;
-  }
+	if (await runBuiltinCommand(command)) {
+		return;
+	}
 
-  await runControlCommand(command);
+	await runControlCommand(command);
 }
 
 const command = parseCliArgs(prepareCliArgv(process.argv));
 
 try {
-  await main(command);
+	await main(command);
 } catch (error) {
-  if (command.name === "start" || command.name === "stop" || command.name === "restart") {
-    printCommandOutcomeBanner("failure");
-  }
-  await printCliError(error);
-  process.exit(getCliErrorExitCode(error));
+	if (
+		command.name === "start" ||
+		command.name === "stop" ||
+		command.name === "restart"
+	) {
+		printCommandOutcomeBanner("failure");
+	}
+	await printCliError(error);
+	process.exit(getCliErrorExitCode(error));
 }
