@@ -1,16 +1,16 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { AgentSessionState } from "../src/agents/session/session-state.ts";
-import { SessionMapping } from "../src/agents/session/session-mapping.ts";
-import { SessionStore } from "../src/agents/session/session-store.ts";
-import { RunnerService } from "../src/agents/runtime/runner-service.ts";
-import { resolveAgentTarget } from "../src/agents/routing/resolved-target.ts";
-import { loadConfig, resolveSessionStorePath } from "../src/config/core/load-config.ts";
-import { clisbotConfigSchema } from "../src/config/core/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
-import { TmuxClient } from "../src/runners/tmux/client.ts";
+import { afterEach, describe, expect, test } from 'bun:test'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { AgentSessionState } from '../src/agents/session/session-state.ts'
+import { SessionMapping } from '../src/agents/session/session-mapping.ts'
+import { SessionStore } from '../src/agents/session/session-store.ts'
+import { RunnerService } from '../src/agents/runtime/runner-service.ts'
+import { resolveAgentTarget } from '../src/agents/routing/resolved-target.ts'
+import { loadConfig, resolveSessionStorePath } from '../src/config/core/load-config.ts'
+import { clisbotConfigSchema } from '../src/config/core/schema.ts'
+import { renderDefaultConfigTemplate } from '../src/config/core/template.ts'
+import { TmuxClient } from '../src/runners/tmux/client.ts'
 import {
   DEFAULT_AGENT_TOOL_TEMPLATES,
   SUPPORTED_AGENT_CLI_TOOLS,
@@ -163,8 +163,8 @@ describe('pi runner template', () => {
     expect(isActiveTimerStatusLine('• Working...')).toBe(true)
   })
 
-  test('isActiveTimerStatusLine("Working... (some task)") returns true', () => {
-    expect(isActiveTimerStatusLine('Working... (some task)')).toBe(true)
+  test('isActiveTimerStatusLine("Working... (some task)") returns false — trailing text not a pi status line', () => {
+    expect(isActiveTimerStatusLine('Working... (some task)')).toBe(false)
   })
 })
 
