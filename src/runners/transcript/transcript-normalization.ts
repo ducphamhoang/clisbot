@@ -59,6 +59,7 @@ const CLAUDE_TIMER_FOOTER_PATTERN = new RegExp(
   String.raw`\|\s*claude\s*\|.*\|\s*${DURATION_STATUS_PATTERN}\s*$`,
   "i",
 );
+const PI_WORKING_STATUS_PATTERN = /^(?:[•◦·✻✽*]\s*)?Working(?:\.{3}|…)?(?:\s.*)?$/i;
 
 function looksLikeUrlContinuation(line: string) {
   const trimmed = line.trim();
@@ -374,7 +375,8 @@ export function isActiveTimerStatusLine(line: string) {
   return (
     isInterruptStatusLine(trimmed) ||
     GEMINI_THINKING_STATUS_PATTERN.test(trimmed) ||
-    CLAUDE_TIMER_FOOTER_PATTERN.test(trimmed)
+    CLAUDE_TIMER_FOOTER_PATTERN.test(trimmed) ||
+    PI_WORKING_STATUS_PATTERN.test(trimmed)
   );
 }
 
