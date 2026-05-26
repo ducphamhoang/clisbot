@@ -53,14 +53,25 @@
 
 See `REQUIREMENTS.md`
 
+## Validated Requirements (Phase 3)
+
+- **BLOCK-01:** Pi startup blocked with actionable message when no models are configured (`Warning: No models available`). Operator directed to configure provider via `/login` or set `DEEPSEEK_API_KEY` / `GITHUB_TOKEN`. — Validated in Phase 3: Hardening (2026-05-26)
+- **BLOCK-02:** Pi startup blocked with actionable message when tmux extended-keys is off (`tmux extended-keys is off`). Operator directed to add `set -g extended-keys on` to `~/.tmux.conf`. — Validated in Phase 3: Hardening (2026-05-26)
+- **NORM-01:** Pi-specific chrome (startup warnings, `fd not found` noise, separator lines, status bar lines) filtered from transcript output. `looksLikePiSnapshot()` + `shouldDropPiChromeLine()` integrated into `cleanInteractionSnapshotInternal()`. — Validated in Phase 3: Hardening (2026-05-26)
+
 ## Current State
 
-Phase 2 complete — pi runner template registered with explicit session mode, startup ready detection, and active-timer pattern. Next phase: transcript normalization and CLI tool ID inference.
+**Milestone v0.2.0 complete.** All 3 phases shipped:
+- Phase 1: `newSessionCommand` field added to `AgentToolTemplate` schema
+- Phase 2: Pi runner template registered — explicit session mode, startup ready detection, active-timer pattern, `inferAgentCliToolId`, schema defaults
+- Phase 3: Startup blockers for missing models / tmux extended-keys, pi chrome filtering in transcript normalization
+
+Supported CLIs: codex, claude, gemini, **pi**
 
 ## Context
 
 - Upstream: longbkit/clisbot (synced to v0.1.53)
-- Supported CLIs: codex, claude, gemini
+- Supported CLIs: codex, claude, gemini, pi
 - Pi CLI version tested: 0.75.5 (npm: @earendil-works/pi-coding-agent)
 - Pi credentials confirmed: GitHub Copilot + DeepSeek stored in ~/.pi/agent/auth.json
 
@@ -81,4 +92,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — Phase 2 (Runner & Session Config) complete*
+*Last updated: 2026-05-26 — Milestone v0.2.0 complete (Phase 3: Hardening)*
