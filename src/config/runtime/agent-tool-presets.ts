@@ -1,4 +1,4 @@
-export const SUPPORTED_AGENT_CLI_TOOLS = ["codex", "claude", "gemini"] as const;
+export const SUPPORTED_AGENT_CLI_TOOLS = ["codex", "claude", "gemini", "pi"] as const;
 export type AgentCliToolId = (typeof SUPPORTED_AGENT_CLI_TOOLS)[number];
 
 export const SUPPORTED_BOOTSTRAP_MODES = ["personal-assistant", "team-assistant"] as const;
@@ -154,6 +154,46 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
       },
     },
   },
+  pi: {
+    command: "pi",
+    startupOptions: ["--dangerously-skip-permissions"],
+    trustWorkspace: true,
+    startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+    startupRetryCount: 2,
+    startupRetryDelayMs: 1000,
+    startupReadyPattern: "(?:^|\\s)escape\\s+interrupt(?:\\s|$)",
+    startupBlockers: [
+      {
+        pattern: "Warning: No models available",
+        message:
+          "Pi has no models configured. Configure a provider via `/login` or set DEEPSEEK_API_KEY / GITHUB_TOKEN before routing through clisbot.",
+      },
+      {
+        pattern: "tmux extended-keys is off",
+        message:
+          "Pi requires tmux extended-keys support. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.",
+      },
+    ],
+    promptSubmitDelayMs: 150,
+    newSessionCommand: '/new',
+    sessionId: {
+      create: {
+        mode: "explicit",
+        args: ["--session", "{sessionId}"],
+      },
+      capture: {
+        mode: "off",
+        statusCommand: "/status",
+        pattern: SESSION_ID_PATTERN,
+        timeoutMs: 5000,
+        pollIntervalMs: 250,
+      },
+      resume: {
+        mode: "command",
+        args: ["--resume", "{sessionId}", "--dangerously-skip-permissions"],
+      },
+    },
+  },
 };
 
 export type ResolvedRunnerTemplate = {
@@ -250,6 +290,10 @@ export function inferAgentCliToolId(command: string | undefined): AgentCliToolId
 
   if (trimmed === "gemini") {
     return "gemini";
+  }
+
+  if (trimmed === "pi") {
+    return "pi";
   }
 
   return null;
