@@ -55,7 +55,11 @@ Plans:
   1. If pi starts with no models configured, startup is blocked and the operator sees a message directing them to configure a provider
   2. If pi detects `tmux extended-keys is off`, startup is blocked and the operator sees a message to add `set -g extended-keys on` to `~/.tmux.conf`
   3. Pi-specific chrome lines (startup warnings, `fd not found` noise, separator lines, status bar lines) are absent from transcript output sent to channel users
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Add looksLikePiSnapshot() and shouldDropPiChromeLine() to transcript-normalization.ts, integrate into cleanInteractionSnapshotInternal() (TDD)
+- [ ] 03-02-PLAN.md — Verify and test pi startup blocker config (BLOCK-01, BLOCK-02) in runner-service.integration.test.ts
 
 ## Progress
 
@@ -66,4 +70,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
 | 2. Runner & Session Config | 2/2 | Complete    | 2026-05-26 |
-| 3. Hardening | 0/TBD | Not started | - |
+| 3. Hardening | 0/2 | Not started | - |
