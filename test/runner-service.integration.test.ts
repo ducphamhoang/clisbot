@@ -323,8 +323,8 @@ describe('retryFreshStartAfterStoredResumeFailure gate (Fix 2)', () => {
   })
 
   test('unknown create.mode is rejected by gate (returns null)', () => {
-    const resumeMode = 'command'
-    const createMode = 'unknown-mode'
+    const resumeMode: string = 'command'
+    const createMode: string = 'unknown-mode'
     const gateRejectsSession =
       resumeMode !== 'command' ||
       (createMode !== 'runner' && createMode !== 'explicit')
@@ -332,8 +332,8 @@ describe('retryFreshStartAfterStoredResumeFailure gate (Fix 2)', () => {
   })
 
   test('non-command resume.mode is still rejected by gate regardless of create.mode', () => {
-    const resumeMode = 'off'
-    const createMode = 'explicit'
+    const resumeMode: string = 'off'
+    const createMode: string = 'explicit'
     const gateRejectsSession =
       resumeMode !== 'command' ||
       (createMode !== 'runner' && createMode !== 'explicit')
