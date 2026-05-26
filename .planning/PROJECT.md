@@ -61,10 +61,11 @@ See `REQUIREMENTS.md`
 
 ## Current State
 
-**Milestone v0.2.0 complete.** All 3 phases shipped:
+**Milestone v0.2.0 complete.** All 4 phases shipped:
 - Phase 1: `newSessionCommand` field added to `AgentToolTemplate` schema
 - Phase 2: Pi runner template registered — explicit session mode, startup ready detection, active-timer pattern, `inferAgentCliToolId`, schema defaults
 - Phase 3: Startup blockers for missing models / tmux extended-keys, pi chrome filtering in transcript normalization
+- Phase 4: Pi production-safety fixes — `/new` routing, crash recovery, prompt echo stripping, chrome leakage, false-positive detection, template resume args
 
 Supported CLIs: codex, claude, gemini, **pi**
 
