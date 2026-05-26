@@ -12,7 +12,7 @@
 
 - [ ] **SESSION-01:** Pi sessions use `create.mode: "explicit"` — clisbot generates UUID before launch, passes as `--session {uuid}`
 - [ ] **SESSION-02:** Pi sessions use `capture.mode: "off"` — no `/status` command scraping needed
-- [ ] **SESSION-03:** Pi session resume passes `--session {uuid}` plus startup flags
+- [ ] **SESSION-03:** Pi session resume passes `--resume {uuid}` plus startup flags
 
 ## Schema & Config
 
