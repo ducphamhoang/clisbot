@@ -213,8 +213,7 @@ export function looksLikePiSnapshot(lines: string[]) {
       /^pi\s+v\d+\.\d+\.\d+/i.test(trimmed) ||
       trimmed.includes('Type your message') ||
       trimmed.includes('run /help') ||
-      trimmed === '>' ||
-      trimmed === '> '
+      trimmed === '>'
     )
   })
 }
@@ -558,8 +557,7 @@ function shouldDropPiChromeLine(line: string) {
     /^[╭╰│]/.test(trimmed) ||
     trimmed.includes('Welcome to pi') ||
     /^pi\s+v\d+\.\d+\.\d+/i.test(trimmed) ||
-    trimmed === '>' ||
-    trimmed === '> '
+    trimmed === '>'
   )
 }
 
@@ -614,7 +612,7 @@ function cleanInteractionSnapshotInternal(raw: string, options?: {
   const isCodex = looksLikeCodexSnapshot(lines);
   const isClaude = looksLikeClaudeSnapshot(lines);
   const isGemini = looksLikeGeminiSnapshot(lines);
-  const isPi = looksLikePiSnapshot(lines);
+  const isPi = !isCodex && !isClaude && !isGemini && looksLikePiSnapshot(lines);
   const promptStripped = isCodex
     ? dropCodexPromptBlocks(lines)
     : isClaude
