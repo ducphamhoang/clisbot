@@ -212,8 +212,7 @@ export function looksLikePiSnapshot(lines: string[]) {
       trimmed.includes('Welcome to pi') ||
       /^pi\s+v\d+\.\d+\.\d+/i.test(trimmed) ||
       trimmed.includes('Type your message') ||
-      trimmed.includes('run /help') ||
-      trimmed === '>'
+      trimmed.includes('run /help')
     )
   })
 }

@@ -471,8 +471,8 @@ describe("pi chrome filtering", () => {
       expect(looksLikePiSnapshot(["run /help for shortcuts", "more text"])).toBe(true);
     });
 
-    test("detects pi via bare '>' prompt marker", () => {
-      expect(looksLikePiSnapshot([">", "some text"])).toBe(true);
+    test("does NOT classify snapshot as pi based on bare '>' alone", () => {
+      expect(looksLikePiSnapshot([">", "some text"])).toBe(false);
     });
 
     test("returns false for gemini snapshot (not pi)", () => {
@@ -482,6 +482,14 @@ describe("pi chrome filtering", () => {
     test("returns false for generic text with no pi markers", () => {
       expect(looksLikePiSnapshot(["Hello world"])).toBe(false);
     });
+
+    test("bare '>' alongside pi marker is still detected as pi", () => {
+      expect(looksLikePiSnapshot([">", "Welcome to pi"])).toBe(true)
+    })
+
+    test("snapshot with only bare '>' and non-pi content is NOT classified as pi", () => {
+      expect(looksLikePiSnapshot([">", "bash heredoc output"])).toBe(false)
+    })
   });
 
   describe("pi chrome line filtering via cleanInteractionSnapshot()", () => {
