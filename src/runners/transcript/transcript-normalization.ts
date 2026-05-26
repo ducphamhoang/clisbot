@@ -366,6 +366,10 @@ function dropGeminiPromptBlocks(lines: string[]) {
   return dropPromptBlocks(lines, /^\s*>\s/);
 }
 
+function dropPiPromptBlocks(lines: string[]) {
+  return dropPromptBlocks(lines, /^\s*>\s/)
+}
+
 function isInterruptStatusLine(line: string) {
   const trimmed = line.trim();
   if (!trimmed) {
@@ -617,7 +621,9 @@ function cleanInteractionSnapshotInternal(raw: string, options?: {
       ? dropClaudePromptBlocks(lines)
       : isGemini
         ? dropGeminiPromptBlocks(lines)
-        : lines;
+        : isPi
+          ? dropPiPromptBlocks(lines)
+          : lines;
   const timerStatusLines: string[] = [];
   const filtered = promptStripped.filter((line) => {
     if (shouldDropDeliveryReportLine(line)) {
