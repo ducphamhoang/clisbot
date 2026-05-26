@@ -78,8 +78,8 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Remove Warning/Note rule from shouldDropPiChromeLine and bare '>' from looksLikePiSnapshot; update tests (Fix 5, Fix 6)
-- [ ] 04-02-PLAN.md — Fix SESSION-03 doc: --session → --resume in REQUIREMENTS.md (Fix 7)
+- [x] 04-01-PLAN.md — Remove Warning/Note rule from shouldDropPiChromeLine and bare '>' from looksLikePiSnapshot; update tests (Fix 5, Fix 6)
+- [x] 04-02-PLAN.md — Fix SESSION-03 doc: --session → --resume in REQUIREMENTS.md (Fix 7)
 - [ ] 04-03-PLAN.md — Add dropPiPromptBlocks and wire into promptStripped dispatch; add help-bar drops to shouldDropPiChromeLine; tests (Fix 3, Fix 4)
 - [ ] 04-04-PLAN.md — Fix buildRunnerFromToolTemplate non-codex resume.args to preserve template via applyTemplate; test (Fix 8)
 - [ ] 04-05-PLAN.md — Add triggerNewSession pi guard; widen retryFreshStartAfterStoredResumeFailure gate; tests (Fix 1, Fix 2)
@@ -94,4 +94,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
 | 2. Runner & Session Config | 2/2 | Complete    | 2026-05-26 |
 | 3. Hardening | 2/2 | Complete    | 2026-05-26 |
-| 4. Pi Review Fixes | 0/5 | Pending | — |
+| 4. Pi Review Fixes | 2/5 | In Progress|  |
