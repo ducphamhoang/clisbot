@@ -2,7 +2,7 @@
 
 ## Overview
 
-Three phases deliver pi as a fully supported AI coding CLI runner. Phase 1 unblocks everything by adding the `newSessionCommand` schema field — without it, pi would receive `/new` as a literal prompt. Phase 2 wires up the complete runner and session config so operators can route conversations to pi. Phase 3 hardens the integration with startup blockers and clean transcript output.
+Three phases deliver pi as a fully supported AI coding CLI runner. Phase 1 unblocks everything by adding the `newSessionCommand` schema field — without it, pi would receive `/new` as a literal prompt. Phase 2 wires up the complete runner and session config so operators can route conversations to pi. Phase 3 hardens the integration with startup blockers and clean transcript output. Phase 4 fixes critical correctness and security findings from the post-milestone adversarial review.
 
 ## Phases
 
@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Schema Precondition** - Add `newSessionCommand` to `AgentToolTemplate` so CLIs can declare their own session-rotation command (completed 2026-05-26)
 - [x] **Phase 2: Runner & Session Config** - Wire pi into the tmux runner with correct startup flags, ready pattern, active timer, and session identity model (completed 2026-05-26)
 - [x] **Phase 3: Hardening** - Add startup blockers for missing models and tmux extended-keys, filter pi chrome from transcript output (completed 2026-05-26)
+- [ ] **Phase 4: Pi Review Fixes** - Fix critical/high/medium findings from adversarial milestone review: broken /new rotation, silent session-continuity loss, missing prompt-echo stripping, chrome leakage, false-positive snapshot detection, template resume-args override
 
 ## Phase Details
 
@@ -61,13 +62,36 @@ Plans:
 - [x] 03-01-PLAN.md — Add looksLikePiSnapshot() and shouldDropPiChromeLine() to transcript-normalization.ts, integrate into cleanInteractionSnapshotInternal() (TDD)
 - [x] 03-02-PLAN.md — Verify and test pi startup blocker config (BLOCK-01, BLOCK-02) in runner-service.integration.test.ts
 
+### Phase 4: Pi Review Fixes
+**Goal**: Fix all critical, high, and medium findings from the v0.2.0 adversarial milestone review so pi is production-safe
+**Depends on**: Phase 3
+**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06, FIX-07, FIX-08
+**Success Criteria** (what must be TRUE):
+  1. `/new` command succeeds for pi — routes through restart path, no status-scrape timeout
+  2. Pi crash recovery preserves stored `sessionId` and reuses it on next `ensureSessionReady`
+  3. Pi response snapshots have `> user message` echoes stripped before channel delivery
+  4. `Type your message` and `run /help` lines do not appear in cleaned pi output
+  5. `Warning:` and `Note:` lines in pi AI responses survive chrome filtering intact
+  6. A snapshot containing only `>` lines is not classified as pi
+  7. `REQUIREMENTS.md` SESSION-03 documents `--resume {uuid}` correctly
+  8. `buildRunnerFromToolTemplate` preserves template resume args for non-codex runners
+**Plans**: 5 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Remove Warning/Note rule from shouldDropPiChromeLine and bare '>' from looksLikePiSnapshot; update tests (Fix 5, Fix 6)
+- [ ] 04-02-PLAN.md — Fix SESSION-03 doc: --session → --resume in REQUIREMENTS.md (Fix 7)
+- [ ] 04-03-PLAN.md — Add dropPiPromptBlocks and wire into promptStripped dispatch; add help-bar drops to shouldDropPiChromeLine; tests (Fix 3, Fix 4)
+- [ ] 04-04-PLAN.md — Fix buildRunnerFromToolTemplate non-codex resume.args to preserve template via applyTemplate; test (Fix 8)
+- [ ] 04-05-PLAN.md — Add triggerNewSession pi guard; widen retryFreshStartAfterStoredResumeFailure gate; tests (Fix 1, Fix 2)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3
+Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
 | 2. Runner & Session Config | 2/2 | Complete    | 2026-05-26 |
 | 3. Hardening | 2/2 | Complete    | 2026-05-26 |
+| 4. Pi Review Fixes | 0/5 | Pending | — |
