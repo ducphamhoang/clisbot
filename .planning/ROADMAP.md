@@ -26,7 +26,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. `AgentToolTemplate` has an optional `newSessionCommand` field that defaults to `"/new"` for existing CLIs
   2. `resolveNewSessionCommand` reads the field from the template rather than hardcoding `/new`
   3. Existing codex, claude, and gemini behavior is unchanged after the refactor
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Add newSessionCommand to AgentToolTemplate, ResolvedRunnerTemplate, schema, and resolve from template in RunnerService
 
 ### Phase 2: Runner & Session Config
 **Goal**: Operators can set `cli: "pi"` and have pi spawned via the tmux runner with correct session identity, ready detection, and active-timer handling
@@ -58,6 +61,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema Precondition | 0/TBD | Not started | - |
+| 1. Schema Precondition | 0/1 | Not started | - |
 | 2. Runner & Session Config | 0/TBD | Not started | - |
 | 3. Hardening | 0/TBD | Not started | - |
