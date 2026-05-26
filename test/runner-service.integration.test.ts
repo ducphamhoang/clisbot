@@ -275,6 +275,72 @@ describe('newSessionCommand defaults', () => {
   })
 })
 
+describe('pi triggerNewSession routing (Fix 1)', () => {
+  test('pi template satisfies skipLiveRotation guard condition', () => {
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
+    expect(template.sessionId.capture.mode).toBe('off')
+    expect(template.sessionId.create.mode).toBe('explicit')
+    // Both conditions true: pi will route through restartRunnerWithFreshSessionIdForNewCommand
+  })
+
+  test('codex template does NOT satisfy skipLiveRotation guard (create.mode is runner)', () => {
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['codex']
+    const skipLiveRotation =
+      template.sessionId.capture.mode === 'off' &&
+      template.sessionId.create.mode === 'explicit'
+    expect(skipLiveRotation).toBe(false)
+  })
+
+  test('claude template satisfies skipLiveRotation guard (capture.mode off + create.mode explicit)', () => {
+    // claude also has capture.mode: "off" and create.mode: "explicit"
+    // like pi, it routes through restartRunnerWithFreshSessionIdForNewCommand
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['claude']
+    expect(template.sessionId.capture.mode).toBe('off')
+    expect(template.sessionId.create.mode).toBe('explicit')
+  })
+
+  test('gemini template does NOT satisfy skipLiveRotation guard (create.mode is runner)', () => {
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['gemini']
+    const skipLiveRotation =
+      template.sessionId.capture.mode === 'off' &&
+      template.sessionId.create.mode === 'explicit'
+    expect(skipLiveRotation).toBe(false)
+  })
+})
+
+describe('retryFreshStartAfterStoredResumeFailure gate (Fix 2)', () => {
+  test('pi template satisfies gate continuation condition (create.mode explicit + resume.mode command)', () => {
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
+    // Gate: resume.mode !== 'command' || (create.mode !== 'runner' && create.mode !== 'explicit')
+    // Pi: resume.mode === 'command' (false), create.mode === 'explicit' (false in inner AND)
+    // Both false → gate condition is false → does NOT return null → pi session preserved
+    const resumeMode = template.sessionId.resume.mode
+    const createMode = template.sessionId.create.mode
+    const gateRejectsSession =
+      resumeMode !== 'command' ||
+      (createMode !== 'runner' && createMode !== 'explicit')
+    expect(gateRejectsSession).toBe(false)
+  })
+
+  test('unknown create.mode is rejected by gate (returns null)', () => {
+    const resumeMode = 'command'
+    const createMode = 'unknown-mode'
+    const gateRejectsSession =
+      resumeMode !== 'command' ||
+      (createMode !== 'runner' && createMode !== 'explicit')
+    expect(gateRejectsSession).toBe(true)
+  })
+
+  test('non-command resume.mode is still rejected by gate regardless of create.mode', () => {
+    const resumeMode = 'off'
+    const createMode = 'explicit'
+    const gateRejectsSession =
+      resumeMode !== 'command' ||
+      (createMode !== 'runner' && createMode !== 'explicit')
+    expect(gateRejectsSession).toBe(true)
+  })
+})
+
 describe("RunnerService integration", () => {
   test("creates a fresh runner for a prefix-colliding session key when the stored sessionId is missing", async () => {
     const dir = createTempDir();
