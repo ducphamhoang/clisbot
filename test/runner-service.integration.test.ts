@@ -166,6 +166,45 @@ describe('pi runner template', () => {
   test('isActiveTimerStatusLine("Working... (some task)") returns false — trailing text not a pi status line', () => {
     expect(isActiveTimerStatusLine('Working... (some task)')).toBe(false)
   })
+
+  test('startupBlockers is defined and has 2 entries', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers).toBeDefined()
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers?.length).toBe(2)
+  })
+
+  test('BLOCK-01: startupBlockers[0].pattern matches "Warning: No models available"', () => {
+    const blockers = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers!
+    expect(new RegExp(blockers[0].pattern, 'i').test('Warning: No models available')).toBe(true)
+    expect(new RegExp(blockers[0].pattern, 'i').test('tmux extended-keys is off')).toBe(false)
+  })
+
+  test('BLOCK-01: startupBlockers[0].message directs operator to configure a provider', () => {
+    const message = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers![0].message
+    expect(message.toLowerCase()).toContain('configure')
+    expect(message).toMatch(/login|DEEPSEEK_API_KEY|GITHUB_TOKEN|API.?KEY/i)
+  })
+
+  test('BLOCK-02: startupBlockers[1].pattern matches "tmux extended-keys is off"', () => {
+    const blockers = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers!
+    expect(new RegExp(blockers[1].pattern, 'i').test('tmux extended-keys is off')).toBe(true)
+    expect(new RegExp(blockers[1].pattern, 'i').test('Warning: No models available')).toBe(false)
+  })
+
+  test('BLOCK-02: startupBlockers[1].message includes set -g extended-keys on and .tmux.conf', () => {
+    const message = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers![1].message
+    expect(message).toContain('extended-keys on')
+    expect(message).toContain('.tmux.conf')
+  })
+
+  test('BLOCK-01 pattern compiles to valid regex (no throw)', () => {
+    const blockers = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers!
+    expect(() => new RegExp(blockers[0].pattern, 'i')).not.toThrow()
+  })
+
+  test('BLOCK-02 pattern compiles to valid regex (no throw)', () => {
+    const blockers = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupBlockers!
+    expect(() => new RegExp(blockers[1].pattern, 'i')).not.toThrow()
+  })
 })
 
 describe('pi schema defaults', () => {
