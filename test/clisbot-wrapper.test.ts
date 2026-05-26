@@ -7,8 +7,8 @@ import {
   getClisbotPromptCommand,
   getClisbotWrapperPath,
   renderClisbotWrapperScript,
-} from "../src/control/clisbot-wrapper.ts";
-import { setRenderedCliName } from "../src/shared/cli-name.ts";
+} from "../src/control/commands/clisbot-wrapper.ts";
+import { setRenderedCliName } from "../src/control/commands/cli-name.ts";
 
 describe("clisbot wrapper", () => {
   let tempDir = "";
@@ -28,7 +28,9 @@ describe("clisbot wrapper", () => {
 
   test("creates a stable local wrapper script at the configured path", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-wrapper-"));
+    previousClisbotHome = process.env.CLISBOT_HOME;
     previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    process.env.CLISBOT_HOME = tempDir;
     process.env.CLISBOT_WRAPPER_PATH = join(tempDir, "bin", "clisbot-dev");
 
     const wrapperPath = await ensureClisbotWrapper();
@@ -38,9 +40,24 @@ describe("clisbot wrapper", () => {
     expect(readFileSync(wrapperPath, "utf8")).toBe(renderClisbotWrapperScript());
   });
 
+  test("pins wrapper commands to the configured clisbot home and wrapper path", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-wrapper-"));
+    previousClisbotHome = process.env.CLISBOT_HOME;
+    previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    process.env.CLISBOT_HOME = tempDir;
+    process.env.CLISBOT_WRAPPER_PATH = join(tempDir, "bin", "clisbot-dev");
+
+    const script = renderClisbotWrapperScript();
+
+    expect(script).toContain(`export CLISBOT_HOME=${tempDir}`);
+    expect(script).toContain(`export CLISBOT_WRAPPER_PATH=${join(tempDir, "bin", "clisbot-dev")}`);
+  });
+
   test("rewrites a stale wrapper body in place", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "clisbot-wrapper-"));
+    previousClisbotHome = process.env.CLISBOT_HOME;
     previousWrapperPath = process.env.CLISBOT_WRAPPER_PATH;
+    process.env.CLISBOT_HOME = tempDir;
     process.env.CLISBOT_WRAPPER_PATH = join(tempDir, "bin", "clisbot-dev");
     await Bun.write(process.env.CLISBOT_WRAPPER_PATH, "#!/usr/bin/env bash\necho stale\n");
 
@@ -92,5 +109,14 @@ describe("clisbot wrapper", () => {
 
     expect(script).toContain("/tmp/clisbot/dist/main.js");
     expect(script).not.toContain("/tmp/clisbot/main.js");
+  });
+
+  test("source wrapper points at src/main.ts after control folder refactors", () => {
+    const script = renderClisbotWrapperScript({
+      moduleUrl: "file:///tmp/clisbot/src/control/commands/clisbot-wrapper.ts",
+    });
+
+    expect(script).toContain("/tmp/clisbot/src/main.ts");
+    expect(script).not.toContain("/tmp/clisbot/src/control/main.ts");
   });
 });

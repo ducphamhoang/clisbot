@@ -2,20 +2,21 @@ import { describe, expect, mock, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AgentService } from "../../src/agents/agent-service.ts";
-import { ClearedQueuedTaskError } from "../../src/agents/job-queue.ts";
-import { createStoredIntervalLoop } from "../../src/agents/loop-control-shared.ts";
-import { createStoredQueueItem } from "../../src/agents/queue-state.ts";
-import { resolveAgentTarget } from "../../src/agents/resolved-target.ts";
-import { loadConfig, resolveSessionStorePath } from "../../src/config/load-config.ts";
-import { clisbotConfigSchema, type ClisbotConfig } from "../../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../../src/config/template.ts";
-import { AgentSessionState } from "../../src/agents/session-state.ts";
-import { SessionStore } from "../../src/agents/session-store.ts";
-import { RunnerService } from "../../src/agents/runner-service.ts";
-import { MID_RUN_RECOVERY_CONTINUE_PROMPT } from "../../src/agents/run-recovery.ts";
+import { AgentService } from "../../src/agents/runtime/agent-service.ts";
+import { ClearedQueuedTaskError } from "../../src/agents/queue/job-queue.ts";
+import { createStoredIntervalLoop } from "../../src/agents/loops/loop-definition.ts";
+import { createStoredQueueItem } from "../../src/agents/queue/queue-state.ts";
+import { resolveAgentTarget } from "../../src/agents/routing/resolved-target.ts";
+import { loadConfig, resolveSessionStorePath } from "../../src/config/core/load-config.ts";
+import { clisbotConfigSchema, type ClisbotConfig } from "../../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../../src/config/core/template.ts";
+import { AgentSessionState } from "../../src/agents/session/session-state.ts";
+import { SessionMapping } from "../../src/agents/session/session-mapping.ts";
+import { SessionStore } from "../../src/agents/session/session-store.ts";
+import { RunnerService } from "../../src/agents/runtime/runner-service.ts";
+import { MID_RUN_RECOVERY_CONTINUE_PROMPT } from "../../src/agents/session/run-recovery.ts";
 import type { TmuxClient } from "../../src/runners/tmux/client.ts";
-import { recordSurfaceDirectoryIdentity } from "../../src/channels/surface-directory.ts";
+import { recordSurfaceDirectoryIdentity } from "../../src/channels/surface/surface-directory.ts";
 import {
   type FakeSession,
   FakeTmuxClient,
@@ -27,6 +28,69 @@ import {
 } from "./agent-service-support.ts";
 
 describe("AgentService trust and startup blockers", () => {
+  test("starts normally when no startup continue prompt appears", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "codex",
+            runnerArgs: ["-C", "{workspace}"],
+            trustWorkspace: true,
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:telegram:dm:no-startup-prompt",
+      };
+
+      const result = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+
+      expect(result.snapshot).toContain(`PONG ${RUNNER_GENERATED_ID}`);
+      expect(fakeTmux.sessionCommands).toHaveLength(1);
+      expect(readSessionId(storePath, target.sessionKey)).toBe(RUNNER_GENERATED_ID);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   test("retries the first prompt after restarting the runner with the stored session id", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
@@ -292,6 +356,140 @@ describe("AgentService trust and startup blockers", () => {
     }
   });
 
+  test("auto-confirms a Codex update prompt and relaunches after the runner exits during self-update", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "codex",
+            runnerArgs: ["-C", "{workspace}"],
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.setTrustPromptOnNextSessionCapture(0, "codex-update");
+      fakeTmux.setNoServerAfterTrustDismissOnNextSession();
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:slack:channel:C07U0LDK6ER:thread:update-notice",
+      };
+
+      const result = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+
+      expect(result.snapshot).toContain(`PONG ${RUNNER_GENERATED_ID}`);
+      expect(fakeTmux.sessionCommands).toHaveLength(2);
+      expect(readSessionId(storePath, target.sessionKey)).toBe(RUNNER_GENERATED_ID);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("survives a Codex update prompt followed by a trust prompt on the relaunched runner", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
+
+    try {
+      const socketPath = join(tempDir, "clisbot.sock");
+      const configPath = join(tempDir, "clisbot.json");
+      const storePath = join(tempDir, "sessions.json");
+      await Bun.write(
+        configPath,
+        JSON.stringify(
+          buildConfig({
+            socketPath,
+            storePath,
+            workspaceTemplate: join(tempDir, "{agentId}"),
+            runnerCommand: "codex",
+            runnerArgs: ["-C", "{workspace}"],
+            trustWorkspace: true,
+            sessionId: {
+              create: {
+                mode: "runner",
+                args: [],
+              },
+              capture: {
+                mode: "status-command",
+                statusCommand: "/status",
+                pattern:
+                  "session id:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
+                timeoutMs: 100,
+                pollIntervalMs: 1,
+              },
+              resume: {
+                mode: "command",
+                args: ["resume", "{sessionId}", "-C", "{workspace}"],
+              },
+            },
+          }),
+          null,
+          2,
+        ),
+      );
+
+      const fakeTmux = new FakeTmuxClient();
+      fakeTmux.queueStartupPromptScriptForNextSession([
+        { captureCount: 0, variant: "codex-update" },
+      ]);
+      fakeTmux.setNoServerAfterTrustDismissOnNextSession();
+      fakeTmux.queueStartupPromptScriptForNextSession([
+        { captureCount: 0, variant: "codex" },
+      ]);
+      const loaded = await loadConfig(configPath);
+      const service = new AgentService(loaded, {
+        tmux: fakeTmux as unknown as TmuxClient,
+      });
+      const target = {
+        agentId: "default",
+        sessionKey: "agent:default:slack:channel:C07U0LDK6ER:thread:update-then-trust",
+      };
+
+      const result = await service.enqueuePrompt(target, "ping", {
+        onUpdate: () => undefined,
+      }).result;
+
+      expect(result.snapshot).toContain(`PONG ${RUNNER_GENERATED_ID}`);
+      expect(fakeTmux.sessionCommands).toHaveLength(2);
+      expect(readSessionId(storePath, target.sessionKey)).toBe(RUNNER_GENERATED_ID);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   test("recreates the runner session when tmux dies while dismissing a trust prompt", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-agent-service-"));
 
@@ -423,8 +621,8 @@ describe("AgentService trust and startup blockers", () => {
       const runnerSessions = new RunnerService(
         loaded,
         tmux as unknown as TmuxClient,
-        new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded))),
         (target) => resolveAgentTarget(loaded, target),
+        new SessionMapping(new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded)))),
       );
 
       await expect(
@@ -494,8 +692,8 @@ describe("AgentService trust and startup blockers", () => {
       const runnerSessions = new RunnerService(
         loaded,
         tmux as unknown as TmuxClient,
-        new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded))),
         (target) => resolveAgentTarget(loaded, target),
+        new SessionMapping(new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded)))),
       );
 
       await expect(
@@ -569,8 +767,8 @@ describe("AgentService trust and startup blockers", () => {
       const runnerSessions = new RunnerService(
         loaded,
         tmux as unknown as TmuxClient,
-        new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded))),
         (target) => resolveAgentTarget(loaded, target),
+        new SessionMapping(new AgentSessionState(new SessionStore(resolveSessionStorePath(loaded)))),
       );
 
       const resolved = await runnerSessions.ensureSessionReady({

@@ -8,6 +8,7 @@ Release notes answer: what changed in this version, what user or operator impact
 
 Keep user-facing catch-up and install/update docs in [`docs/updates/`](../updates/README.md). Keep manual migration procedures in [`docs/migrations/`](../migrations/README.md).
 GitHub Releases and npm notes should stay shorter and link back to the matching release note here.
+Release mechanics live in the [`release-clisbot` skill](../../skills/release-clisbot/SKILL.md); [`docs/development/release-process.md`](../development/release-process.md) only points to that canonical workflow.
 
 ## File Layout
 
@@ -49,6 +50,7 @@ For a normal release, update:
 3. `docs/updates/releases/vX.Y.Z-release-guide.md`: only for large releases where users or operators need a 3-5 minute catch-up guide.
 4. `docs/updates/update-guide.md`: update the current stable install/update guide when the public update path changes.
 5. `docs/migrations/vA.B.C-to-vX.Y.Z.md`: only when config, schema, or runtime update steps require manual operator action beyond install/restart/status.
+6. GitHub Release: short summary from the matching git tag, with prerelease=true for beta tags and latest=true only for stable.
 
 Do not duplicate the full release detail across these files. Link between them.
 
@@ -61,10 +63,12 @@ Use beta notes to support testers and operators, not as a second release-history
 - Do not add every beta to `CHANGELOG.md`; keep `CHANGELOG.md` focused on public release targets.
 - Create `docs/updates/releases/vX.Y.Z-beta.N-release-guide.md` only when a beta is sent to users/operators and needs a rollout note.
 - Create a migration note for a beta only when beta testers need a concrete update or rollback runbook.
+- Use the `release-clisbot` skill for beta/stable publish commands and npm dist-tag handling.
 
 ## Current Notes
 
 - [Upcoming](upcoming.md)
+- [v0.1.53](v0.1.53.md)
 - [v0.1.52](v0.1.52.md)
 - [v0.1.51](v0.1.51.md)
 - [v0.1.50](v0.1.50.md)

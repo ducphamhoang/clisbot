@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { parseAgentCommand } from "../src/agents/commands.ts";
+import {
+  hasAgentCommandPrefix,
+  parseAgentCommand,
+} from "../src/agents/commands/commands.ts";
 
 describe("parseAgentCommand", () => {
   test("parses start as a reserved control slash command", () => {
@@ -173,6 +176,20 @@ describe("parseAgentCommand", () => {
       type: "queue",
       text: "follow up after the current run",
     });
+  });
+
+  test("detects shared agent command prefixes", () => {
+    expect(hasAgentCommandPrefix("/queue follow up")).toBe(true);
+    expect(hasAgentCommandPrefix("\\q follow up")).toBe(true);
+    expect(hasAgentCommandPrefix("::status")).toBe(true);
+    expect(hasAgentCommandPrefix("!pwd")).toBe(true);
+    expect(hasAgentCommandPrefix("plain follow up")).toBe(false);
+    expect(hasAgentCommandPrefix("~status", {
+      commandPrefixes: {
+        slash: ["~"],
+        bash: ["$"],
+      },
+    })).toBe(true);
   });
 
   test("parses queue and steer shortcuts plus queue admin commands", () => {

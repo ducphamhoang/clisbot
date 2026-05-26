@@ -6,10 +6,10 @@ import {
   processChannelInteraction,
   type ChannelInteractionIdentity,
   type ChannelInteractionRoute,
-} from "../../src/channels/interaction-processing.ts";
-import type { AgentSessionTarget } from "../../src/agents/agent-service.ts";
-import { renderDefaultConfigTemplate } from "../../src/config/template.ts";
-import { sleep } from "../../src/shared/process.ts";
+} from "../../src/channels/message/interaction-processing.ts";
+import type { AgentSessionTarget } from "../../src/agents/runtime/agent-service.ts";
+import { renderDefaultConfigTemplate } from "../../src/config/core/template.ts";
+import { sleep } from "../../src/infra/process.ts";
 import {
   createIdentity,
   createRoute,
@@ -236,7 +236,7 @@ describe("processChannelInteraction message-tool settlement", () => {
     expect(posted).toHaveLength(0);
   });
 
-  test("does not post pane timeout settlement when message-tool mode has streaming off and no tool final arrives", async () => {
+  test("posts pane timeout settlement when message-tool mode has streaming off and no tool final arrives", async () => {
     const posted: string[] = [];
     const reconciled: string[] = [];
 
@@ -276,7 +276,8 @@ describe("processChannelInteraction message-tool settlement", () => {
       },
     });
 
-    expect(posted).toHaveLength(0);
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toContain("timeout pane output");
     expect(reconciled).toEqual([]);
   });
 

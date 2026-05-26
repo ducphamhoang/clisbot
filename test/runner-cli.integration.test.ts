@@ -2,13 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { resolveAgentTarget } from "../src/agents/resolved-target.ts";
-import { loadConfig } from "../src/config/load-config.ts";
-import { clisbotConfigSchema } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
-import { ensureDir } from "../src/shared/paths.ts";
+import { resolveAgentTarget } from "../src/agents/routing/resolved-target.ts";
+import { loadConfig } from "../src/config/core/load-config.ts";
+import { clisbotConfigSchema } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
+import { ensureDir } from "../src/infra/paths.ts";
 import { TmuxClient } from "../src/runners/tmux/client.ts";
-import type { StoredSessionEntry } from "../src/agents/session-store.ts";
+import type { StoredSessionEntry } from "../src/agents/session/session-store.ts";
 
 const tempDirs: string[] = [];
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -27,7 +27,7 @@ function createConfig(dir: string) {
   const socketPath = join(stateDir, "clisbot.sock");
   mkdirSync(stateDir, { recursive: true });
   const config = clisbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate()));
-  config.meta.schemaVersion = "0.1.51";
+  config.meta.schemaVersion = "0.1.53";
   config.app.session.storePath = sessionStorePath;
   config.agents.defaults.workspace = join(dir, "workspaces", "{agentId}");
   config.agents.defaults.runner.defaults.tmux.socketPath = socketPath;

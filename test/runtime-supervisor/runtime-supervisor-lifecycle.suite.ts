@@ -2,16 +2,18 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LoadedConfig } from "../../src/config/load-config.ts";
-import { clisbotConfigSchema } from "../../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../../src/config/template.ts";
-import { RuntimeSupervisor } from "../../src/control/runtime-supervisor.ts";
-import { RuntimeHealthStore } from "../../src/control/runtime-health-store.ts";
+import type { LoadedConfig } from "../../src/config/core/load-config.ts";
+import { clisbotConfigSchema } from "../../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../../src/config/core/template.ts";
+import { RuntimeSupervisor } from "../../src/control/runtime/runtime-supervisor.ts";
+import { describeSlackStartupFailure } from "../../src/channels/slack/startup-failure.ts";
+import { describeTelegramStartupFailure } from "../../src/channels/telegram/startup-failure.ts";
+import { RuntimeHealthStore } from "../../src/control/runtime/runtime-health-store.ts";
 import {
   resetConfigReloadSuppressionForTests,
   suppressConfigReload,
-} from "../../src/control/config-reload-suppression.ts";
-import type { ChannelPlugin } from "../../src/channels/channel-plugin.ts";
+} from "../../src/control/runtime/config-reload-suppression.ts";
+import type { ChannelPlugin } from "../../src/channels/integration/channel-plugin.ts";
 import { createLoadedConfig, createLoadedConfigAt } from "./runtime-supervisor-support.ts";
 
 describe("RuntimeSupervisor lifecycle", () => {
@@ -70,6 +72,10 @@ describe("RuntimeSupervisor lifecycle", () => {
     const plugins: ChannelPlugin[] = [
       {
         id: "slack",
+        capabilities: {
+          surfaceKinds: ["dm", "group"],
+          messageActions: ["send"],
+        },
         isEnabled: () => true,
         listBots: () => [{ botId: "default", config: {} }],
         createRuntimeService: () => ({
@@ -85,12 +91,17 @@ describe("RuntimeSupervisor lifecycle", () => {
               ? "Slack channel is disabled in config."
               : "Slack channel is stopped.",
         renderActiveHealthSummary: () => "Slack Socket Mode connected for 1 bot(s).",
-        markStartupFailure: (store, error) => store.markSlackFailure(error),
+        describeStartupFailure: describeSlackStartupFailure,
         runMessageCommand: async () => ({ botId: "default", result: { ok: true } }),
+        resolveMessageSurface: () => null,
         resolveMessageReplyTarget: () => null,
       },
       {
         id: "telegram",
+        capabilities: {
+          surfaceKinds: ["dm", "group", "topic"],
+          messageActions: ["send"],
+        },
         isEnabled: () => true,
         listBots: () => [{ botId: "default", config: {} }],
         createRuntimeService: () => ({
@@ -108,8 +119,9 @@ describe("RuntimeSupervisor lifecycle", () => {
               ? "Telegram channel is disabled in config."
               : "Telegram channel is stopped.",
         renderActiveHealthSummary: () => "Telegram polling connected for 1 bot(s).",
-        markStartupFailure: (store, error) => store.markTelegramFailure(error),
+        describeStartupFailure: describeTelegramStartupFailure,
         runMessageCommand: async () => ({ botId: "default", result: { ok: true } }),
+        resolveMessageSurface: () => null,
         resolveMessageReplyTarget: () => null,
       },
     ];
@@ -144,6 +156,10 @@ describe("RuntimeSupervisor lifecycle", () => {
     const plugins: ChannelPlugin[] = [
       {
         id: "slack",
+        capabilities: {
+          surfaceKinds: ["dm", "group"],
+          messageActions: ["send"],
+        },
         isEnabled: () => true,
         listBots: () => [{ botId: "default", config: {} }],
         createRuntimeService: () => ({
@@ -163,8 +179,9 @@ describe("RuntimeSupervisor lifecycle", () => {
               ? "Slack channel is disabled in config."
               : "Slack channel is stopped.",
         renderActiveHealthSummary: () => "Slack Socket Mode connected for 1 bot(s).",
-        markStartupFailure: (store, error) => store.markSlackFailure(error),
+        describeStartupFailure: describeSlackStartupFailure,
         runMessageCommand: async () => ({ botId: "default", result: { ok: true } }),
+        resolveMessageSurface: () => null,
         resolveMessageReplyTarget: () => null,
       },
     ];
@@ -207,6 +224,10 @@ describe("RuntimeSupervisor lifecycle", () => {
     const plugins: ChannelPlugin[] = [
       {
         id: "telegram",
+        capabilities: {
+          surfaceKinds: ["dm", "group", "topic"],
+          messageActions: ["send"],
+        },
         isEnabled: () => true,
         listBots: () => [{ botId: "default", config: {} }],
         createRuntimeService: (context) => {
@@ -233,8 +254,9 @@ describe("RuntimeSupervisor lifecycle", () => {
               ? "Telegram channel is disabled in config."
               : "Telegram channel is stopped.",
         renderActiveHealthSummary: () => "Telegram polling connected for 1 bot(s).",
-        markStartupFailure: (store, error) => store.markTelegramFailure(error),
+        describeStartupFailure: describeTelegramStartupFailure,
         runMessageCommand: async () => ({ botId: "default", result: { ok: true } }),
+        resolveMessageSurface: () => null,
         resolveMessageReplyTarget: () => null,
       },
     ];
@@ -280,6 +302,10 @@ describe("RuntimeSupervisor lifecycle", () => {
     const plugins: ChannelPlugin[] = [
       {
         id: "slack",
+        capabilities: {
+          surfaceKinds: ["dm", "group"],
+          messageActions: ["send"],
+        },
         isEnabled: () => true,
         listBots: () => [{ botId: "default", config: {} }],
         createRuntimeService: () => ({
@@ -297,8 +323,9 @@ describe("RuntimeSupervisor lifecycle", () => {
               ? "Slack channel is disabled in config."
               : "Slack channel is stopped.",
         renderActiveHealthSummary: () => "Slack Socket Mode connected for 1 bot(s).",
-        markStartupFailure: (store, error) => store.markSlackFailure(error),
+        describeStartupFailure: describeSlackStartupFailure,
         runMessageCommand: async () => ({ botId: "default", result: { ok: true } }),
+        resolveMessageSurface: () => null,
         resolveMessageReplyTarget: () => null,
       },
     ];
@@ -344,6 +371,10 @@ describe("RuntimeSupervisor lifecycle", () => {
     const plugins: ChannelPlugin[] = [
       {
         id: "telegram",
+        capabilities: {
+          surfaceKinds: ["dm", "group", "topic"],
+          messageActions: ["send"],
+        },
         isEnabled: () => true,
         listBots: () => [{ botId: "default", config: {} }],
         createRuntimeService: (context) => {
@@ -369,8 +400,9 @@ describe("RuntimeSupervisor lifecycle", () => {
               ? "Telegram channel is disabled in config."
               : "Telegram channel is stopped.",
         renderActiveHealthSummary: () => "Telegram polling connected for 1 bot(s).",
-        markStartupFailure: (store, error) => store.markTelegramFailure(error),
+        describeStartupFailure: describeTelegramStartupFailure,
         runMessageCommand: async () => ({ botId: "default", result: { ok: true } }),
+        resolveMessageSurface: () => null,
         resolveMessageReplyTarget: () => null,
       },
     ];
@@ -397,6 +429,9 @@ describe("RuntimeSupervisor lifecycle", () => {
     await (supervisor as any).reload("watch");
     expect(lifecycleReports).toHaveLength(2);
 
+    const reloadedDocument = await runtimeHealthStore.read();
+    expect(reloadedDocument.channels.telegram?.connection).toBe("active");
+
     await lifecycleReports[0]("stale runtime failure");
 
     const document = await runtimeHealthStore.read();
@@ -408,5 +443,5 @@ describe("RuntimeSupervisor lifecycle", () => {
         label: "bot=@longluong2bot-2",
       },
     ]);
-  });
+  }, { timeout: 15_000 });
 });

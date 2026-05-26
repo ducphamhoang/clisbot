@@ -4,28 +4,34 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildTelegramCommandRegistrations,
+  coalesceTelegramMediaGroupUpdates,
   dispatchTelegramUpdates,
   renderTelegramUnroutedRouteMessage,
   resolveTelegramMessageTopicId,
+  TelegramMediaGroupDispatcher,
   TelegramPollingService,
 } from "../src/channels/telegram/service.ts";
-import { resolveTelegramBotConfig } from "../src/config/channel-bots.ts";
+import { OrderedIngressDispatcher } from "../src/channels/message/ordered-ingress-dispatcher.ts";
+import { resolveTelegramBotConfig } from "../src/channels/telegram/config.ts";
 import type { TelegramUpdate } from "../src/channels/telegram/message.ts";
-import { ProcessedEventsStore } from "../src/channels/processed-events-store.ts";
-import type { LoadedConfig } from "../src/config/load-config.ts";
-import { ActivityStore } from "../src/control/activity-store.ts";
-import { clisbotConfigSchema } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+import { ProcessedEventsStore } from "../src/channels/message/processed-events-store.ts";
+import type { LoadedConfig } from "../src/config/core/load-config.ts";
+import { ActivityStore } from "../src/control/runtime/activity-store.ts";
+import { clisbotConfigSchema } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
+import { setRenderedCliName } from "../src/control/commands/cli-name.ts";
 
 let previousCliName: string | undefined;
 
 beforeEach(() => {
   previousCliName = process.env.CLISBOT_CLI_NAME;
   delete process.env.CLISBOT_CLI_NAME;
+  setRenderedCliName();
 });
 
 afterEach(() => {
   process.env.CLISBOT_CLI_NAME = previousCliName;
+  setRenderedCliName(previousCliName);
 });
 
 function makeUpdate(updateId: number): TelegramUpdate {
@@ -49,8 +55,10 @@ function createTelegramConfig() {
   const config = clisbotConfigSchema.parse(
     JSON.parse(
       renderDefaultConfigTemplate({
-        slackEnabled: false,
-        telegramEnabled: true,
+        channels: {
+          slack: { enabled: false },
+          telegram: { enabled: true },
+        },
       }),
     ),
   );
@@ -89,8 +97,10 @@ function createLoadedConfig(): LoadedConfig {
   const config = clisbotConfigSchema.parse(
     JSON.parse(
       renderDefaultConfigTemplate({
-        slackEnabled: false,
-        telegramEnabled: true,
+        channels: {
+          slack: { enabled: false },
+          telegram: { enabled: true },
+        },
       }),
     ),
   );
@@ -183,32 +193,198 @@ async function runTelegramServiceUpdate(params: {
 }
 
 describe("dispatchTelegramUpdates", () => {
-  test("dispatches later updates without waiting for earlier ones to finish", async () => {
+  test("keeps same-chat updates ordered until the earlier update is accepted", async () => {
     const order: string[] = [];
-    let releaseFirst!: () => void;
-    const firstGate = new Promise<void>((resolve) => {
-      releaseFirst = resolve;
+    let acceptFirst!: () => void;
+    let finishFirst!: () => void;
+    const firstAccepted = new Promise<void>((resolve) => {
+      acceptFirst = resolve;
     });
-
-    const { nextUpdateId, tasks } = dispatchTelegramUpdates({
-      updates: [makeUpdate(1), makeUpdate(2)],
-      handleUpdate: async (update) => {
+    const firstFinished = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const dispatcher = new OrderedIngressDispatcher<TelegramUpdate>(
+      (update) => String(update.message?.chat.id),
+      async (update, controls) => {
         order.push(`start:${update.update_id}`);
         if (update.update_id === 1) {
-          await firstGate;
+          await firstAccepted;
+          controls.markAccepted();
+          order.push(`accepted:${update.update_id}`);
+          await firstFinished;
+        } else {
+          controls.markAccepted();
+          order.push(`accepted:${update.update_id}`);
         }
         order.push(`end:${update.update_id}`);
       },
+    );
+
+    const { nextUpdateId, tasks } = dispatchTelegramUpdates({
+      updates: [makeUpdate(1), makeUpdate(2)],
+      dispatcher,
     });
 
     await Bun.sleep(0);
     expect(nextUpdateId).toBe(3);
-    expect(order).toEqual(["start:1", "start:2", "end:2"]);
+    expect(order).toEqual(["start:1"]);
 
-    releaseFirst();
+    acceptFirst();
+    for (let attempt = 0; attempt < 20 && !order.includes("end:2"); attempt += 1) {
+      await Bun.sleep(10);
+    }
+    expect(order).toEqual(["start:1", "accepted:1", "start:2", "accepted:2", "end:2"]);
+
+    finishFirst();
     await Promise.all(tasks);
 
-    expect(order).toEqual(["start:1", "start:2", "end:2", "end:1"]);
+    expect(order).toEqual(["start:1", "accepted:1", "start:2", "accepted:2", "end:2", "end:1"]);
+  });
+});
+
+describe("coalesceTelegramMediaGroupUpdates", () => {
+  test("coalesces Telegram album messages into one interaction update", () => {
+    const updates = coalesceTelegramMediaGroupUpdates([
+      {
+        update_id: 10,
+        message: {
+          message_id: 70,
+          media_group_id: "album-1",
+          caption: "read these",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+          photo: [{ file_id: "photo-a", file_size: 10 }],
+        },
+      },
+      {
+        update_id: 11,
+        message: {
+          message_id: 71,
+          media_group_id: "album-1",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+          photo: [{ file_id: "photo-b", file_size: 10 }],
+        },
+      },
+    ]);
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.update_id).toBe(10);
+    expect(updates[0]?.message?.caption).toBe("read these");
+    expect(updates[0]?.message?.media_group_messages?.map((message) => message.message_id)).toEqual([70, 71]);
+  });
+
+  test("keeps media groups separate by sender and surface", () => {
+    const updates = coalesceTelegramMediaGroupUpdates([
+      {
+        update_id: 10,
+        message: {
+          message_id: 70,
+          media_group_id: "album-1",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+          photo: [{ file_id: "photo-a" }],
+        },
+      },
+      {
+        update_id: 11,
+        message: {
+          message_id: 71,
+          media_group_id: "album-1",
+          from: { id: 128 },
+          chat: { id: 128, type: "private" },
+          photo: [{ file_id: "photo-b" }],
+        },
+      },
+    ]);
+
+    expect(updates).toHaveLength(2);
+  });
+});
+
+describe("TelegramMediaGroupDispatcher", () => {
+  test("buffers Telegram album updates across polling batches before dispatching one interaction", async () => {
+    const handled: TelegramUpdate[] = [];
+    const dispatcher = new OrderedIngressDispatcher<TelegramUpdate>(
+      (update) => String(update.message?.chat.id),
+      async (update) => {
+        handled.push(update);
+      },
+    );
+    const mediaGroups = new TelegramMediaGroupDispatcher(dispatcher, 10);
+
+    const firstTasks = mediaGroups.dispatch([
+      {
+        update_id: 10,
+        message: {
+          message_id: 70,
+          media_group_id: "album-1",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+          photo: [{ file_id: "photo-a" }],
+        },
+      },
+    ]);
+    const secondTasks = mediaGroups.dispatch([
+      {
+        update_id: 11,
+        message: {
+          message_id: 71,
+          media_group_id: "album-1",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+          photo: [{ file_id: "photo-b" }],
+        },
+      },
+    ]);
+
+    await Promise.all([...firstTasks, ...secondTasks]);
+
+    expect(handled).toHaveLength(1);
+    expect(handled[0]?.message?.media_group_messages?.map((message) => message.message_id)).toEqual([70, 71]);
+  });
+
+  test("keeps later normal messages behind a pending media group on the same surface", async () => {
+    const handled: string[] = [];
+    const dispatcher = new OrderedIngressDispatcher<TelegramUpdate>(
+      (update) => String(update.message?.chat.id),
+      async (update) => {
+        handled.push(
+          update.message?.media_group_messages
+            ? `album:${update.message.media_group_messages.map((message) => message.message_id).join(",")}`
+            : `message:${update.message?.message_id}`,
+        );
+      },
+    );
+    const mediaGroups = new TelegramMediaGroupDispatcher(dispatcher, 10);
+
+    const firstTasks = mediaGroups.dispatch([
+      {
+        update_id: 10,
+        message: {
+          message_id: 70,
+          media_group_id: "album-1",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+          photo: [{ file_id: "photo-a" }],
+        },
+      },
+    ]);
+    const secondTasks = mediaGroups.dispatch([
+      {
+        update_id: 11,
+        message: {
+          message_id: 71,
+          text: "after album",
+          from: { id: 127 },
+          chat: { id: 127, type: "private" },
+        },
+      },
+    ]);
+
+    await Promise.all([...firstTasks, ...secondTasks]);
+
+    expect(handled).toEqual(["message:70", "message:71"]);
   });
 });
 
@@ -346,6 +522,61 @@ describe("TelegramPollingService shared audience enforcement", () => {
     });
 
     expect(apiCalls).toEqual([]);
+  });
+
+  test("uses the sender-specific DM route before asking for pairing", async () => {
+    const loadedConfig = createLoadedConfig();
+    loadedConfig.raw.app.auth.roles.owner.users = ["telegram:999999"];
+    loadedConfig.raw.bots.telegram.default.directMessages["*"] = {
+      enabled: true,
+      policy: "pairing",
+      allowUsers: [],
+      blockUsers: [],
+      requireMention: false,
+      allowBots: false,
+      agentId: "default",
+    };
+    loadedConfig.raw.bots.telegram.default.directMessages["1001"] = {
+      enabled: true,
+      policy: "allowlist",
+      allowUsers: ["1001"],
+      blockUsers: [],
+      requireMention: true,
+      allowBots: false,
+      agentId: "default",
+    };
+    let followUpChecks = 0;
+
+    const apiCalls = await runTelegramServiceUpdate({
+      loadedConfig,
+      agentService: {
+        registerSurfaceNotificationHandler() {},
+        unregisterSurfaceNotificationHandler() {},
+        appendRecentConversationMessage: async () => undefined,
+        async getConversationFollowUpState() {
+          followUpChecks += 1;
+          return {};
+        },
+      },
+      update: {
+        update_id: 45,
+        message: {
+          message_id: 45,
+          text: "hello",
+          from: {
+            id: 1001,
+            username: "allowed_user",
+          },
+          chat: {
+            id: 1001,
+            type: "private",
+          },
+        },
+      },
+    });
+
+    expect(apiCalls).toEqual([]);
+    expect(followUpChecks).toBe(1);
   });
 
   test("does not collapse a disabled topic message into the parent group route", async () => {

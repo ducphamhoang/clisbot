@@ -14,7 +14,7 @@ Hãy dùng file này như bản đồ, sau đó đọc các tài liệu chi ti�
 
 - [Kiến trúc ngữ cảnh chat](./surface-architecture.md)
 - [Kiến trúc runtime](./runtime-architecture.md)
-- [Phân loại model và ranh giới](./model-taxonomy-and-boundaries.md)
+- [Ngôn ngữ miền](./domain-language.md)
 
 Nếu overview này lệch với một tài liệu kiến trúc chi tiết hơn, tài liệu chi tiết sẽ thắng.
 
@@ -184,7 +184,7 @@ Tên runtime hiện tại nên phản ánh rõ cách chia đó:
 
 Code hiện tại vẫn chưa hội tụ hoàn toàn theo ranh giới đó:
 
-- `src/agents/runner-service.ts` hiện vẫn chứa implementation của `RunnerService`
+- `src/agents/runtime/runner-service.ts` hiện vẫn chứa implementation của `RunnerService`
 - file đó vẫn còn mang một phần continuity work vốn nên thuộc `SessionService`
 - hãy xem sơ đồ owner ở trên là target architecture, không phải khẳng định rằng file placement và continuity boundary đã sạch hết
 
@@ -202,4 +202,4 @@ Nếu các hệ này nhập nhằng vào nhau:
 
 - Dùng [surface-architecture.md](./surface-architecture.md) cho các quy tắc ngữ cảnh chat của người dùng và operator.
 - Dùng [runtime-architecture.md](./runtime-architecture.md) cho các quy tắc về agents, runner, persistence, và runtime contract.
-- Dùng [model-taxonomy-and-boundaries.md](./model-taxonomy-and-boundaries.md) cho model ownership, lifecycle, và naming boundary.
+- Dùng [domain-language.md](./domain-language.md) cho canonical vocabulary, model ownership, lifecycle, và naming boundary.

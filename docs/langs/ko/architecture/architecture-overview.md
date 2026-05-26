@@ -14,7 +14,7 @@
 
 - [표면 아키텍처](../../../architecture/surface-architecture.md)
 - [런타임 아키텍처](../../../architecture/runtime-architecture.md)
-- [모델 분류와 경계](../../../architecture/model-taxonomy-and-boundaries.md)
+- [도메인 언어](../../../architecture/domain-language.md)
 
 이 개요와 상세 아키텍처 문서가 어긋나면, 상세 문서가 우선합니다.
 
@@ -185,7 +185,7 @@ tmux pane id, tmux window id, 그 밖의 일시적인 runner artifact를 agents 
 
 현재 코드는 아직 이 분리에 완전히 수렴하지는 않았습니다.
 
-- `src/agents/runner-service.ts`에 오늘도 `RunnerService` 구현이 남아 있습니다.
+- `src/agents/runtime/runner-service.ts`에 오늘도 `RunnerService` 구현이 남아 있습니다.
 - 그 파일 안에는 아직 `SessionService`가 소유해야 할 continuity 작업도 일부 남아 있습니다.
 - 위 owner map은 현재 코드가 완전히 정리됐다는 주장이라기보다, 지향해야 할 아키텍처 목표로 읽어야 합니다.
 
@@ -203,4 +203,4 @@ tmux pane id, tmux window id, 그 밖의 일시적인 runner artifact를 agents 
 
 - 사용자와 운영자 surface 규칙은 [surface-architecture.md](../../../architecture/surface-architecture.md)에서 다룹니다.
 - agents, runner, persistence, runtime contract 규칙은 [runtime-architecture.md](../../../architecture/runtime-architecture.md)에서 다룹니다.
-- 모델 소유권, lifecycle, naming boundary는 [model-taxonomy-and-boundaries.md](../../../architecture/model-taxonomy-and-boundaries.md)에서 다룹니다.
+- canonical vocabulary, 모델 소유권, lifecycle, naming boundary는 [domain-language.md](../../../architecture/domain-language.md)에서 다룹니다.

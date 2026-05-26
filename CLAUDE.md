@@ -7,7 +7,7 @@ The stable implementation contract lives in:
 - `docs/architecture/architecture-overview.md`
 - `docs/architecture/surface-architecture.md`
 - `docs/architecture/runtime-architecture.md`
-- `docs/architecture/model-taxonomy-and-boundaries.md`
+- `docs/architecture/domain-language.md`
 
 If implementation conflicts with those docs:
 1. stop
@@ -48,7 +48,7 @@ Use this ownership map before editing:
 - `src/config`: schema, loading, credentials, templates
 - `src/control`: operator CLI, runtime lifecycle, health, status, logs, bootstrap
 - `src/runners`: execution backends, currently tmux
-- `src/shared`: cross-cutting utilities
+- `src/infra`: small host/runtime primitives only, with no product concepts
 - `test/`: regression and behavior coverage
 - `docs/tests/`: readable validation scenarios when behavior needs explicit ground truth
 
@@ -98,7 +98,7 @@ Follow these defaults unless the user explicitly asks for a different tradeoff:
 - DRY: prefer one shared implementation path over parallel wrappers or duplicated mutations
 - backend-facing models must stay resource-oriented and revision-aware
 - do not leak transient runtime state into persistence contracts
-- use `docs/architecture/model-taxonomy-and-boundaries.md` for model naming, ownership, lifecycle, and mapping boundaries
+- use `docs/architecture/domain-language.md` for canonical vocabulary, model naming, ownership, lifecycle, and mapping boundaries
 - do not introduce aggregate or backend-for-frontend endpoints unless the simpler resource model is documented as insufficient
 - document intentional architecture exceptions before implementing them
 
@@ -131,6 +131,15 @@ Refactor when you see:
 - one name referring to multiple concepts
 
 Ask the user before proceeding when refactoring changes visible behavior, changes a public interface, or requires a real tradeoff about compatibility or doc direction.
+
+## Code Style
+These rules apply to all TypeScript and JavaScript files in the repo:
+- **Indentation**: 2 spaces. Never tabs. This matches upstream (longbkit/clisbot) and is enforced in `.editorconfig`.
+- **Line endings**: LF.
+- **Quotes**: single quotes for strings unless the string contains a single quote.
+- **Trailing commas**: include in multi-line structures (arrays, objects, parameters).
+- **Semicolons**: omit (the upstream codebase does not use them).
+- When merging or syncing from upstream, always reformat tabs → 2-space before committing to avoid whitespace-only conflicts on the next sync.
 
 ## Hard Limits
 These are strict rules, not suggestions:

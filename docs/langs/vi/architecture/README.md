@@ -19,7 +19,7 @@ Nhóm này dùng để hiểu:
 - [Tổng quan kiến trúc](./architecture-overview.md): bản đồ tổng thể
 - [Kiến trúc ngữ cảnh chat](./surface-architecture.md): quy tắc cho ngữ cảnh chat của người dùng và người vận hành
 - [Kiến trúc runtime](./runtime-architecture.md): ràng buộc về runtime, agents, runner, và persistence
-- [Phân loại model và ranh giới](./model-taxonomy-and-boundaries.md): naming, ownership, lifecycle
+- [Ngôn ngữ miền](./domain-language.md): canonical terms, naming, ownership, lifecycle
 
 ## Các tài liệu hiện có
 
@@ -27,9 +27,9 @@ Nhóm này dùng để hiểu:
 - [Kiến trúc ngữ cảnh chat](./surface-architecture.md)
 - [Kiến trúc runtime](./runtime-architecture.md)
 - [Trình bày transcript và streaming](./transcript-presentation-and-streaming.md)
-- [Bảng thuật ngữ kiến trúc](./glossary.md)
-- [Phân loại model và ranh giới](./model-taxonomy-and-boundaries.md)
-- [Quyết định về tính liên tục của session key và session id](./2026-05-01-session-key-and-session-id-continuity-decision.md)
+- [Ngôn ngữ miền](./domain-language.md)
+- [Architecture design decision records](./decisions/README.md)
+- [Quyết định về tính liên tục của session key và session id](./decisions/2026-05-01-session-key-and-session-id-continuity-decision.md)
 
 ## Tài liệu này nên chứa gì
 
@@ -39,6 +39,7 @@ Nhóm này dùng để hiểu:
 - các ràng buộc triển khai bền vững theo thời gian
 - quyết định data flow, persistence, routing, ownership
 - các quy tắc xuyên suốt ảnh hưởng nhiều nhóm tính năng
+- decision record cấp toàn repo, gồm cả ownership-boundary decision
 
 ## Không nên bỏ gì vào đây
 
@@ -50,3 +51,5 @@ Không dùng nhóm này cho:
 - lịch sử triển khai chi tiết
 
 Những thứ đó nên nằm ở `docs/tasks/` hoặc `docs/features/`.
+
+Decision cục bộ theo feature thường nên nằm ở `docs/features/<feature>/decisions/`.

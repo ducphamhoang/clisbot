@@ -17,12 +17,15 @@ This folder should explain:
 Related pages:
 
 - [Channel Operations](channels.md)
+- [Surface Access Model](surface-access-model.md)
 - [Bots And Credentials](bots-and-credentials.md)
 - [Release Notes](../releases/README.md)
 - [Codex CLI Guide](codex-cli.md)
 - [Claude CLI Guide](claude-cli.md)
 - [Gemini CLI Guide](gemini-cli.md)
 - [Telegram Bot Setup](telegram-setup.md)
+- [Zalo Bot Setup](zalo-bot-setup.md)
+- [Zalo Personal](zalo-personal.md)
 - [Slack App Setup](slack-setup.md)
 - [Slash Commands](slash-commands.md)
 - [Native CLI Commands](native-cli-commands.md)
@@ -30,6 +33,7 @@ Related pages:
 - [Agent Progress Replies](agent-progress-replies.md)
 - [Authorization And Roles](auth-and-roles.md)
 - [Runtime Operations](runtime-operations.md)
+- [Generic README Backup](generic-readme.md)
 
 If setup is unclear, clone this repo, open it in Codex or Claude Code, and ask it to help set up `clisbot`. The docs here are kept current enough for guided setup and troubleshooting.
 
@@ -151,9 +155,9 @@ clisbot status
 Important distinction:
 
 - `clisbot start` seeds `~/.clisbot/clisbot.json` automatically if it does not exist
-- `clisbot start` requires Slack or Telegram token references before it bootstraps anything
+- `clisbot start` requires Slack, Telegram, or Zalo Bot token references before it bootstraps anything
 - when no agents exist yet, `start` requires both `--cli` and `--bot-type` to create the first `default` agent
-- `--slack-app-token`, `--slack-bot-token`, and `--telegram-bot-token` accept either bare env names like `CUSTOM_SLACK_APP_TOKEN` or placeholder form like `${CUSTOM_SLACK_APP_TOKEN}`
+- `--slack-app-token`, `--slack-bot-token`, `--telegram-bot-token`, and `--zalo-bot-token` accept either bare env names like `CUSTOM_SLACK_APP_TOKEN` or placeholder form like `${CUSTOM_SLACK_APP_TOKEN}`
 - `clisbot start` prints which token refs or credential sources it is using for the channels you requested
 - existing enabled channel token refs are validated before the detached runtime is spawned
 - fresh bootstrap enables only the channels and bots you named explicitly with flags
@@ -232,6 +236,7 @@ Most-used commands:
 
 - `clisbot bots list`
 - `clisbot bots add --channel telegram --bot default --bot-token TELEGRAM_BOT_TOKEN --persist`
+- `clisbot bots add --channel zalo-bot --bot default --bot-token ZALO_BOT_TOKEN --persist`
 - `clisbot bots add --channel slack --bot default --app-token SLACK_APP_TOKEN --bot-token SLACK_BOT_TOKEN --persist`
 - `clisbot bots set-agent --channel telegram --bot default --agent support`
 - `clisbot bots set-default --channel slack --bot ops`
@@ -240,12 +245,13 @@ Most-used commands:
 
 ## Routes CLI
 
-Use `clisbot routes ...` to admit specific Slack or Telegram surfaces under a bot.
+Use `clisbot routes ...` to admit specific Slack, Telegram, or Zalo Bot surfaces under a bot.
 
 Focused help:
 
 ```bash
 clisbot routes --help
+clisbot routes --help --channel telegram
 ```
 
 Most-used commands:
@@ -256,6 +262,7 @@ Most-used commands:
 - `clisbot routes add --channel telegram group:-1001234567890 --bot default`
 - `clisbot routes add --channel telegram topic:-1001234567890:42 --bot default`
 - `clisbot routes add --channel telegram dm:* --bot default`
+- `clisbot routes add --channel zalo-bot dm:<user-id> --bot default`
 - `clisbot routes set-agent --channel slack group:C1234567890 --bot default --agent support`
 - `clisbot routes set-require-mention --channel telegram group:-1001234567890 --bot default --value false`
 - `clisbot routes set-response-mode --channel slack group:C1234567890 --bot default --mode message-tool`
@@ -263,7 +270,7 @@ Most-used commands:
 
 Important behavior:
 
-- preferred route ids are `group:<id>`, `group:*`, `topic:<chatId>:<topicId>`, and `dm:<id|*>`
+- preferred route ids are channel-scoped: Slack/Telegram shared surfaces use `group:<id>` or `group:*`, Telegram topics use `topic:<chatId>:<topicId>`, and DM-only providers such as Zalo Bot use `dm:<id|*>`
 - stored config uses raw ids plus `*` inside `directMessages` and `groups`
 - legacy Slack `channel:<id>` input is still accepted for compatibility
 - `group:*` is the default multi-user sender policy node of a bot
@@ -344,8 +351,6 @@ Current subcommands:
 - `clisbot loops status`
 - `clisbot loops status --channel slack --target group:C123 --thread-id 1712345678.123456`
 - `clisbot loops create --channel slack --target group:C123 --thread-id 1712345678.123456 --sender slack:U1234567890 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target group:C123 --new-thread --sender slack:U1234567890 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target dm:U1234567890 --new-thread --sender slack:U1234567890 every day at 09:00 check inbox`
 - `clisbot loops --channel telegram --target -1001234567890 --topic-id 42 --sender telegram:1276408333 5m check CI`
 - `clisbot loops --channel slack --target group:C123 --thread-id 1712345678.123456 --sender slack:U1234567890 3 review backlog`
 - `clisbot loops cancel <id>`
@@ -360,8 +365,8 @@ Targeting rules:
 - `--thread-id` means an existing Slack thread ts
 - `--topic-id` means a Telegram topic id
 - omitting the sub-surface flag targets the parent Slack channel/group/DM or the parent Telegram chat
-- `--new-thread` is Slack-only and creates a fresh thread anchor before the loop starts
-- `--sender <principal>` is required for loop creation and records the human creator as `slack:<user-id>` or `telegram:<user-id>`
+- use `clisbot loops --help --channel <channel-name>` or `clisbot loops create --help --channel <channel-name>` for channel-specific loop extensions
+- `--sender <principal>` is required for loop creation and records the human creator as `slack:<user-id>`, `telegram:<user-id>`, or `zalo-bot:<user-id>`
 - `--sender-name <name>` and `--sender-handle <handle>` optionally store readable creator context for scheduled prompts
 - in Telegram forum groups, omitting `--topic-id` targets the parent chat surface; sends then follow Telegram's normal no-`message_thread_id` behavior, which is the General topic when that forum has one
 
@@ -378,7 +383,7 @@ Important behavior:
 - `cancel --all` is app-wide when no routed target is given
 - scoped `cancel --all` clears one routed session and scoped `cancel --all --app` clears the whole app
 - if runtime is already running, it reconciles new recurring loops from persistence; if runtime is stopped, those loops activate on the next start
-- count/times loops run synchronously in the CLI process today; recurring loops are persisted for the runtime scheduler
+- count/times loops reserve all iterations immediately as durable queue items for the routed session; recurring loops are persisted for the runtime scheduler
 - loop state is read from `session.storePath`, which defaults to `~/.clisbot/state/sessions.json`
 - if `CLISBOT_HOME` is set, the default session store becomes `<CLISBOT_HOME>/state/sessions.json`
 - the runtime scheduler re-checks persisted loop state before each scheduled tick, so cancelling through the CLI suppresses future runs without adding a separate control socket

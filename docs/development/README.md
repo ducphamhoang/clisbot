@@ -35,41 +35,53 @@ What this changes:
 
 Direct CLI overrides such as `CLISBOT_CONFIG_PATH`, `CLISBOT_PID_PATH`, and `CLISBOT_LOG_PATH` still work when you invoke `clisbot ...` or `bun run src/main.ts ...` manually. They are no longer part of the repo-local default flow because `CLISBOT_HOME` is the intended source of truth.
 
+## Channel Testing In Dev Mode
+
+Use `clisbot-dev` for channel fixes. A channel bug should be reproducible,
+fixed, and revalidated against `~/.clisbot-dev` before it needs an npm release.
+
+Baseline loop:
+
+```bash
+export CLISBOT_HOME=~/.clisbot-dev
+bun run restart
+bun run status
+~/.clisbot-dev/bin/clisbot-dev status
+```
+
+Use the wrapper for chat-facing operator actions:
+
+```bash
+~/.clisbot-dev/bin/clisbot-dev routes list --channel telegram
+~/.clisbot-dev/bin/clisbot-dev queues status --channel telegram --target topic:<chat-id>:<topic-id>
+~/.clisbot-dev/bin/clisbot-dev loops status --channel telegram --target topic:<chat-id>:<topic-id>
+```
+
+The wrapper matters because message-tool replies, queue settlement, loop
+notifications, and runtime status must all read and write the same dev home.
+
+For channel happy-path validation, run the matrix in
+[`docs/tests/features/channels/channel-happy-path-matrix.md`](../tests/features/channels/channel-happy-path-matrix.md).
+At minimum, a channel pass should cover:
+
+- first-DM owner auto-claim or pairing inside the 30-minute claim window
+- unrouted `/start`, `/status`, and `/whoami` guidance
+- a second provider bot on another channel bound to agent `default`
+- queues and loops from both CLI and slash command paths
+- slash-command inventory and auth denials
+- DM, group/shared surface, topic/thread when supported
+- one attachment, attachment-only input, and multiple attachments where the
+  provider supports them
+- streaming off/on behavior according to provider capability
+- processing indicator activation and cleanup, including detached sparse-follow
+  and restart cleanup when supported
+
 ## npm Publish
 
-Current preferred publish flow is the same 2-step operator flow that already succeeded for `clisbot@0.1.22`.
+Use the `release-clisbot` skill for beta/stable release sequencing, npm auth,
+release notes, migration notes, GitHub Releases, tags, validation, and
+post-publish checks.
 
-Use this sequence unless the operator explicitly asks for something else:
-
-1. authenticate first:
-
-```bash
-npm login
-```
-
-2. publish the current package publicly:
-
-```bash
-npm publish --access public
-```
-
-Remote operator flow:
-
-- if the assistant is operating the repo remotely for the operator, the assistant should run `npm login` or `npm publish --access public` directly in an attached session
-- if npm returns a browser approval URL such as `https://www.npmjs.com/auth/cli/...`, the assistant should send that exact link to the operator and wait for approval
-- after the operator approves in the browser, the assistant should continue the same attached session instead of switching to a separate manual flow
-- do not rewrite the documented command into a special OTP-only variant unless the operator explicitly asks for that path
-
-Notes:
-
-- do not skip the explicit `npm login` step if auth might be stale
-- keep the login or publish process attached so the operator can complete npm approval or browser confirmation if npm asks for it
-- if a publish mistake needs cleanup, publish the corrected version or tag first, then run `npm deprecate`
-- for `npm deprecate`, start from `npm login` in an attached session; if the write command still returns `EOTP`, ask the operator for a current OTP and rerun the exact command with `--otp=<code>`
-- after publish, verify the live version with:
-
-```bash
-npm view clisbot version
-```
-
-- the package that gets published is the local repo state at publish time, not automatically `origin/main`
+This page intentionally does not repeat release commands. `AGENTS.md` owns the
+repo command baseline, and [`release-process.md`](release-process.md) points to
+the canonical release skill.

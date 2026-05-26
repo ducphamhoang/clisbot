@@ -47,6 +47,12 @@ Channel responsibilities:
 - recognize explicit transcript request commands for that surface when supported
 - stream updates in a way that makes sense for the surface
 
+Shared message-surface rule:
+
+- `clisbot message <action> --channel ...` is the shared stable message surface
+- `clisbot channel-native --channel ...` is the provider-specific command surface for capabilities that do not belong in the shared stable action list
+- provider-specific capabilities should be named commands, not a raw shared `message custom` escape hatch
+
 Channel failure boundary:
 
 - channel transport failures must stay surface-local
@@ -73,6 +79,34 @@ When live rendering fails temporarily:
 - the channel may miss intermediate updates
 - the channel should recover on later successful delivery when practical
 - the architecture prefers degraded user-visible delivery over process death or false run failure
+
+## Channel-Native Commands
+
+Provider-specific message capabilities belong under named `channel-native` commands:
+
+- `clisbot channel-native --channel <channel> ...`
+
+This keeps the shared `message` CLI focused on portable message actions while still giving each provider a public home for richer native operations.
+
+Ownership split:
+
+- shared layer owns the `channel-native` entry point and channel dispatch contract
+- channel-owned command modules own native grammar and semantics
+
+Reuse rule:
+
+- do not require one shared provider grammar
+- do require named commands with help, validation, examples, and consistent errors
+
+Recommended implementation direction:
+
+- channel defines explicit native subcommands for supported provider features
+- handler execution stays provider-owned, with confirmation around risky mutations
+
+Domain guardrail:
+
+- keep shared `message` actions portable
+- if a workflow needs provider-only semantics, put it under `channel-native`
 
 ## Control
 

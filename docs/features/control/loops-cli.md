@@ -13,8 +13,6 @@ Examples:
 - `clisbot loops status`
 - `clisbot loops status --channel slack --target group:C123 --thread-id 1712345678.123456`
 - `clisbot loops create --channel slack --target group:C123 --thread-id 1712345678.123456 --sender slack:U1234567890 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target group:C123 --new-thread --sender slack:U1234567890 every day at 07:00 check CI`
-- `clisbot loops create --channel slack --target dm:U1234567890 --new-thread --sender slack:U1234567890 every day at 09:00 check inbox`
 - `clisbot loops --channel telegram --target group:-1001234567890 --topic-id 42 --sender telegram:1276408333 5m check CI`
 - `clisbot loops --channel slack --target group:C123 --thread-id 1712345678.123456 --sender slack:U1234567890 3 review backlog`
 - `clisbot loops cancel abc123`
@@ -30,8 +28,8 @@ Examples:
 - `--thread-id` narrows a Slack route to one existing thread ts
 - `--topic-id` narrows a Telegram route to one topic id
 - omitting the sub-surface flag means the parent surface itself: Slack channel/group/DM or Telegram chat
-- `--new-thread` is Slack-only and creates a fresh thread anchor in the target channel/group/DM before the loop starts
-- `--sender <principal>` is required for loop creation and records the human creator as `slack:<user-id>` or `telegram:<user-id>`
+- use `clisbot loops --help --channel <channel-name>` or `clisbot loops create --help --channel <channel-name>` for channel-specific loop extensions
+- `--sender <principal>` is required for loop creation and records the human creator as `slack:<user-id>`, `telegram:<user-id>`, or `zalo-bot:<user-id>`
 - `--sender-name <name>` and `--sender-handle <handle>` optionally store readable creator context for scheduled prompts
 - for Telegram forum groups, omitting `--topic-id` targets the parent chat surface; sends then follow Telegram's normal no-`message_thread_id` behavior, which is the General topic when that forum has one
 
@@ -79,7 +77,7 @@ Examples:
 - recurring interval and wall-clock loops created from the CLI are persisted first into the routed session entry
 - CLI creation accepts the same loop expression families as `/loop`: interval, forced interval, times/count, and calendar wall-clock schedules
 - recurring interval and wall-clock CLI creation also accepts advanced `--loop-start <none|brief|full>` override syntax; if omitted, the route default still applies
-- count/times loops do not accept `--loop-start` because they run immediately in the CLI instead of creating recurring scheduled ticks
+- count/times loops do not accept `--loop-start` because they reserve immediate queue work instead of creating recurring scheduled ticks
 - CLI creation requires `--sender <principal>` and persists creator metadata on recurring loops
 - if no wall-clock loop has been created successfully yet, the first wall-clock create command returns `confirmation_required` and does not persist a loop
 - the confirmation-required output includes the proposed schedule, resolved timezone, next run, and the exact retry command with `--confirm`
@@ -87,8 +85,9 @@ Examples:
 - AI agents should not infer first-loop state; they should run the loops CLI and follow the confirmation output exactly
 - the live runtime periodically reconciles persisted loop state, so a running service can pick up new operator-created recurring loops without a restart
 - if runtime is stopped, recurring CLI-created loops activate on the next `clisbot start`
-- one-shot count loops still run synchronously inside the CLI; durable queue
-  support belongs to `clisbot queues`, not loop count mode
+- one-shot count loops reserve all iterations immediately as durable queue
+  items on the routed session, then the runtime drains them through the same
+  ordered queue path as `clisbot queues`
 - `clisbot loops cancel <id>` removes the matching loop record from persisted session state
 - `clisbot loops cancel --all` clears all persisted loop records across all sessions
 - runtime loop state updates use compare-on-write semantics, so a stale in-memory loop update cannot recreate a loop that the CLI already cancelled

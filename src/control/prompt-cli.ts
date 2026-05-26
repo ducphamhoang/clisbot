@@ -1,16 +1,16 @@
 import {
 	AgentService,
 	type AgentSessionTarget,
-} from "../agents/agent-service.ts";
+} from "../agents/runtime/agent-service.ts";
 import {
 	processChannelInteraction,
 	type ChannelInteractionRoute,
 	type ChannelInteractionIdentity,
-} from "../channels/interaction-processing.ts";
-import { buildSteeringPromptText } from "../channels/agent-prompt.ts";
-import { buildSurfacePromptContext } from "../channels/surface-prompt-context.ts";
-import { loadConfig, type LoadedConfig } from "../config/load-config.ts";
-import { renderCliCommand } from "../shared/cli-name.ts";
+} from "../channels/message/interaction-processing.ts";
+import { buildSteeringPromptText } from "../channels/message/agent-prompt.ts";
+import { buildSurfacePromptContext } from "../channels/surface/surface-prompt-context.ts";
+import { loadConfig, type LoadedConfig } from "../config/core/load-config.ts";
+import { renderCliCommand } from "./commands/cli-name.ts";
 
 type ParsedPromptCommand = {
 	agentId: string;

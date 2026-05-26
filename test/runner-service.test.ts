@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentSessionState } from "../src/agents/session-state.ts";
-import { RunnerService } from "../src/agents/runner-service.ts";
+import type { SessionMapping } from "../src/agents/session/session-mapping.ts";
+import { RunnerService } from "../src/agents/runtime/runner-service.ts";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
 import { TmuxSubmitUnconfirmedError } from "../src/runners/tmux/session-handshake.ts";
 
@@ -9,8 +9,8 @@ describe("RunnerService recovery classification", () => {
     const runner = new RunnerService(
       {} as any,
       {} as TmuxClient,
-      {} as AgentSessionState,
       (() => ({})) as any,
+      {} as SessionMapping,
     );
 
     expect(runner.canRecoverMidRun(new Error("no such pane: %1"))).toBe(true);
@@ -35,8 +35,8 @@ describe("RunnerService new session handling", () => {
       {
         hasSession: async () => true,
       } as unknown as TmuxClient,
-      {} as AgentSessionState,
       (() => resolved) as any,
+      {} as SessionMapping,
     );
     let submitCount = 0;
     let persistedSessionId = "";
@@ -55,6 +55,7 @@ describe("RunnerService new session handling", () => {
         persistedSessionId = params.sessionId;
       },
     };
+    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => {
       submitCount += 1;
     };
@@ -91,8 +92,8 @@ describe("RunnerService new session handling", () => {
       {
         hasSession: async () => true,
       } as unknown as TmuxClient,
-      {} as AgentSessionState,
       (() => resolved) as any,
+      {} as SessionMapping,
     );
 
     (runner as any).sessionMapping = {
@@ -103,6 +104,7 @@ describe("RunnerService new session handling", () => {
         throw new Error("disk full");
       },
     };
+    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => undefined;
     (runner as any).captureNewSessionIdentityAfterTrigger = async () =>
       "22222222-2222-2222-2222-222222222222";
@@ -133,8 +135,8 @@ describe("RunnerService new session handling", () => {
       {
         hasSession: async () => true,
       } as unknown as TmuxClient,
-      {} as AgentSessionState,
       (() => resolved) as any,
+      {} as SessionMapping,
     );
     let persistedSessionId = "";
 
@@ -151,6 +153,7 @@ describe("RunnerService new session handling", () => {
         persistedSessionId = params.sessionId;
       },
     };
+    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => {
       throw new TmuxSubmitUnconfirmedError();
     };
@@ -181,8 +184,8 @@ describe("RunnerService new session handling", () => {
       {
         hasSession: async () => true,
       } as unknown as TmuxClient,
-      {} as AgentSessionState,
       (() => resolved) as any,
+      {} as SessionMapping,
     );
 
     (runner as any).sessionMapping = {
@@ -191,6 +194,7 @@ describe("RunnerService new session handling", () => {
       }),
       setActive: async () => undefined,
     };
+    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => {
       throw new TmuxSubmitUnconfirmedError();
     };
@@ -221,8 +225,8 @@ describe("RunnerService startup session identity handling", () => {
     const runner = new RunnerService(
       {} as any,
       {} as unknown as TmuxClient,
-      {} as AgentSessionState,
       (() => resolved) as any,
+      {} as SessionMapping,
     );
     let warned = "";
     const consoleWarn = console.warn;
@@ -230,7 +234,7 @@ describe("RunnerService startup session identity handling", () => {
       warned = String(message ?? "");
     };
     try {
-      (runner as any).acceptWorkspaceTrustPromptIfPresent = async () => undefined;
+      (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
       (runner as any).verifySessionReady = async () => undefined;
       (runner as any).persistStoredSessionId = async () => {
         throw new Error("disk full");

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { SlackSocketService } from "../src/channels/slack/service.ts";
-import { clisbotConfigSchema } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+import { clisbotConfigSchema } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 
 function createLoadedConfig() {
   const config = clisbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate()));
@@ -32,6 +32,56 @@ function createLoadedConfig() {
 }
 
 describe("SlackSocketService shared audience enforcement", () => {
+  test("clears stale assistant statuses for idle Slack thread sessions on startup", async () => {
+    const calls: Array<{ channel_id: string; thread_ts: string; status: string }> = [];
+
+    await (SlackSocketService.prototype as any).clearStaleAssistantStatusesOnStart.call({
+      agentService: {
+        listSessionEntries: async () => [
+          {
+            sessionKey: "agent:default:slack:channel:c123:thread:1778930330.832089",
+            runtime: { state: "idle" },
+          },
+          {
+            sessionKey: "agent:default:slack:channel:c123:thread:1778930330.832089",
+            runtime: { state: "idle" },
+          },
+          {
+            sessionKey: "agent:default:slack:channel:c456:thread:1778930331.000000",
+            runtime: { state: "running" },
+          },
+          {
+            sessionKey: "agent:default:telegram:group:-1001:topic:4",
+            runtime: { state: "idle" },
+          },
+        ],
+      },
+      app: {
+        client: {
+          assistant: {
+            threads: {
+              setStatus: async (payload: {
+                channel_id: string;
+                thread_ts: string;
+                status: string;
+              }) => {
+                calls.push(payload);
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        channel_id: "C123",
+        thread_ts: "1778930330.832089",
+        status: "",
+      },
+    ]);
+  });
+
   test("drops routed bot-originated messages when allowBots is false", async () => {
     const completed: string[] = [];
 
@@ -220,6 +270,118 @@ describe("SlackSocketService shared audience enforcement", () => {
     expect(apiCalls).toEqual([]);
   });
 
+  test("uses the sender-specific DM route before asking for pairing", async () => {
+    const completed: string[] = [];
+    const apiCalls: Array<Record<string, unknown>> = [];
+    let followUpChecks = 0;
+    const loadedConfig = createLoadedConfig();
+    loadedConfig.raw.bots.slack.default.directMessages["*"] = {
+      enabled: true,
+      policy: "pairing",
+      allowUsers: [],
+      blockUsers: [],
+      requireMention: false,
+      allowBots: false,
+      agentId: "default",
+    };
+    loadedConfig.raw.bots.slack.default.directMessages.U_ALLOWED = {
+      enabled: true,
+      policy: "allowlist",
+      allowUsers: ["U_ALLOWED"],
+      blockUsers: [],
+      requireMention: true,
+      allowBots: false,
+      agentId: "default",
+    };
+
+    await (SlackSocketService.prototype as any).handleInboundMessage.call(
+      {
+        shouldDropMismatchedSlackEvent: () => false,
+        processedEventsStore: {
+          getStatus: async () => null,
+          markCompleted: async (eventId: string) => {
+            completed.push(eventId);
+          },
+        },
+        loadedConfig,
+        markMessageSeen: () => false,
+        botUserId: "U_SELF",
+        botId: "default",
+        botLabel: "clisbot",
+        getBotConfig: (SlackSocketService.prototype as any).getBotConfig,
+        getDirectMessageConfig: (SlackSocketService.prototype as any).getDirectMessageConfig,
+        app: {
+          client: {
+            chat: {
+              postMessage: async (payload: Record<string, unknown>) => {
+                apiCalls.push(payload);
+                return { ts: "123.456", message: { ts: "123.456" } };
+              },
+            },
+            users: {
+              info: async () => ({
+                user: {
+                  name: "allowed",
+                  profile: {
+                    real_name: "Allowed User",
+                  },
+                },
+              }),
+            },
+            conversations: {
+              info: async () => ({
+                channel: {
+                  name: "dm",
+                },
+              }),
+            },
+          },
+        },
+        resolveThreadTs: async () => "111.666",
+        agentService: {
+          appendRecentConversationMessage: async () => undefined,
+          getConversationFollowUpState: async () => {
+            followUpChecks += 1;
+            return {};
+          },
+        },
+      },
+      {
+        body: { event_id: "evt-dm-exact" },
+        event: {
+          channel: "D_ALLOWED",
+          channel_type: "im",
+          user: "U_ALLOWED",
+          ts: "111.666",
+          text: "hello",
+        },
+        conversationKind: "dm",
+        route: {
+          agentId: "default",
+          policy: "allowlist",
+          requireMention: true,
+          allowBots: false,
+          allowUsers: ["U_ALLOWED"],
+          blockUsers: [],
+          commandPrefixes: {
+            slash: ["\\"],
+            bash: ["!"],
+          },
+          followUp: {
+            mode: "auto",
+            participationTtlMs: 5 * 60 * 1000,
+          },
+          replyToMode: "thread",
+        },
+        wasMentioned: false,
+      },
+    );
+
+    expect(completed).toEqual(["evt-dm-exact"]);
+    expect(apiCalls).toEqual([]);
+    expect(followUpChecks).toBe(1);
+  });
+
   test("enriches accepted prompts with Slack sender and channel display names", async () => {
     let capturedPrompt = "";
 
@@ -242,6 +404,12 @@ describe("SlackSocketService shared audience enforcement", () => {
         },
         app: {
           client: {
+            chat: {
+              postMessage: async () => ({
+                ts: "123.456",
+                message: { ts: "123.456" },
+              }),
+            },
             users: {
               info: async () => ({
                 user: {

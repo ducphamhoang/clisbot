@@ -6,11 +6,14 @@ For beta or pre-release builds, keep notes here until the public version ships. 
 
 ## Summary
 
-No staged items yet.
+No staged changes yet after `v0.1.53`.
 
 ## Operator Impact
 
-- None yet.
+- Required action: none.
+- Behavior users should notice: none yet.
+- Compatibility notes: none yet.
+- Known risks: none yet.
 
 ## Functional Changes
 
@@ -22,12 +25,20 @@ No staged items yet.
 
 ## Update Notes
 
+- Update path:
+- Manual action:
+- Risk level:
+- Automatic config update:
+
+## Beta History
+
 - None yet.
 
 ## Validation
 
-- None yet.
+- Pending.
 
 ## Links
 
-- None yet.
+- Migration index: [docs/migrations/index.md](../migrations/index.md)
+- Release workflow: [skills/release-clisbot/SKILL.md](../../skills/release-clisbot/SKILL.md)

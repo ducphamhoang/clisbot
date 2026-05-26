@@ -3,13 +3,14 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_PROTECTED_CONTROL_RULE } from "../src/auth/defaults.ts";
-import { clisbotConfigSchema } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+import { clisbotConfigSchema } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 import {
   renderQueueCreatedNotification,
   renderQueuesHelp,
   runQueuesCli,
-} from "../src/control/queues-cli.ts";
+} from "../src/control/commands/queues-cli.ts";
+import { setRenderedCliName } from "../src/control/commands/cli-name.ts";
 
 function buildConfig(params: {
   socketPath: string;
@@ -50,6 +51,7 @@ function buildConfig(params: {
 describe("queues cli", () => {
   let tempDir = "";
   let previousConfigPath: string | undefined;
+  let previousCliName: string | undefined;
   const originalLog = console.log;
   const noQueueNotification = {
     sendQueueCreatedNotification: async () => undefined,
@@ -57,10 +59,15 @@ describe("queues cli", () => {
 
   beforeEach(() => {
     previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+    previousCliName = process.env.CLISBOT_CLI_NAME;
+    delete process.env.CLISBOT_CLI_NAME;
+    setRenderedCliName();
   });
 
   afterEach(() => {
     process.env.CLISBOT_CONFIG_PATH = previousConfigPath;
+    process.env.CLISBOT_CLI_NAME = previousCliName;
+    setRenderedCliName(previousCliName);
     console.log = originalLog;
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
@@ -70,12 +77,38 @@ describe("queues cli", () => {
   test("help documents explicit addressing and no current queue", () => {
     const help = renderQueuesHelp();
 
+    expect(help).toContain("queues create --channel <channel-name> --target <route> --sender <principal> <prompt...>");
+    expect(help).toContain("queues create --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --sender slack:U1234567890 review backlog");
     expect(help).toContain("queues create --channel telegram --target group:-1001234567890 --topic-id 4335 --sender telegram:1276408333");
+    expect(help).toContain("queues create --channel zalo-bot --target dm:user-123 --sender zalo-bot:user-123 review inbox");
+    expect(help).toContain("use clisbot queues --help --channel <channel-name> for channel-specific target syntax");
     expect(help).toContain("control.queue.maxPendingItemsPerSession");
     expect(help).toContain("create requires explicit --channel/--target addressing plus --sender");
     expect(help).not.toContain("--session-key");
     expect(help).not.toContain("--surface");
     expect(help).toContain("--current is not supported");
+  });
+
+  test("slack-scoped help exposes slack queue targeting", () => {
+    const help = renderQueuesHelp("slack");
+
+    expect(help).toContain("Slack `--target` accepts `group:<id>`, `dm:<user-or-channel-id>`, or raw `C...` / `G...` / `D...` ids");
+    expect(help).toContain("use `--thread-id` for an existing Slack thread ts");
+    expect(help).toContain("queues create --channel slack --target group:C1234567890 --thread-id 1712345678.123456 --sender slack:U1234567890 review backlog");
+    expect(help).not.toContain("--topic-id 4335");
+  });
+
+  test("subcommand help renders queues help instead of queuing --help", async () => {
+    const logs: string[] = [];
+
+    await runQueuesCli(["create", "--help"], {
+      print: (text) => {
+        logs.push(text);
+      },
+    });
+
+    expect(logs[0]).toContain("clisbot queues");
+    expect(logs[0]).toContain("queues create --channel slack");
   });
 
   test("creates, lists, and clears a scoped telegram queue item", async () => {
@@ -133,6 +166,65 @@ describe("queues cli", () => {
     expect(output).toContain("Cleared 1 pending queued prompt");
     const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, any>;
     expect(store["agent:default:telegram:group:-1001:topic:4335"].queues).toEqual([]);
+  });
+
+  test("telegram queue commands accept the legacy --thread-id alias while keeping topic session routing", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-queues-cli-thread-alias-"));
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    const storePath = join(tempDir, "sessions.json");
+    writeFileSync(
+      process.env.CLISBOT_CONFIG_PATH,
+      JSON.stringify(
+        buildConfig({
+          socketPath: join(tempDir, "clisbot.sock"),
+          storePath,
+          workspaceTemplate: join(tempDir, "workspaces", "{agentId}"),
+        }),
+        null,
+        2,
+      ),
+    );
+    writeFileSync(storePath, JSON.stringify({}, null, 2));
+
+    await runQueuesCli([
+      "create",
+      "--channel",
+      "telegram",
+      "--target",
+      "group:-1001",
+      "--thread-id",
+      "4335",
+      "--sender",
+      "telegram:1276408333",
+      "review",
+      "queue",
+      "alias",
+    ], noQueueNotification);
+
+    const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, any>;
+    expect(store["agent:default:telegram:group:-1001:topic:4335"].queues[0]?.promptText).toBe(
+      "review queue alias",
+    );
+  });
+
+  test("queue commands reject passing both --bot and --account aliases", async () => {
+    await expect(runQueuesCli([
+      "create",
+      "--channel",
+      "telegram",
+      "--target",
+      "group:-1001",
+      "--topic-id",
+      "4335",
+      "--bot",
+      "work",
+      "--account",
+      "legacy",
+      "--sender",
+      "telegram:1276408333",
+      "review",
+      "queue",
+    ], noQueueNotification)).rejects.toThrow("--bot and --account are aliases; use only one");
   });
 
   test("create posts a surface acknowledgement with position and full prompt", async () => {
@@ -239,7 +331,7 @@ describe("queues cli", () => {
       "review",
       "queue",
     ])).rejects.toThrow(
-      "Queue creation requires --sender <principal>, for example --sender telegram:1276408333 or --sender slack:U1234567890.",
+      "Queue creation requires --sender <principal>, for example --sender telegram:1276408333.",
     );
 
     const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, unknown>;
@@ -312,6 +404,86 @@ describe("queues cli", () => {
     const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, any>;
     expect(store["agent:default:telegram:group:-1001:topic:4335"].queues).toBeUndefined();
     expect(store["agent:default:main"].queues).toBeUndefined();
+  });
+
+  test("creates a scoped zalo-bot DM queue item", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-queues-cli-zalo-"));
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    const storePath = join(tempDir, "sessions.json");
+    const config = buildConfig({
+      socketPath: join(tempDir, "clisbot.sock"),
+      storePath,
+      workspaceTemplate: join(tempDir, "workspaces", "{agentId}"),
+    });
+    config.bots.telegram.defaults.enabled = false;
+    config.bots.zaloBot.defaults.enabled = true;
+    config.bots.zaloBot.default.directMessages["*"] = {
+      enabled: true,
+      policy: "open",
+      allowUsers: [],
+      blockUsers: [],
+      requireMention: false,
+      allowBots: false,
+      agentId: "default",
+    };
+    writeFileSync(process.env.CLISBOT_CONFIG_PATH, JSON.stringify(config, null, 2));
+    writeFileSync(storePath, JSON.stringify({}, null, 2));
+
+    await runQueuesCli([
+      "create",
+      "--channel",
+      "zalo-bot",
+      "--target",
+      "dm:user-123",
+      "--sender",
+      "zalo-bot:user-123",
+      "review",
+      "zalo",
+      "queue",
+    ], noQueueNotification);
+
+    const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, any>;
+    const item = store["agent:default:zalo-bot:dm:user-123"].queues[0];
+    expect(item.promptText).toBe("review zalo queue");
+    expect(item.surfaceBinding).toMatchObject({
+      platform: "zalo-bot",
+      conversationKind: "dm",
+      chatId: "user-123",
+    });
+    expect(item.sender.senderId).toBe("zalo-bot:user-123");
+  });
+
+  test("rejects zalo-bot group queue target before persisting", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-queues-cli-zalo-group-"));
+    process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+    const storePath = join(tempDir, "sessions.json");
+    const config = buildConfig({
+      socketPath: join(tempDir, "clisbot.sock"),
+      storePath,
+      workspaceTemplate: join(tempDir, "workspaces", "{agentId}"),
+    });
+    config.bots.telegram.defaults.enabled = false;
+    config.bots.zaloBot.defaults.enabled = true;
+    writeFileSync(process.env.CLISBOT_CONFIG_PATH, JSON.stringify(config, null, 2));
+    writeFileSync(storePath, JSON.stringify({}, null, 2));
+
+    await expect(runQueuesCli([
+      "create",
+      "--channel",
+      "zalo-bot",
+      "--target",
+      "group:room-123",
+      "--sender",
+      "zalo-bot:user-123",
+      "review",
+      "zalo",
+      "group",
+      "queue",
+    ], noQueueNotification)).rejects.toThrow("Zalo Bot control targets support DM surfaces only.");
+
+    const store = JSON.parse(readFileSync(storePath, "utf8")) as Record<string, any>;
+    expect(store["agent:default:zalo-bot:group:room-123"]).toBeUndefined();
+    expect(store["agent:default:zalo-bot:dm:room-123"]).toBeUndefined();
   });
 
   test("create rejects --surface before persisting", async () => {

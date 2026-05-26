@@ -12,7 +12,7 @@ Read this file as the map, then use the detail docs for the actual contract:
 
 - [Surface Architecture](surface-architecture.md)
 - [Runtime Architecture](runtime-architecture.md)
-- [Model Taxonomy And Boundaries](model-taxonomy-and-boundaries.md)
+- [Domain Language](domain-language.md)
 
 If this overview and a detailed architecture doc diverge, the detailed doc wins.
 
@@ -28,6 +28,11 @@ Keep the system split into six explicit product systems:
 - runners
 
 That boundary is the main architecture rule for the repository.
+
+`src/infra` is the only non-product infra layer. It may hold small
+host/runtime primitives such as filesystem helpers, path defaults, process
+helpers, and runtime logging. Product concepts do not belong there; they should
+live under the system that owns their behavior.
 
 ## Top-Level Diagram
 
@@ -183,7 +188,7 @@ Current runtime naming should reflect that split clearly:
 
 Current code is not fully converged on that split yet:
 
-- `src/agents/runner-service.ts` still holds the `RunnerService`
+- `src/agents/runtime/runner-service.ts` still holds the `RunnerService`
   implementation today
 - that file still carries some `SessionService`-owned continuity work
 - treat the owner map above as the architecture target, not as a claim that
@@ -203,4 +208,4 @@ If these systems blur together:
 
 - Use [surface-architecture.md](surface-architecture.md) for user-facing and operator-facing surface rules.
 - Use [runtime-architecture.md](runtime-architecture.md) for agents, runner, persistence, and runtime contract rules.
-- Use [model-taxonomy-and-boundaries.md](model-taxonomy-and-boundaries.md) for model ownership, lifecycle, and naming boundaries.
+- Use [domain-language.md](domain-language.md) for canonical vocabulary, model ownership, lifecycle, and naming boundaries.

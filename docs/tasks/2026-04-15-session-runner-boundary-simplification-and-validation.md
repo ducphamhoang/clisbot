@@ -81,7 +81,7 @@ Truthfulness note:
 
 - the owner model above is the architecture target
 - current code still keeps `RunnerService` implemented in
-  `src/agents/runner-service.ts`
+  `src/agents/runtime/runner-service.ts`
 - the later continuity-boundary cleanup should finish semantic ownership first;
   file relocation, if still wanted after that, is a separate cleanup choice
 
@@ -198,7 +198,7 @@ Historical note:
 
 - [Architecture Overview](../architecture/architecture-overview.md)
 - [Runtime Architecture](../architecture/runtime-architecture.md)
-- [Model Taxonomy And Boundaries](../architecture/model-taxonomy-and-boundaries.md)
+- [Domain Language](../architecture/domain-language.md)
 - [Agents Feature](../features/agents/README.md)
 - [Session Identity](../features/agents/sessions.md)
 - [Runners Feature](../features/runners/README.md)

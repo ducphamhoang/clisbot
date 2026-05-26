@@ -1,5 +1,5 @@
-import { clisbotConfigSchema } from "../../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../../src/config/template.ts";
+import { clisbotConfigSchema } from "../../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../../src/config/core/template.ts";
 
 export function buildConfig(params: {
   socketPath: string;
@@ -7,7 +7,7 @@ export function buildConfig(params: {
   workspaceTemplate: string;
 }) {
   const config = clisbotConfigSchema.parse(JSON.parse(renderDefaultConfigTemplate()));
-  config.meta.schemaVersion = "0.1.51";
+  config.meta.schemaVersion = "0.1.53";
   config.app.session.storePath = params.storePath;
   config.agents.defaults.workspace = params.workspaceTemplate;
   config.agents.defaults.runner.defaults.tmux.socketPath = params.socketPath;
@@ -98,6 +98,19 @@ export function enableTelegramTopicRoute(
         blockUsers: [],
       },
     },
+  };
+  return config;
+}
+
+export function enableZaloBotDirectMessages(config: ReturnType<typeof buildConfig>) {
+  config.bots.zaloBot.defaults.enabled = true;
+  config.bots.zaloBot.default.directMessages["*"] = {
+    enabled: true,
+    policy: "open",
+    requireMention: false,
+    allowBots: false,
+    allowUsers: [],
+    blockUsers: [],
   };
   return config;
 }

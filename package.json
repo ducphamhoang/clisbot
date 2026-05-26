@@ -1,6 +1,6 @@
 {
   "name": "clisbot",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "private": false,
   "description": "Chat surfaces for durable AI coding agents running in tmux",
   "license": "MIT",
@@ -44,7 +44,9 @@
   },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
+    "pngjs": "^7.0.0",
     "proper-lockfile": "^4.1.2",
+    "zca-js": "2.1.2",
     "zod": "^3.24.2"
   },
   "keywords": [

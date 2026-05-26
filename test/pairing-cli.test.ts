@@ -3,13 +3,14 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runPairingCli } from "../src/channels/pairing/cli.ts";
-import { writeEditableConfig } from "../src/config/config-file.ts";
-import { clisbotConfigSchema } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+import { writeEditableConfig } from "../src/config/core/config-file.ts";
+import { clisbotConfigSchema } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 import {
   listChannelPairingRequests,
   upsertChannelPairingRequest,
 } from "../src/channels/pairing/store.ts";
+import { setRenderedCliName } from "../src/control/commands/cli-name.ts";
 
 let previousCliName: string | undefined;
 let previousConfigPath: string | undefined;
@@ -17,10 +18,12 @@ let previousConfigPath: string | undefined;
 beforeEach(() => {
   previousCliName = process.env.CLISBOT_CLI_NAME;
   delete process.env.CLISBOT_CLI_NAME;
+  setRenderedCliName();
 });
 
 afterEach(() => {
   process.env.CLISBOT_CLI_NAME = previousCliName;
+  setRenderedCliName(previousCliName);
   process.env.CLISBOT_CONFIG_PATH = previousConfigPath;
 });
 
@@ -43,8 +46,11 @@ async function seedConfig(configPath: string) {
   const config = clisbotConfigSchema.parse(
     JSON.parse(
       renderDefaultConfigTemplate({
-        slackEnabled: true,
-        telegramEnabled: true,
+        channels: {
+          slack: { enabled: true },
+          telegram: { enabled: true },
+          "zalo-bot": { enabled: true },
+        },
       }),
     ),
   );
@@ -62,7 +68,8 @@ describe("pairing cli", () => {
     const text = lines.join("\n");
     expect(text).toContain("clisbot pairing");
     expect(text).toContain("clisbot pairing help");
-    expect(text).toContain("clisbot pairing clear <slack|telegram>");
+    expect(text).toContain("clisbot pairing clear <channel-name>");
+    expect(text).toContain("Supported channels: slack, telegram, zalo-bot, zalo-personal.");
   });
 
   test("lists pending requests as text", async () => {
@@ -148,6 +155,63 @@ describe("pairing cli", () => {
       const updatedConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
       expect(updatedConfig.bots.telegram.support.directMessages["*"].allowUsers).toEqual(["123456"]);
       expect(updatedConfig.bots.telegram.default.directMessages["*"].allowUsers).toEqual([]);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("approves a pending zalo-bot code into zalo-bot DM allowUsers", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
+    try {
+      previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+      process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+      await seedConfig(process.env.CLISBOT_CONFIG_PATH);
+      const created = await upsertChannelPairingRequest({
+        channel: "zalo-bot",
+        id: "aaa741c34d8fa4d1fd9e",
+        botId: "default",
+        baseDir: tempDir,
+      });
+
+      await withPairingDir(tempDir, async () => {
+        await runPairingCli(["approve", "zalo-bot", created.code], {
+          log: () => {},
+        });
+      });
+
+      const rawConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
+      expect(rawConfig.bots.zaloBot.default.directMessages["*"].allowUsers).toEqual([
+        "aaa741c34d8fa4d1fd9e",
+      ]);
+      expect(rawConfig.bots.telegram.default.directMessages["*"].allowUsers).toEqual([]);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("approves a non-hex zalo-bot provider id as raw sender id", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-pairing-cli-"));
+    try {
+      previousConfigPath = process.env.CLISBOT_CONFIG_PATH;
+      process.env.CLISBOT_CONFIG_PATH = join(tempDir, "clisbot.json");
+      await seedConfig(process.env.CLISBOT_CONFIG_PATH);
+      const created = await upsertChannelPairingRequest({
+        channel: "zalo-bot",
+        id: "user-123",
+        botId: "default",
+        baseDir: tempDir,
+      });
+
+      await withPairingDir(tempDir, async () => {
+        await runPairingCli(["approve", "zalo-bot", created.code], {
+          log: () => {},
+        });
+      });
+
+      const rawConfig = JSON.parse(readFileSync(process.env.CLISBOT_CONFIG_PATH!, "utf8"));
+      expect(rawConfig.bots.zaloBot.default.directMessages["*"].allowUsers).toEqual([
+        "user-123",
+      ]);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

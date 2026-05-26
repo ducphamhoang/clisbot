@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getCanonicalTelegramBotTokenPath } from "../src/config/channel-credentials.ts";
-import { clisbotConfigSchema } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+import {
+  resolveChannelCredentialFilePath,
+} from "../src/config/channels/channel-credential-contract.ts";
+import { clisbotConfigSchema } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 
 describe("fast start e2e", () => {
   let tempDir = "";
@@ -63,11 +65,67 @@ describe("fast start e2e", () => {
     expect(config.bots.telegram.default.enabled).toBe(true);
     expect(config.bots.telegram.default.credentialType).toBe("tokenFile");
     expect(config.bots.telegram.default.botToken ?? "").toBe("");
-    expect(readFileSync(getCanonicalTelegramBotTokenPath("default", {
-      ...process.env,
-      CLISBOT_HOME: tempDir,
+    expect(readFileSync(resolveChannelCredentialFilePath({
+      channel: "telegram",
+      botId: "default",
+      field: "botToken",
+      env: {
+        ...process.env,
+        CLISBOT_HOME: tempDir,
+      },
     }), "utf8").trim()).toBe("123456:telegram-dev-token");
     expect(stdout).toContain("Persisted telegram/default");
+  }, 15000);
+
+  test("init persists a literal zalo-bot token into the canonical credential file", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-fast-start-e2e-"));
+    const configPath = join(tempDir, "clisbot.json");
+
+    const subprocess = Bun.spawn([
+      bunExecutable,
+      "src/main.ts",
+      "init",
+      "--cli",
+      "codex",
+      "--bot-type",
+      "personal",
+      "--zalo-bot-token",
+      "zalo-dev-token",
+      "--persist",
+    ], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        CLISBOT_HOME: tempDir,
+        CLISBOT_CONFIG_PATH: configPath,
+        CLISBOT_CLI_NAME: "",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const exitCode = await subprocess.exited;
+    const stderr = await new Response(subprocess.stderr).text();
+    const stdout = await new Response(subprocess.stdout).text();
+
+    expect(exitCode).toBe(0);
+    expect(stderr.trim()).toBe("");
+
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    expect(config.bots.zaloBot.defaults.enabled).toBe(true);
+    expect(config.bots.zaloBot.default.enabled).toBe(true);
+    expect(config.bots.zaloBot.default.credentialType).toBe("tokenFile");
+    expect(config.bots.zaloBot.default.botToken ?? "").toBe("");
+    expect(readFileSync(resolveChannelCredentialFilePath({
+      channel: "zalo-bot",
+      botId: "default",
+      field: "botToken",
+      env: {
+        ...process.env,
+        CLISBOT_HOME: tempDir,
+      },
+    }), "utf8").trim()).toBe("zalo-dev-token");
+    expect(stdout).toContain("Persisted zalo-bot/default");
   }, 15000);
 
   test("init rejects literal telegram tokens unless --persist is passed", async () => {

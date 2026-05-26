@@ -47,7 +47,7 @@
 
 ## 자주 쓰는 flag
 
-- `--channel <slack|telegram>`
+- `--channel <channel-name>`
 - `--bot <id>`
 - `--agent <id>`
 - `--json`
@@ -190,6 +190,7 @@ clisbot auth add-permission agent-defaults --role member --permission transcript
 핵심 규칙:
 
 - `message send`는 `--channel`, `--target`, `--message` 또는 `--body-file` 필요
+- `message custom`은 제거되었고, provider-specific command는 명시적인 `channel-native` command를 사용한다
 - Slack thread는 `--thread-id`
 - Telegram topic은 `--topic-id`
 - 기본값은 `--input md`, `--render native`
@@ -238,7 +239,7 @@ clisbot loops cancel --all
 - `--sender`는 loop 생성 시 필수
 - `--progress <count>`는 그 loop 하나만 progress-message 안내를 override함. 생략하면 일반 `clisbot.json` prompt policy를 그대로 쓰고, `0`은 progress update를 끄며, 양수는 최대 횟수를 제한함
 - Telegram topic은 `--topic-id`
-- Slack fresh thread는 `--new-thread`
+- channel별 loop extension은 `clisbot loops --help --channel <channel-name>` 또는 `clisbot loops create --help --channel <channel-name>`에서 확인
 
 ## Queues
 
@@ -255,6 +256,8 @@ clisbot queues clear --all
 - `status`는 pending + running
 - `create`는 explicit `--channel/--target`와 `--sender`가 필요
 - `--current`는 지원하지 않음
+- AI agent가 durable queue 요청을 처리할 때는 provider 문법을 추측하지 말고
+  `clisbot queues --help --channel <current-channel>`를 먼저 확인
 
 ## Timezone
 

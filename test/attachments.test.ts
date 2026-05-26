@@ -2,30 +2,34 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { prependAttachmentMentions } from "../src/agents/attachments/prompt.ts";
+import { downloadRemoteBuffer } from "../src/agents/attachments/download.ts";
+import { prependAttachmentMentionsToPrompt } from "../src/agents/attachments/prompt.ts";
 import { saveWorkspaceAttachment } from "../src/agents/attachments/storage.ts";
 import { resolveSlackAttachmentPaths } from "../src/channels/slack/attachments.ts";
 import { resolveTelegramAttachmentPaths } from "../src/channels/telegram/attachments.ts";
+import { resolveZaloBotAttachmentPaths } from "../src/channels/zalo-bot/attachments.ts";
 
 describe("attachment prompt shaping", () => {
   test("prepends attachment mentions before normal text", () => {
     expect(
-      prependAttachmentMentions("please review", ["/tmp/a.md", "/tmp/b.png"]),
+      prependAttachmentMentionsToPrompt("please review", ["/tmp/a.md", "/tmp/b.png"]),
     ).toBe("@/tmp/a.md @/tmp/b.png please review");
   });
 
   test("returns attachment mentions for file-only prompts", () => {
-    expect(prependAttachmentMentions("", ["/tmp/a.md"])).toBe("@/tmp/a.md");
+    expect(prependAttachmentMentionsToPrompt("", ["/tmp/a.md"])).toBe("@/tmp/a.md");
   });
 
-  test("does not prepend attachment mentions to slash commands", () => {
-    expect(prependAttachmentMentions("/transcript", ["/tmp/a.md"])).toBe(
-      "/transcript",
+  test("prepends attachment mentions after command parsing even when prompt starts with slash", () => {
+    expect(
+      prependAttachmentMentionsToPrompt("/status", ["/tmp/a.md"]),
+    ).toBe(
+      "@/tmp/a.md /status",
     );
   });
 
   test("prepends audio attachment paths as normal file mentions", () => {
-    expect(prependAttachmentMentions("please transcribe", ["/tmp/voice.oga"])).toBe(
+    expect(prependAttachmentMentionsToPrompt("please transcribe", ["/tmp/voice.oga"])).toBe(
       "@/tmp/voice.oga please transcribe",
     );
   });
@@ -97,7 +101,106 @@ describe("workspace attachment storage", () => {
   });
 });
 
+describe("remote attachment downloads", () => {
+  test("rejects empty download bodies", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = ((async () =>
+      new Response(null, {
+        status: 200,
+      })) as unknown) as typeof fetch;
+
+    try {
+      await expect(
+        downloadRemoteBuffer({
+          url: "https://example.com/empty",
+        }),
+      ).rejects.toThrow("attachment download returned empty body");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
 describe("telegram attachment downloads", () => {
+  test("downloads every photo from a Telegram media group", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-telegram-attachments-"));
+    const originalFetch = globalThis.fetch;
+    const requestedFileIds: string[] = [];
+    globalThis.fetch = ((async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/getFile")) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        requestedFileIds.push(String(body.file_id));
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              file_path: `photos/${body.file_id}.jpg`,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      return new Response(Buffer.from(`bytes:${url.split("/").pop()}`), {
+        status: 200,
+        headers: {
+          "content-type": "image/jpeg",
+        },
+      });
+    }) as unknown) as typeof fetch;
+
+    try {
+      const paths = await resolveTelegramAttachmentPaths({
+        message: {
+          message_id: 70,
+          media_group_id: "album-1",
+          chat: {
+            id: 456,
+            type: "private",
+          },
+          media_group_messages: [
+            {
+              message_id: 70,
+              media_group_id: "album-1",
+              chat: {
+                id: 456,
+                type: "private",
+              },
+              photo: [{ file_id: "photo-a", file_size: 10 }],
+            },
+            {
+              message_id: 71,
+              media_group_id: "album-1",
+              chat: {
+                id: 456,
+                type: "private",
+              },
+              photo: [{ file_id: "photo-b", file_size: 20 }],
+            },
+          ],
+        },
+        botToken: "telegram-token",
+        workspacePath: tempDir,
+        sessionKey: "agent-default-telegram-dm-456",
+        messageId: "media-group:album-1:70,71",
+      });
+
+      expect(requestedFileIds).toEqual(["photo-a", "photo-b"]);
+      expect(paths).toHaveLength(2);
+      expect(paths[0]).toContain("media-group-album-1-70-71");
+      expect(paths[1]).toContain("media-group-album-1-70-71");
+    } finally {
+      globalThis.fetch = originalFetch;
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   test("downloads voice messages and preserves an audio extension from Telegram metadata", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "clisbot-telegram-attachments-"));
     const originalFetch = globalThis.fetch;
@@ -149,7 +252,7 @@ describe("telegram attachment downloads", () => {
 
       expect(paths).toHaveLength(1);
       expect(paths[0]?.endsWith("file-without-extension.oga")).toBe(true);
-      expect(prependAttachmentMentions("", paths)).toBe(`@${paths[0]}`);
+      expect(prependAttachmentMentionsToPrompt("", paths)).toBe(`@${paths[0]}`);
       expect(await Bun.file(paths[0]!).text()).toBe("voice-bytes");
     } finally {
       globalThis.fetch = originalFetch;
@@ -271,6 +374,96 @@ describe("slack attachment hydration", () => {
 
       expect(paths).toEqual([]);
       expect(historyCalls).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("zalo-bot attachment downloads", () => {
+  test("downloads image attachments and keeps a usable image extension", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-zalo-bot-attachments-"));
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = ((async () =>
+      new Response(Buffer.from("zalo-image"), {
+        status: 200,
+        headers: {
+          "content-type": "image/jpeg",
+        },
+      })) as unknown) as typeof fetch;
+
+    try {
+      const paths = await resolveZaloBotAttachmentPaths({
+        message: {
+          message_id: "msg-1",
+          from: {
+            id: "user-1",
+          },
+          chat: {
+            id: "user-1",
+            chat_type: "PRIVATE",
+          },
+          date: 1,
+          photo_url: "https://example.com/photo-without-extension",
+        },
+        workspacePath: tempDir,
+        sessionKey: "agent:default:zalo-bot:dm:user-1",
+        messageId: "msg-1",
+      });
+
+      expect(paths).toHaveLength(1);
+      expect(paths[0]?.endsWith("photo-without-extension.jpg")).toBe(true);
+      expect(prependAttachmentMentionsToPrompt("", paths)).toBe(`@${paths[0]}`);
+      expect(await Bun.file(paths[0]!).text()).toBe("zalo-image");
+    } finally {
+      globalThis.fetch = originalFetch;
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("retries image downloads when Zalo first returns an empty body", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "clisbot-zalo-bot-attachments-"));
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = ((async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(null, {
+          status: 200,
+        });
+      }
+
+      return new Response(Buffer.from("zalo-image"), {
+        status: 200,
+        headers: {
+          "content-type": "image/jpeg",
+        },
+      });
+    }) as unknown) as typeof fetch;
+
+    try {
+      const paths = await resolveZaloBotAttachmentPaths({
+        message: {
+          message_id: "msg-2",
+          from: {
+            id: "user-1",
+          },
+          chat: {
+            id: "user-1",
+            chat_type: "PRIVATE",
+          },
+          date: 1,
+          photo_url: "https://example.com/photo-without-extension",
+        },
+        workspacePath: tempDir,
+        sessionKey: "agent:default:zalo-bot:dm:user-1",
+        messageId: "msg-2",
+      });
+
+      expect(calls).toBe(2);
+      expect(paths).toHaveLength(1);
+      expect(await Bun.file(paths[0]!).text()).toBe("zalo-image");
     } finally {
       globalThis.fetch = originalFetch;
       rmSync(tempDir, { recursive: true, force: true });

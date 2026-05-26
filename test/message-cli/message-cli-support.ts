@@ -2,11 +2,15 @@ import { resolveSlackConversationRoute } from "../../src/channels/slack/route-co
 import { resolveSlackConversationTarget } from "../../src/channels/slack/session-routing.ts";
 import { resolveTelegramConversationRoute } from "../../src/channels/telegram/route-config.ts";
 import { resolveTelegramConversationTarget } from "../../src/channels/telegram/session-routing.ts";
-import type { ChannelPlugin } from "../../src/channels/channel-plugin.ts";
-import type { ParsedMessageCommand } from "../../src/channels/message-command.ts";
-import type { LoadConfigOptions, LoadedConfig } from "../../src/config/load-config.ts";
-import { clisbotConfigSchema } from "../../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../../src/config/template.ts";
+import { resolveZaloBotConversationRoute } from "../../src/channels/zalo-bot/route-config.ts";
+import { resolveZaloBotConversationTarget } from "../../src/channels/zalo-bot/session-routing.ts";
+import { resolveZaloBotSurface } from "../../src/channels/zalo-bot/surface.ts";
+import type { ChannelPlugin } from "../../src/channels/integration/channel-plugin.ts";
+import type { ParsedMessageCommand } from "../../src/channels/message/message-command.ts";
+import { getCommandThreadId, getCommandTopicId } from "../../src/channels/message/message-surface-helpers.ts";
+import type { LoadConfigOptions, LoadedConfig } from "../../src/config/core/load-config.ts";
+import { clisbotConfigSchema } from "../../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../../src/config/core/template.ts";
 
 let previousCliName: string | undefined;
 
@@ -87,6 +91,24 @@ export function createRawConfig(): LoadedConfig["raw"] {
     },
   };
   delete config.bots.telegram.default;
+  config.bots.zaloBot.defaults.enabled = true;
+  config.bots.zaloBot.defaults.defaultBotId = "default";
+  config.bots.zaloBot.default = {
+    ...config.bots.zaloBot.default,
+    enabled: true,
+    name: "default",
+    directMessages: {},
+    groups: {
+      "group-1": {
+        enabled: true,
+        policy: "open",
+        requireMention: true,
+        allowBots: false,
+        allowUsers: [],
+        blockUsers: [],
+      },
+    },
+  };
   return {
     ...config,
     session: {
@@ -177,6 +199,22 @@ export function createDependencies() {
     plugins: [
       {
         id: "slack",
+        capabilities: {
+          surfaceKinds: ["dm", "group"],
+          messageActions: [
+            "send",
+            "poll",
+            "react",
+            "reactions",
+            "read",
+            "edit",
+            "delete",
+            "pin",
+            "unpin",
+            "pins",
+            "search",
+          ],
+        },
         isEnabled: () => true,
         listBots: () => [],
         createRuntimeService: () => {
@@ -184,12 +222,11 @@ export function createDependencies() {
         },
         renderHealthSummary: () => "unused",
         renderActiveHealthSummary: () => "unused",
-        markStartupFailure: async () => undefined,
         runMessageCommand: async (_loadedConfig: any, command: ParsedMessageCommand) => {
           const params = {
             botToken: "xoxb-test",
             target: command.target!,
-            threadId: command.threadId,
+            threadId: getCommandThreadId(command),
             replyTo: command.replyTo,
             message: command.message,
             media: command.media,
@@ -204,7 +241,7 @@ export function createDependencies() {
           renderMode: command.renderMode,
           progress: command.progress,
           final: command.final,
-        };
+          };
           calls.push({ provider: "slack", action: command.action, params });
           return {
             botId: command.account ?? "work",
@@ -214,11 +251,12 @@ export function createDependencies() {
                 : { ok: true },
           };
         },
-        resolveMessageReplyTarget: ({ loadedConfig, command, botId }) => {
+        resolveMessageReplyTarget: ({ loadedConfig, command, botId, surface }) => {
           if (!command.target) {
             return null;
           }
-          const normalizedTarget = normalizeSlackFollowUpTarget(command.target);
+          const normalizedTarget =
+            surface?.channel === "slack" ? surface.provider : normalizeSlackFollowUpTarget(command.target);
           if (!normalizedTarget) {
             return null;
           }
@@ -239,14 +277,48 @@ export function createDependencies() {
             botId,
             channelId: normalizedTarget.channelId,
             conversationKind: normalizedTarget.conversationKind,
-            threadTs: command.threadId ?? command.replyTo,
-            messageTs: command.replyTo ?? command.threadId,
+            threadTs: getCommandThreadId(command) ?? command.replyTo,
+            messageTs: command.replyTo ?? getCommandThreadId(command),
             replyToMode: resolved.route.replyToMode,
           });
+        },
+        resolveMessageSurface: (command) => {
+          if (!command.target) {
+            return null;
+          }
+          const normalizedTarget = normalizeSlackFollowUpTarget(command.target);
+          if (!normalizedTarget) {
+            return null;
+          }
+          const threadId = getCommandThreadId(command);
+          const baseSurfaceId = `slack:${normalizedTarget.conversationKind}:${normalizedTarget.channelId}`;
+          return {
+            channel: "slack" as const,
+            rawTarget: command.target,
+            surfaceKind: normalizedTarget.conversationKind === "dm" ? "dm" : "group",
+            surfaceId:
+              !threadId || !baseSurfaceId ? baseSurfaceId : `${baseSurfaceId}:thread:${threadId}`,
+            parentSurfaceId: threadId ? baseSurfaceId : undefined,
+            childSurface: threadId ? { kind: "thread" as const, providerId: threadId } : undefined,
+            provider: normalizedTarget,
+          };
         },
       },
       {
         id: "telegram",
+        capabilities: {
+          surfaceKinds: ["dm", "group", "topic"],
+          messageActions: [
+            "send",
+            "poll",
+            "react",
+            "edit",
+            "delete",
+            "pin",
+            "unpin",
+            "pins",
+          ],
+        },
         isEnabled: () => true,
         listBots: () => [],
         createRuntimeService: () => {
@@ -254,7 +326,6 @@ export function createDependencies() {
         },
         renderHealthSummary: () => "unused",
         renderActiveHealthSummary: () => "unused",
-        markStartupFailure: async () => undefined,
         runMessageCommand: async (_loadedConfig: any, command: ParsedMessageCommand) => {
           const params =
             command.action === "read" || command.action === "reactions" || command.action === "search"
@@ -262,7 +333,7 @@ export function createDependencies() {
               : {
                   botToken: "telegram-test",
                   target: command.target!,
-                  threadId: command.threadId,
+                  threadId: getCommandTopicId(command),
                   replyTo: command.replyTo,
                   message: command.message,
                   media: command.media,
@@ -298,15 +369,20 @@ export function createDependencies() {
                   : { ok: true },
           };
         },
-        resolveMessageReplyTarget: ({ loadedConfig, command, botId }) => {
-          if (!command.target) {
+        resolveMessageReplyTarget: ({ loadedConfig, command, botId, surface }) => {
+          if (surface?.channel !== "telegram" && !command.target) {
             return null;
           }
-          const chatId = Number(command.target);
+          const chatId = surface?.channel === "telegram" ? surface.provider.chatId : Number(command.target);
           if (!Number.isFinite(chatId)) {
             return null;
           }
-          const topicId = command.threadId ? Number(command.threadId) : undefined;
+          const topicId =
+            surface?.channel === "telegram"
+              ? surface.provider.topicId
+              : getCommandTopicId(command)
+                ? Number(getCommandTopicId(command))
+                : undefined;
           const resolved = resolveTelegramConversationRoute({
             loadedConfig,
             chatType: chatId > 0 ? "private" : "supergroup",
@@ -331,6 +407,132 @@ export function createDependencies() {
                   ? "dm"
                   : "group",
             topicId: Number.isFinite(topicId) ? topicId : undefined,
+          });
+        },
+        resolveMessageSurface: (command) => {
+          if (!command.target) {
+            return null;
+          }
+          const chatId = Number(command.target);
+          if (!Number.isFinite(chatId)) {
+            return null;
+          }
+          const topicId = getCommandTopicId(command);
+          return {
+            channel: "telegram" as const,
+            rawTarget: command.target,
+            surfaceKind: topicId ? "topic" : chatId > 0 ? "dm" : "group",
+            surfaceId: topicId ? `telegram:topic:${chatId}:${topicId}` : `telegram:${chatId > 0 ? "dm" : "group"}:${chatId}`,
+            parentSurfaceId: topicId ? `telegram:group:${chatId}` : undefined,
+            childSurface: topicId ? { kind: "topic" as const, providerId: topicId } : undefined,
+            provider: {
+              chatId,
+              chatType: chatId > 0 ? "private" as const : "supergroup" as const,
+              topicId: topicId ? Number(topicId) : undefined,
+              isForum: Boolean(topicId),
+            },
+          };
+        },
+      },
+      {
+        id: "zalo-bot",
+        capabilities: {
+          surfaceKinds: ["dm"],
+          messageActions: ["send"],
+        },
+        isEnabled: () => true,
+        listBots: () => [],
+        createRuntimeService: () => {
+          throw new Error("not used in message cli tests");
+        },
+        renderHealthSummary: () => "unused",
+        renderActiveHealthSummary: () => "unused",
+        runMessageCommand: async (_loadedConfig: any, command: ParsedMessageCommand, surface) => {
+          const resolvedSurface = resolveZaloBotSurface({
+            rawTarget: command.target,
+            childSurface: command.childSurface,
+            surface: surface?.channel === "zalo-bot" ? surface : null,
+          });
+          const params =
+            command.action === "read" || command.action === "reactions" || command.action === "search"
+              ? command.action
+              : {
+                  botToken: "zalo-bot-test",
+                  target: resolvedSurface?.provider.chatId ?? command.target!,
+                  threadId: undefined,
+                  replyTo: command.replyTo,
+                  message: command.message,
+                  media: command.media,
+                  messageId: command.messageId,
+                  emoji: command.emoji,
+                  remove: command.remove,
+                  limit: command.limit,
+                  query: command.query,
+                  pollQuestion: command.pollQuestion,
+                  pollOptions: command.pollOptions,
+                  forceDocument: command.forceDocument,
+                  silent: command.silent,
+                  inputFormat: command.inputFormat,
+                  renderMode: command.renderMode,
+                  progress: command.progress,
+                  final: command.final,
+                };
+          calls.push({
+            provider: "zalo-bot",
+            action:
+              command.action === "read" || command.action === "reactions" || command.action === "search"
+                ? "unsupported"
+                : command.action,
+            params,
+          });
+          return {
+            botId: command.account ?? "default",
+            result:
+              command.action === "read" || command.action === "reactions" || command.action === "search"
+                ? { ok: false, action: command.action }
+                : command.action === "send"
+                  ? { ok: true, provider: "zalo-bot", action: "send" }
+                  : { ok: true },
+          };
+        },
+        resolveMessageReplyTarget: ({ loadedConfig, command, botId, surface }) => {
+          const resolvedSurface = resolveZaloBotSurface({
+            rawTarget: command.target,
+            childSurface: command.childSurface,
+            surface: surface?.channel === "zalo-bot" ? surface : null,
+          });
+          if (!resolvedSurface) {
+            return null;
+          }
+          const resolved = resolveZaloBotConversationRoute({
+            loadedConfig,
+            chatType: resolvedSurface.provider.chatType,
+            chatId: resolvedSurface.provider.chatId,
+            senderId:
+              resolvedSurface.provider.chatType === "GROUP"
+                ? undefined
+                : resolvedSurface.provider.chatId,
+            botId,
+          });
+          if (!resolved.route) {
+            return null;
+          }
+          return resolveZaloBotConversationTarget({
+            loadedConfig,
+            agentId: resolved.route.agentId,
+            botId,
+            chatId: resolvedSurface.provider.chatId,
+            userId:
+              resolved.conversationKind === "dm"
+                ? resolvedSurface.provider.chatId
+                : undefined,
+            conversationKind: resolved.conversationKind,
+          });
+        },
+        resolveMessageSurface: (command) => {
+          return resolveZaloBotSurface({
+            rawTarget: command.target,
+            childSurface: command.childSurface,
           });
         },
       },

@@ -19,11 +19,11 @@ Aggregate the current slash-command output surface into one place so it can be r
 
 This audit covers current output text and response patterns coming from:
 
-- `src/agents/commands.ts`
-- `src/channels/interaction-processing.ts`
-- `src/agents/loop-command.ts`
-- `src/shared/transcript-rendering.ts`
-- `src/agents/session-service.ts`
+- `src/agents/commands/commands.ts`
+- `src/channels/message/interaction-processing.ts`
+- `src/agents/loops/loop-command.ts`
+- `src/runners/transcript/transcript-rendering.ts`
+- `src/agents/session/session-service.ts`
 - `src/channels/telegram/route-guidance.ts`
 
 It includes:
@@ -578,7 +578,7 @@ Available values:
 - `queue`: enqueue later user messages behind the active run and settle them one by one
 
 Per-message override:
-- `/queue <message>` always uses queued delivery for that one message
+- `/queue <message>` always uses queued execution for that one message
 ```
 
 Current mutation output pattern:

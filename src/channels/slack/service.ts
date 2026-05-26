@@ -1,30 +1,30 @@
-import { AgentService } from "../../agents/agent-service.ts";
+import { AgentService } from "../../agents/runtime/agent-service.ts";
 import {
   isImplicitFollowUpAllowed,
   resolveFollowUpMode,
-} from "../../agents/follow-up-policy.ts";
-import { prependAttachmentMentions } from "../../agents/attachments/prompt.ts";
-import { parseAgentCommand } from "../../agents/commands.ts";
-import { processChannelInteraction } from "../interaction-processing.ts";
-import { getAgentEntry, type LoadedConfig } from "../../config/load-config.ts";
+} from "../../agents/commands/follow-up-policy.ts";
+import { prependAttachmentMentionsToPrompt } from "../../agents/attachments/prompt.ts";
+import { processChannelInteraction } from "../message/interaction-processing.ts";
+import { buildRecentConversationMessage } from "../message/recent-conversation.ts";
+import { getAgentEntry, type LoadedConfig } from "../../config/core/load-config.ts";
 import {
-  isSlackSenderAllowed,
-  isSlackSenderBlocked,
+  isChannelSenderAllowed,
+  isChannelSenderBlocked,
 } from "../pairing/access.ts";
 import { buildPairingReplyFromRequest } from "../pairing/messages.ts";
 import {
   upsertChannelPairingRequest,
 } from "../pairing/store.ts";
-import { ProcessedEventsStore } from "../processed-events-store.ts";
-import { ActivityStore } from "../../control/activity-store.ts";
-import { renderChannelInteraction } from "../../shared/transcript.ts";
-import { buildAgentPromptText } from "../agent-prompt.ts";
+import { ProcessedEventsStore } from "../message/processed-events-store.ts";
+import { ActivityStore } from "../../control/runtime/activity-store.ts";
+import { renderChannelInteraction } from "../../runners/transcript/index.ts";
+import { buildAgentPromptText } from "../message/agent-prompt.ts";
 import {
   buildSurfacePromptContextWithDirectory,
   recordSurfaceDirectoryIdentity,
-} from "../surface-directory.ts";
-import { buildMentionOnlyFollowUpPrompt } from "../mention-follow-up.ts";
-import { prependRecentConversationContext } from "../../shared/recent-message-context.ts";
+} from "../surface/surface-directory.ts";
+import { buildMentionOnlyFollowUpPrompt } from "../config/mention-follow-up.ts";
+import { prependRecentConversationContext } from "../../agents/routing/recent-message-context.ts";
 import { DEFAULT_PROTECTED_CONTROL_RULE } from "../../auth/defaults.ts";
 import { resolveChannelAuth } from "../../auth/resolve.ts";
 import {
@@ -43,7 +43,7 @@ import {
   clearSlackAssistantThreadStatus,
   setSlackAssistantThreadStatus,
 } from "./assistant-status.ts";
-import { ConversationProcessingIndicatorCoordinator } from "../processing-indicator.ts";
+import { ConversationProcessingIndicatorCoordinator } from "../message/processing-indicator.ts";
 import { activateSlackProcessingDecoration } from "./processing-decoration.ts";
 import { App } from "./bolt-compat.ts";
 import {
@@ -62,7 +62,7 @@ import {
   removeConfiguredReaction,
 } from "./reactions.ts";
 import {
-  isSlackCommandLikeMessage,
+  hasSlackCommandTrigger,
   renderSlackMentionRequiredMessage,
   renderSlackRouteChoiceMessage,
   shouldSendSlackMentionRequiredGuidance,
@@ -76,14 +76,14 @@ import {
   reconcileSlackText,
   type SlackPostedMessageChunk,
 } from "./transport.ts";
-import type { SlackBotCredentialConfig } from "../../config/channel-bots.ts";
+import type { SlackBotCredentialConfig } from "./config.ts";
 import {
   resolveSlackBotConfig,
-  resolveSlackDirectMessageAdmissionConfig,
-} from "../../config/channel-bots.ts";
-import { logLatencyDebug } from "../../control/latency-debug.ts";
-import { buildTokenHint } from "../runtime-identity.ts";
-import { renderGroupRouteAccessDeniedMessage } from "../route-policy.ts";
+  resolveSlackDirectMessageConfig,
+} from "./config.ts";
+import { logLatencyDebug } from "../../control/runtime/latency-debug.ts";
+import { buildTokenHint } from "../integration/channel-runtime-identity.ts";
+import { renderGroupRouteAccessDeniedMessage } from "../config/route-policy.ts";
 
 type SlackAppType = InstanceType<typeof App>;
 type SlackThreadTsCacheEntry = {
@@ -188,6 +188,21 @@ function waitForBackgroundSlackTask(task: Promise<unknown>) {
   });
 }
 
+function resolveSlackThreadTargetFromSessionKey(sessionKey: string) {
+  const match = /^agent:[^:]+:slack:channel:([^:]+):thread:(.+)$/.exec(sessionKey);
+  if (!match) {
+    return null;
+  }
+
+  const channel = match[1]?.trim().toUpperCase();
+  const threadTs = match[2]?.trim();
+  if (!channel || !threadTs) {
+    return null;
+  }
+
+  return { channel, threadTs };
+}
+
 export class SlackSocketService {
   private readonly app: SlackAppType;
   private readonly processingIndicators = new ConversationProcessingIndicatorCoordinator();
@@ -235,13 +250,32 @@ export class SlackSocketService {
   }
 
   private getDirectMessageConfig(userId?: string) {
-    return resolveSlackDirectMessageAdmissionConfig(this.getBotConfig());
+    return resolveSlackDirectMessageConfig(this.getBotConfig(), userId);
   }
 
   private getSlackMaxChars(agentId: string) {
     return getTransportSlackMaxChars(
       this.agentService.getMaxMessageChars(agentId),
     );
+  }
+
+  private async clearStaleAssistantStatusesOnStart() {
+    const entries = await this.agentService.listSessionEntries();
+    const targets = new Map<string, { channel: string; threadTs: string }>();
+    for (const entry of entries) {
+      if (entry.runtime?.state !== "idle") {
+        continue;
+      }
+
+      const target = resolveSlackThreadTargetFromSessionKey(entry.sessionKey);
+      if (target) {
+        targets.set(`${target.channel}:${target.threadTs}`, target);
+      }
+    }
+
+    await Promise.all([...targets.values()].map(async (target) => {
+      await clearSlackAssistantThreadStatus(this.app.client, target);
+    }));
   }
 
   private markMessageSeen(channelId: string | undefined, ts?: string) {
@@ -416,9 +450,10 @@ export class SlackSocketService {
           : undefined;
       if (
         senderId &&
-        isSlackSenderBlocked({
+        isChannelSenderBlocked({
+          channel: "slack",
           blockFrom: params.route.blockUsers ?? [],
-          userId: senderId,
+          subject: { userId: senderId },
         })
       ) {
         debugSlackEvent("drop-shared-blocked", { eventId, senderId });
@@ -432,9 +467,10 @@ export class SlackSocketService {
           params.route.policy === "allowlist" ||
           (params.route.allowUsers?.length ?? 0) > 0
         ) &&
-        !isSlackSenderAllowed({
+        !isChannelSenderAllowed({
+          channel: "slack",
           allowFrom: params.route.allowUsers ?? [],
-          userId: senderId,
+          subject: { userId: senderId },
         })
       ) {
         const explicitlyAddressed =
@@ -461,7 +497,7 @@ export class SlackSocketService {
 
     if (params.conversationKind === "dm") {
       const directUserId =
-        typeof event.user === "string" ? event.user.trim() : "";
+        typeof event.user === "string" ? event.user.trim().toUpperCase() : "";
       const dmConfig = this.getDirectMessageConfig(directUserId);
       const dmIdentity = {
         platform: "slack" as const,
@@ -469,7 +505,7 @@ export class SlackSocketService {
         senderId: directUserId || undefined,
         channelId,
       };
-      if (!directUserId || dmConfig.policy === "disabled") {
+      if (!directUserId || !dmConfig || dmConfig.policy === "disabled") {
         debugSlackEvent("drop-dm-disabled", { eventId, directUserId });
         await this.processedEventsStore.markCompleted(eventId);
         return;
@@ -514,9 +550,10 @@ export class SlackSocketService {
         identity: dmIdentity,
       });
 
-      if (isSlackSenderBlocked({
+      if (isChannelSenderBlocked({
+        channel: "slack",
         blockFrom: dmConfig.blockUsers ?? [],
-        userId: directUserId,
+        subject: { userId: directUserId },
       })) {
         debugSlackEvent("drop-dm-blocked", { eventId, directUserId });
         await this.processedEventsStore.markCompleted(eventId);
@@ -524,9 +561,10 @@ export class SlackSocketService {
       }
 
       if (dmConfig.policy !== "open" && !auth.mayBypassPairing) {
-        const allowed = isSlackSenderAllowed({
+        const allowed = isChannelSenderAllowed({
+          channel: "slack",
           allowFrom: dmConfig.allowUsers ?? [],
-          userId: directUserId,
+          subject: { userId: directUserId },
         });
         if (!allowed) {
           if (dmConfig.policy === "pairing") {
@@ -614,21 +652,18 @@ export class SlackSocketService {
         userId: slackSenderId,
         channelId,
       });
-      await this.agentService.appendRecentConversationMessage(sessionTarget, {
+      await this.agentService.appendRecentConversationMessage(sessionTarget, buildRecentConversationMessage({
         marker: recentMessageMarker,
-        text: parseAgentCommand(rawText, {
-          commandPrefixes: params.route.commandPrefixes,
-        })
-          ? ""
-          : rawText,
+        text: rawText,
         senderId: slackSenderId,
         senderName: displayIdentity.senderName,
         senderHandle: displayIdentity.senderHandle,
         platform: "slack",
-      });
+        commandPrefixes: params.route.commandPrefixes,
+      }));
     }
     if (requiresMention && !wasMentioned) {
-      const isCommandLike = isSlackCommandLikeMessage({
+      const hasCommandTrigger = hasSlackCommandTrigger({
         text: event.text ?? "",
         botUserId: this.botUserId,
         botUsername: this.botLabel,
@@ -637,7 +672,7 @@ export class SlackSocketService {
       if (
         shouldSendSlackMentionRequiredGuidance({
           conversationKind: params.conversationKind,
-          isCommandLike,
+          hasCommandTrigger,
         })
       ) {
         try {
@@ -655,7 +690,7 @@ export class SlackSocketService {
         channelId,
         requiresMention,
         explicitMention,
-        isCommandLike,
+        hasCommandTrigger,
         effectiveFollowUpMode,
       });
       await this.processedEventsStore.markCompleted(eventId);
@@ -684,8 +719,8 @@ export class SlackSocketService {
       sessionKey: sessionTarget.sessionKey,
       messageId: messageTs ?? threadTs ?? `${Date.now()}`,
     });
-    const text = prependAttachmentMentions(effectivePromptText, attachmentPaths);
-    if (!text) {
+    const promptText = prependAttachmentMentionsToPrompt(effectivePromptText, attachmentPaths);
+    if (!promptText) {
       debugSlackEvent("drop-empty-text", { eventId, channelId });
       await this.processedEventsStore.markCompleted(eventId);
       return;
@@ -775,7 +810,7 @@ export class SlackSocketService {
       ? undefined
       : DEFAULT_PROTECTED_CONTROL_RULE;
     const agentPromptText = buildAgentPromptText({
-      text: enrichPromptText(text),
+      text: enrichPromptText(promptText),
       identity,
       config: this.getBotConfig().agentPrompt,
       cliTool,
@@ -851,7 +886,8 @@ export class SlackSocketService {
         identity,
         auth,
         senderId: slackSenderId,
-        text,
+        text: effectivePromptText,
+        attachmentPaths,
         agentPromptText,
         agentPromptBuilder: (nextText, options) =>
           buildAgentPromptText({
@@ -1035,7 +1071,7 @@ export class SlackSocketService {
         }
         const shouldGuide = shouldGuideUnroutedSlackEvent({
           conversationKind: resolvedRoute.conversationKind,
-          isCommandLike: isSlackCommandLikeMessage({
+          hasCommandTrigger: hasSlackCommandTrigger({
             text: normalizedEvent.text ?? "",
             botUserId: this.botUserId,
             botUsername: this.botLabel,
@@ -1089,6 +1125,7 @@ export class SlackSocketService {
     this.teamId = auth.team_id ?? "";
     this.apiAppId = (auth as { api_app_id?: string }).api_app_id ?? "";
     console.log(`slack bot user ${this.botLabel || this.botUserId} (${this.botId})`);
+    await this.clearStaleAssistantStatusesOnStart();
     this.app.error(async (error) => {
       console.error("slack app error", error);
     });

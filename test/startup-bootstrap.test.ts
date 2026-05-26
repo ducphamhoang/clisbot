@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { collapseHomePath, getDefaultConfigPath } from "../src/shared/paths.ts";
+import { setRenderedCliName } from "../src/control/commands/cli-name.ts";
+import { collapseHomePath, getDefaultConfigPath } from "../src/infra/paths.ts";
 import {
   BOTS_AND_CREDENTIALS_DOC_PATH,
   getChannelAvailabilityForBootstrap,
@@ -13,17 +14,20 @@ import {
   renderConfiguredChannelTokenIssueLines,
   renderDisabledConfiguredChannelWarningLines,
   renderMissingTokenWarningLines,
-} from "../src/control/startup-bootstrap.ts";
-import { initConfig, start } from "../src/control/runtime-bootstrap-cli.ts";
-import { clisbotConfigSchema, type ClisbotConfig } from "../src/config/schema.ts";
-import { renderDefaultConfigTemplate } from "../src/config/template.ts";
+} from "../src/control/commands/startup-bootstrap.ts";
+import { initConfig, start } from "../src/control/commands/runtime-bootstrap-cli.ts";
+import { clisbotConfigSchema, type ClisbotConfig } from "../src/config/core/schema.ts";
+import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 
 function createConfig(): ClisbotConfig {
   const config = clisbotConfigSchema.parse(
     JSON.parse(
       renderDefaultConfigTemplate({
-        slackEnabled: false,
-        telegramEnabled: false,
+        channels: {
+          slack: { enabled: false },
+          telegram: { enabled: false },
+          "zalo-bot": { enabled: false },
+        },
       }),
     ),
   );
@@ -37,19 +41,25 @@ describe("startup bootstrap helpers", () => {
   let previousCliName: string | undefined;
   let previousHome: string | undefined;
   let previousTelegramBotToken: string | undefined;
+  let previousZaloBotToken: string | undefined;
 
   beforeEach(() => {
     previousCliName = process.env.CLISBOT_CLI_NAME;
     previousHome = process.env.CLISBOT_HOME;
     previousTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    previousZaloBotToken = process.env.ZALO_BOT_TOKEN;
     delete process.env.CLISBOT_CLI_NAME;
+    setRenderedCliName();
     delete process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env.ZALO_BOT_TOKEN;
   });
 
   afterEach(() => {
     process.env.CLISBOT_CLI_NAME = previousCliName;
+    setRenderedCliName(previousCliName);
     process.env.CLISBOT_HOME = previousHome;
     process.env.TELEGRAM_BOT_TOKEN = previousTelegramBotToken;
+    process.env.ZALO_BOT_TOKEN = previousZaloBotToken;
   });
 
   test("prints focused init help without touching runtime state", async () => {
@@ -69,6 +79,7 @@ describe("startup bootstrap helpers", () => {
     expect(output).toContain("clisbot init");
     expect(output).toContain("clisbot init --help");
     expect(output).toContain("literal token values on `init` require `--persist`");
+    expect(output).toContain("--zalo-bot-token");
     expect(output).toContain("`--bot-type` is a workspace-template choice, not a general runtime requirement for later agents");
     expect(output).toContain("Claude and Gemini bootstraps also create `CLAUDE.md` or `GEMINI.md` as symlinks to `AGENTS.md`");
   });
@@ -90,6 +101,7 @@ describe("startup bootstrap helpers", () => {
     expect(output).toContain("clisbot start");
     expect(output).toContain("clisbot start --help");
     expect(output).toContain("literal token values without `--persist` stay runtime-only");
+    expect(output).toContain("--zalo-bot-token");
     expect(output).toContain("bootstrap seeds `AGENTS.md`, `BOOTSTRAP.md`, `IDENTITY.md`, and the rest of the workspace guidance files");
   });
 
@@ -99,10 +111,12 @@ describe("startup bootstrap helpers", () => {
         SLACK_APP_TOKEN: "app",
         SLACK_BOT_TOKEN: "bot",
         TELEGRAM_BOT_TOKEN: "",
+        ZALO_BOT_TOKEN: "",
       }),
     ).toEqual({
       slack: true,
       telegram: false,
+      "zalo-bot": false,
     });
 
     expect(
@@ -110,25 +124,41 @@ describe("startup bootstrap helpers", () => {
         SLACK_APP_TOKEN: "",
         SLACK_BOT_TOKEN: "bot",
         TELEGRAM_BOT_TOKEN: "telegram",
+        ZALO_BOT_TOKEN: "zalo",
       }),
     ).toEqual({
       slack: false,
       telegram: true,
+      "zalo-bot": true,
     });
   });
 
   test("reports whether any default channel token is available", () => {
-    expect(hasAnyDefaultChannelToken({ slack: false, telegram: false })).toBe(false);
-    expect(hasAnyDefaultChannelToken({ slack: true, telegram: false })).toBe(true);
-    expect(hasAnyDefaultChannelToken({ slack: false, telegram: true })).toBe(true);
+    expect(hasAnyDefaultChannelToken({ slack: false, telegram: false, "zalo-bot": false })).toBe(false);
+    expect(hasAnyDefaultChannelToken({ slack: true, telegram: false, "zalo-bot": false })).toBe(true);
+    expect(hasAnyDefaultChannelToken({ slack: false, telegram: true, "zalo-bot": false })).toBe(true);
+    expect(hasAnyDefaultChannelToken({ slack: false, telegram: false, "zalo-bot": true })).toBe(true);
   });
 
   test("treats explicit token placeholders as first-run channel availability only when the env value exists", () => {
     expect(
       getChannelAvailabilityForBootstrap(
         {
-          slackAppTokenRef: "${CUSTOM_SLACK_APP_TOKEN}",
-          slackBotTokenRef: "${CUSTOM_SLACK_BOT_TOKEN}",
+          slack: [{
+            botId: "default",
+            appToken: {
+              kind: "env",
+              envName: "CUSTOM_SLACK_APP_TOKEN",
+              placeholder: "${CUSTOM_SLACK_APP_TOKEN}",
+            },
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_SLACK_BOT_TOKEN",
+              placeholder: "${CUSTOM_SLACK_BOT_TOKEN}",
+            },
+          }],
+          telegram: [],
+          "zalo-bot": [],
         },
         {
           CUSTOM_SLACK_APP_TOKEN: "app",
@@ -138,12 +168,22 @@ describe("startup bootstrap helpers", () => {
     ).toEqual({
       slack: true,
       telegram: false,
+      "zalo-bot": false,
     });
 
     expect(
       getChannelAvailabilityForBootstrap(
         {
-          telegramBotTokenRef: "${CUSTOM_TELEGRAM_BOT_TOKEN}",
+          slack: [],
+          telegram: [{
+            botId: "default",
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_TELEGRAM_BOT_TOKEN",
+              placeholder: "${CUSTOM_TELEGRAM_BOT_TOKEN}",
+            },
+          }],
+          "zalo-bot": [],
         },
         {
           CUSTOM_TELEGRAM_BOT_TOKEN: "telegram",
@@ -152,19 +192,58 @@ describe("startup bootstrap helpers", () => {
     ).toEqual({
       slack: false,
       telegram: true,
+      "zalo-bot": false,
     });
 
     expect(
       getChannelAvailabilityForBootstrap(
         {
-          slackAppTokenRef: "${CUSTOM_SLACK_APP_TOKEN}",
-          slackBotTokenRef: "${CUSTOM_SLACK_BOT_TOKEN}",
+          slack: [],
+          telegram: [],
+          "zalo-bot": [{
+            botId: "default",
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_ZALO_BOT_TOKEN",
+              placeholder: "${CUSTOM_ZALO_BOT_TOKEN}",
+            },
+          }],
+        },
+        {
+          CUSTOM_ZALO_BOT_TOKEN: "zalo",
+        },
+      ),
+    ).toEqual({
+      slack: false,
+      telegram: false,
+      "zalo-bot": true,
+    });
+
+    expect(
+      getChannelAvailabilityForBootstrap(
+        {
+          slack: [{
+            botId: "default",
+            appToken: {
+              kind: "env",
+              envName: "CUSTOM_SLACK_APP_TOKEN",
+              placeholder: "${CUSTOM_SLACK_APP_TOKEN}",
+            },
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_SLACK_BOT_TOKEN",
+              placeholder: "${CUSTOM_SLACK_BOT_TOKEN}",
+            },
+          }],
+          telegram: [],
+          "zalo-bot": [],
         },
         {},
       ),
     ).toEqual({
       slack: false,
       telegram: false,
+      "zalo-bot": false,
     });
   });
 
@@ -172,9 +251,35 @@ describe("startup bootstrap helpers", () => {
     expect(
       renderBootstrapTokenUsageLines(
         {
-          slackAppTokenRef: "${CUSTOM_SLACK_APP_TOKEN}",
-          slackBotTokenRef: "${CUSTOM_SLACK_BOT_TOKEN}",
-          telegramBotTokenRef: "${CUSTOM_TELEGRAM_BOT_TOKEN}",
+          slack: [{
+            botId: "default",
+            appToken: {
+              kind: "env",
+              envName: "CUSTOM_SLACK_APP_TOKEN",
+              placeholder: "${CUSTOM_SLACK_APP_TOKEN}",
+            },
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_SLACK_BOT_TOKEN",
+              placeholder: "${CUSTOM_SLACK_BOT_TOKEN}",
+            },
+          }],
+          telegram: [{
+            botId: "default",
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_TELEGRAM_BOT_TOKEN",
+              placeholder: "${CUSTOM_TELEGRAM_BOT_TOKEN}",
+            },
+          }],
+          "zalo-bot": [{
+            botId: "default",
+            botToken: {
+              kind: "env",
+              envName: "CUSTOM_ZALO_BOT_TOKEN",
+              placeholder: "${CUSTOM_ZALO_BOT_TOKEN}",
+            },
+          }],
         },
         {
           CUSTOM_SLACK_APP_TOKEN: "app",
@@ -183,6 +288,7 @@ describe("startup bootstrap helpers", () => {
       ),
     ).toEqual([
       "Telegram channel: token not found (CUSTOM_TELEGRAM_BOT_TOKEN), pass --telegram-bot-token explicitly for Telegram bootstrap.",
+      "Zalo Bot channel: token not found (CUSTOM_ZALO_BOT_TOKEN), pass --zalo-bot-token explicitly for Zalo Bot bootstrap.",
     ]);
   });
 
@@ -193,6 +299,7 @@ describe("startup bootstrap helpers", () => {
     const lines = renderDisabledConfiguredChannelWarningLines(config, {
       slack: true,
       telegram: false,
+      "zalo-bot": false,
     });
 
     expect(lines).toContain(
@@ -204,6 +311,21 @@ describe("startup bootstrap helpers", () => {
     expect(config.bots.slack.defaults.enabled).toBe(false);
   });
 
+  test("renders disabled-channel warnings with the configured CLI name", () => {
+    const config = createConfig();
+    setRenderedCliName("devbot");
+
+    const lines = renderDisabledConfiguredChannelWarningLines(config, {
+      slack: true,
+      telegram: false,
+      "zalo-bot": false,
+    });
+
+    expect(lines).toContain(
+      `Run \`devbot bots enable --channel slack --bot default\` to enable Slack quickly, or update ${collapseHomePath(getDefaultConfigPath())} manually.`,
+    );
+  });
+
   test("does not warn when matching defaults are already enabled", () => {
     const config = createConfig();
     config.bots.slack.defaults.enabled = true;
@@ -212,6 +334,7 @@ describe("startup bootstrap helpers", () => {
     const lines = renderDisabledConfiguredChannelWarningLines(config, {
       slack: true,
       telegram: true,
+      "zalo-bot": false,
     });
 
     expect(lines).toEqual([]);
@@ -224,6 +347,7 @@ describe("startup bootstrap helpers", () => {
     expect(lines).toContain("--slack-app-token");
     expect(lines).toContain("SLACK_APP_TOKEN (missing)");
     expect(lines).toContain("TELEGRAM_BOT_TOKEN (missing)");
+    expect(lines).toContain("ZALO_BOT_TOKEN (missing)");
     expect(lines).toContain("https://api.slack.com/apps");
     expect(lines).toContain("https://core.telegram.org/bots#6-botfather");
   });
@@ -235,6 +359,8 @@ describe("startup bootstrap helpers", () => {
     config.bots.slack.default.botToken = "${CUSTOM_SLACK_BOT_TOKEN}";
     config.bots.telegram.defaults.enabled = true;
     config.bots.telegram.default.botToken = "${CUSTOM_TELEGRAM_BOT_TOKEN}";
+    config.bots.zaloBot.defaults.enabled = true;
+    config.bots.zaloBot.default.botToken = "${CUSTOM_ZALO_BOT_TOKEN}";
 
     const tempHome = mkdtempSync(join(tmpdir(), "clisbot-startup-bootstrap-"));
     process.env.CLISBOT_HOME = tempHome;
@@ -247,6 +373,7 @@ describe("startup bootstrap helpers", () => {
     expect(lines).toContain("warning!!! configured channel credentials are invalid or unavailable");
     expect(lines).toContain("Missing env var \"CUSTOM_SLACK_BOT_TOKEN\"");
     expect(lines).toContain("Missing env var \"CUSTOM_TELEGRAM_BOT_TOKEN\"");
+    expect(lines).toContain("Missing env var \"CUSTOM_ZALO_BOT_TOKEN\"");
     expect(lines).toContain(BOTS_AND_CREDENTIALS_DOC_PATH);
   });
 
@@ -257,6 +384,8 @@ describe("startup bootstrap helpers", () => {
     config.bots.slack.default.botToken = "${SLACK_BOT_TOKEN}";
     config.bots.telegram.defaults.enabled = true;
     config.bots.telegram.default.botToken = "${TELEGRAM_BOT_TOKEN}";
+    config.bots.zaloBot.defaults.enabled = true;
+    config.bots.zaloBot.default.botToken = "${ZALO_BOT_TOKEN}";
 
     const tempHome = mkdtempSync(join(tmpdir(), "clisbot-startup-bootstrap-"));
     process.env.CLISBOT_HOME = tempHome;
@@ -264,6 +393,7 @@ describe("startup bootstrap helpers", () => {
     const lines = renderConfiguredChannelTokenIssueLines(config, {
       CLISBOT_HOME: tempHome,
       TELEGRAM_BOT_TOKEN: "telegram-token",
+      ZALO_BOT_TOKEN: "zalo-token",
     }).join("\n");
 
     expect(lines).toContain("warning!!! configured channel credentials are invalid or unavailable");
@@ -277,6 +407,8 @@ describe("startup bootstrap helpers", () => {
     config.bots.slack.default.botToken = "${CUSTOM_SLACK_BOT_TOKEN}";
     config.bots.telegram.defaults.enabled = true;
     config.bots.telegram.default.botToken = "${CUSTOM_TELEGRAM_BOT_TOKEN}";
+    config.bots.zaloBot.defaults.enabled = true;
+    config.bots.zaloBot.default.botToken = "${CUSTOM_ZALO_BOT_TOKEN}";
 
     const tempHome = mkdtempSync(join(tmpdir(), "clisbot-startup-bootstrap-"));
     process.env.CLISBOT_HOME = tempHome;
@@ -292,6 +424,9 @@ describe("startup bootstrap helpers", () => {
     );
     expect(lines).toContain(
       "Telegram bot default: unavailable (Missing env var \"CUSTOM_TELEGRAM_BOT_TOKEN\" referenced at config path: bots.telegram.default.botToken)",
+    );
+    expect(lines).toContain(
+      "Zalo Bot default: unavailable (Missing env var \"CUSTOM_ZALO_BOT_TOKEN\" referenced at config path: bots.zaloBot.default.botToken)",
     );
   });
 

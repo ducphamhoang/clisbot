@@ -2,10 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AgentSessionState } from "../src/agents/session-state.ts";
-import { SessionStore } from "../src/agents/session-store.ts";
-import { createStoredQueueItem } from "../src/agents/queue-state.ts";
-import type { ResolvedAgentTarget } from "../src/agents/resolved-target.ts";
+import { AgentSessionState } from "../src/agents/session/session-state.ts";
+import { SessionStore } from "../src/agents/session/session-store.ts";
+import { createStoredQueueItem } from "../src/agents/queue/queue-state.ts";
+import type { ResolvedAgentTarget } from "../src/agents/routing/resolved-target.ts";
 
 function createResolvedTarget(tempDir: string): ResolvedAgentTarget {
   return {
@@ -52,6 +52,35 @@ describe("session state runtime reply markers", () => {
     expect(typeof runtime.finalReplyAt).toBe("number");
     expect(typeof runtime.lastMessageToolReplyAt).toBe("number");
     expect(typeof runtime.messageToolFinalReplyAt).toBe("number");
+  });
+
+  test("keeps message-tool final markers when idle runtime overwrites running state", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "clisbot-session-state-"));
+    const store = new SessionStore(join(tempDir, "sessions.json"));
+    const state = new AgentSessionState(store);
+    const resolved = createResolvedTarget(tempDir);
+    const startedAt = Date.now() - 1000;
+
+    await state.setSessionRuntime(resolved, {
+      state: "running",
+      startedAt,
+    });
+    await state.recordConversationReply(resolved, "final", "message-tool");
+    await state.setSessionRuntime(resolved, {
+      state: "idle",
+    });
+
+    const runtime = await state.getSessionRuntime({
+      sessionKey: resolved.sessionKey,
+      agentId: resolved.agentId,
+    });
+
+    expect(runtime.state).toBe("idle");
+    expect(runtime.startedAt).toBeUndefined();
+    expect(typeof runtime.finalReplyAt).toBe("number");
+    expect(typeof runtime.lastMessageToolReplyAt).toBe("number");
+    expect(typeof runtime.messageToolFinalReplyAt).toBe("number");
+    expect(runtime.messageToolFinalReplyAt).toBeGreaterThanOrEqual(startedAt);
   });
 
   test("persists recent conversation replay state per session", async () => {
