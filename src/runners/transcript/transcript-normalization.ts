@@ -551,7 +551,6 @@ function shouldDropPiChromeLine(line: string) {
   }
 
   return (
-    /^(?:Warning|Note):\s/i.test(trimmed) ||
     /\bfd:\s+(?:command\s+)?not\s+found\b/i.test(trimmed) ||
     /^─+$/.test(trimmed) ||
     /^[╭╰│]/.test(trimmed) ||

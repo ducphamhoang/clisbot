@@ -487,15 +487,15 @@ describe("pi chrome filtering", () => {
   describe("pi chrome line filtering via cleanInteractionSnapshot()", () => {
     const piHeader = "Welcome to pi\npi v1.2.3\n\n";
 
-    test("drops Warning: startup lines", () => {
+    test("Warning: lines are kept — startup blockers are caught at launch, not by normalization", () => {
       const cleaned = cleanInteractionSnapshot(`${piHeader}Warning: No models available\n\nActual response`);
-      expect(cleaned).not.toContain("Warning:");
+      expect(cleaned).toContain("Warning: No models available");
       expect(cleaned).toContain("Actual response");
     });
 
-    test("drops Note: startup lines", () => {
+    test("Note: lines are kept — startup blockers are caught at launch, not by normalization", () => {
       const cleaned = cleanInteractionSnapshot(`${piHeader}Note: Using provider X\n\nActual response`);
-      expect(cleaned).not.toContain("Note:");
+      expect(cleaned).toContain("Note: Using provider X");
       expect(cleaned).toContain("Actual response");
     });
 
@@ -575,10 +575,22 @@ describe("pi chrome filtering", () => {
       const cleaned = cleanInteractionSnapshot(`${piHeader}See https://example.com/warning-info for details.`);
       expect(cleaned).toContain("https://example.com/warning-info");
     });
+
+    test('keeps "Warning:" lines that are legitimate AI response content', () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Warning: this command is destructive\n\nResponse`)
+      expect(cleaned).toContain('Warning: this command is destructive')
+      expect(cleaned).toContain('Response')
+    })
+
+    test('keeps "Note:" lines that are legitimate AI response content', () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Note: you need sudo privileges\n\nResponse`)
+      expect(cleaned).toContain('Note: you need sudo privileges')
+      expect(cleaned).toContain('Response')
+    })
   });
 
   describe("integration — end-to-end", () => {
-    test("pi snapshot with startup warnings and real response strips warnings, keeps response", () => {
+    test("pi snapshot with startup warnings and real response strips chrome, keeps response", () => {
       const cleaned = cleanInteractionSnapshot(`
 Welcome to pi
 pi v1.2.3
@@ -590,8 +602,6 @@ sh: fd: not found
 
 The mitochondria is the powerhouse of the cell.
       `);
-      expect(cleaned).not.toContain("Warning:");
-      expect(cleaned).not.toContain("Note:");
       expect(cleaned).not.toContain("fd: not found");
       expect(cleaned).not.toContain("────");
       expect(cleaned).toContain("The mitochondria is the powerhouse of the cell.");
