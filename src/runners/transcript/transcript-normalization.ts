@@ -205,6 +205,20 @@ export function looksLikeGeminiSnapshot(lines: string[]) {
   });
 }
 
+export function looksLikePiSnapshot(lines: string[]) {
+  return lines.some((line) => {
+    const trimmed = line.trim()
+    return (
+      trimmed.includes('Welcome to pi') ||
+      /^pi\s+v\d+\.\d+\.\d+/i.test(trimmed) ||
+      trimmed.includes('Type your message') ||
+      trimmed.includes('run /help') ||
+      trimmed === '>' ||
+      trimmed === '> '
+    )
+  })
+}
+
 export function isProgressLine(line: string) {
   const trimmed = line.trim();
   const normalized = trimmed.replace(/^(?::eight_spoked_asterisk:|[✽✶])\s+/, "");
@@ -531,6 +545,24 @@ function shouldDropGeminiChromeLine(line: string) {
   );
 }
 
+function shouldDropPiChromeLine(line: string) {
+  const trimmed = line.trim()
+  if (!trimmed) {
+    return false
+  }
+
+  return (
+    /^(?:Warning|Note):\s/i.test(trimmed) ||
+    /\bfd:\s+(?:command\s+)?not\s+found\b/i.test(trimmed) ||
+    /^─+$/.test(trimmed) ||
+    /^[╭╰│]/.test(trimmed) ||
+    trimmed.includes('Welcome to pi') ||
+    /^pi\s+v\d+\.\d+\.\d+/i.test(trimmed) ||
+    trimmed === '>' ||
+    trimmed === '> '
+  )
+}
+
 function normalizeBoundaryLine(line: string) {
   return line.trim().replace(/^(?::eight_spoked_asterisk:|[-*•◦·✽✶])\s+/, "");
 }
@@ -582,6 +614,7 @@ function cleanInteractionSnapshotInternal(raw: string, options?: {
   const isCodex = looksLikeCodexSnapshot(lines);
   const isClaude = looksLikeClaudeSnapshot(lines);
   const isGemini = looksLikeGeminiSnapshot(lines);
+  const isPi = looksLikePiSnapshot(lines);
   const promptStripped = isCodex
     ? dropCodexPromptBlocks(lines)
     : isClaude
@@ -609,6 +642,10 @@ function cleanInteractionSnapshotInternal(raw: string, options?: {
     }
 
     if (isGemini && shouldDropGeminiChromeLine(line)) {
+      return false;
+    }
+
+    if (isPi && shouldDropPiChromeLine(line)) {
       return false;
     }
 
