@@ -29,6 +29,17 @@
 
 - [ ] **NORM-01:** Pi-specific chrome lines are filtered from transcript output (startup warnings, `fd not found` noise, separator lines, status bar lines)
 
+## Review Fixes (Phase 4)
+
+- [ ] **FIX-01:** `/new` command must not throw for pi — route explicit+off-capture runners through `restartRunnerWithFreshSessionIdForNewCommand` instead of the live status-scrape path
+- [ ] **FIX-02:** Crash recovery for pi must preserve and reuse the stored `sessionId` — widen `retryFreshStartAfterStoredResumeFailure` gate to allow `create.mode === "explicit"`
+- [ ] **FIX-03:** Pi response snapshots must have `> user message` prompt-echo lines stripped via `dropPiPromptBlocks` (using `dropPromptBlocks` helper with `/^\s*>\s/`)
+- [ ] **FIX-04:** Pi chrome filter must drop help-bar phrases used as detection markers (`Type your message`, `run /help`, related ready-bar text)
+- [ ] **FIX-05:** `shouldDropPiChromeLine` must not drop `Warning:` or `Note:` lines — remove the `/^(?:Warning|Note):\s/i` rule; startup blockers handle those at launch
+- [ ] **FIX-06:** `looksLikePiSnapshot` must not classify a snapshot as pi based on a bare `>` line alone — require co-occurrence with a pi-specific marker
+- [ ] **FIX-07:** `REQUIREMENTS.md` SESSION-03 must document `--resume {uuid}` (not `--session`) as the correct pi resume flag
+- [ ] **FIX-08:** `buildRunnerFromToolTemplate` non-codex branch must preserve the template's `resume.args` via placeholder substitution, not reconstruct them as a hardcoded `--resume` array
+
 ## Future Requirements (deferred)
 
 - RPC runner using pi's `--mode rpc` JSONL protocol — deferred until pi protocol stabilizes
