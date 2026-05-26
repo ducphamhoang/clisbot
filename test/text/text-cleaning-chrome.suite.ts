@@ -11,6 +11,7 @@ import {
   deriveRunningInteractionText,
   extractFinalAnswer,
   extractRenderedIncrement,
+  looksLikePiSnapshot,
   mergeRenderedStreamBodies,
   renderMarkdownInteraction,
   renderChannelSnapshot,
@@ -449,5 +450,163 @@ Finagling
     `);
 
     expect(cleaned).toBe("✽ Finagling");
+  });
+});
+
+describe("pi chrome filtering", () => {
+  describe("looksLikePiSnapshot()", () => {
+    test("detects pi via 'Welcome to pi' marker", () => {
+      expect(looksLikePiSnapshot(["Welcome to pi", "some user response"])).toBe(true);
+    });
+
+    test("detects pi via version line 'pi v1.2.3'", () => {
+      expect(looksLikePiSnapshot(["pi v1.2.3", "some text"])).toBe(true);
+    });
+
+    test("detects pi via 'Type your message' marker", () => {
+      expect(looksLikePiSnapshot(["Type your message", "more text"])).toBe(true);
+    });
+
+    test("detects pi via 'run /help for shortcuts' marker", () => {
+      expect(looksLikePiSnapshot(["run /help for shortcuts", "more text"])).toBe(true);
+    });
+
+    test("detects pi via bare '>' prompt marker", () => {
+      expect(looksLikePiSnapshot([">", "some text"])).toBe(true);
+    });
+
+    test("returns false for gemini snapshot (not pi)", () => {
+      expect(looksLikePiSnapshot(["Gemini CLI v1.0", "some text"])).toBe(false);
+    });
+
+    test("returns false for generic text with no pi markers", () => {
+      expect(looksLikePiSnapshot(["Hello world"])).toBe(false);
+    });
+  });
+
+  describe("pi chrome line filtering via cleanInteractionSnapshot()", () => {
+    const piHeader = "Welcome to pi\npi v1.2.3\n\n";
+
+    test("drops Warning: startup lines", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Warning: No models available\n\nActual response`);
+      expect(cleaned).not.toContain("Warning:");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops Note: startup lines", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Note: Using provider X\n\nActual response`);
+      expect(cleaned).not.toContain("Note:");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops 'sh: fd: not found' error lines", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}sh: fd: not found\n\nActual response`);
+      expect(cleaned).not.toContain("fd: not found");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops 'fd: command not found' error lines", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}fd: command not found\n\nActual response`);
+      expect(cleaned).not.toContain("fd: command not found");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops box-drawing separator lines (─────)", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}────────────────────────────────\n\nActual response`);
+      expect(cleaned).not.toContain("────");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops box-drawing top border lines (╭──────╮)", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}╭──────────────────────────────╮\n\nActual response`);
+      expect(cleaned).not.toContain("╭");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops box-drawing side lines starting with │", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}│ some content │\n\nActual response`);
+      expect(cleaned).not.toContain("│ some content │");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops box-drawing bottom border lines (╰──────╯)", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}╰──────────────────────────────╯\n\nActual response`);
+      expect(cleaned).not.toContain("╰");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops 'Welcome to pi' header line", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Actual response`);
+      expect(cleaned).not.toContain("Welcome to pi");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops 'pi v1.2.3' version line", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Actual response`);
+      expect(cleaned).not.toContain("pi v1.2.3");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops bare '>' prompt marker line", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}>\n\nActual response`);
+      const lines = cleaned.split("\n");
+      expect(lines).not.toContain(">");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("drops bare '> ' prompt marker line with trailing space", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}> \n\nActual response`);
+      const lines = cleaned.split("\n").map((l) => l.trimEnd());
+      expect(lines).not.toContain(">");
+      expect(cleaned).toContain("Actual response");
+    });
+
+    test("keeps actual user response text", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}The answer to your question is 42.`);
+      expect(cleaned).toContain("The answer to your question is 42.");
+    });
+
+    test("keeps code content", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}console.log('test')`);
+      expect(cleaned).toContain("console.log('test')");
+    });
+
+    test("keeps a URL containing 'warning' as substring (not at line start with colon)", () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}See https://example.com/warning-info for details.`);
+      expect(cleaned).toContain("https://example.com/warning-info");
+    });
+  });
+
+  describe("integration — end-to-end", () => {
+    test("pi snapshot with startup warnings and real response strips warnings, keeps response", () => {
+      const cleaned = cleanInteractionSnapshot(`
+Welcome to pi
+pi v1.2.3
+
+Warning: No models available
+Note: Using provider fallback
+sh: fd: not found
+────────────────────────────────
+
+The mitochondria is the powerhouse of the cell.
+      `);
+      expect(cleaned).not.toContain("Warning:");
+      expect(cleaned).not.toContain("Note:");
+      expect(cleaned).not.toContain("fd: not found");
+      expect(cleaned).not.toContain("────");
+      expect(cleaned).toContain("The mitochondria is the powerhouse of the cell.");
+    });
+
+    test("codex snapshot is unaffected by pi filters (pi chrome patterns not dropped from codex)", () => {
+      const cleaned = cleanInteractionSnapshot(`
+› what is fd
+
+• fd is a fast alternative to find.
+
+Warning: this is a codex message containing Warning: in the body text.
+      `);
+      expect(cleaned).toContain("fd is a fast alternative to find.");
+      expect(cleaned).toContain("Warning: this is a codex message containing Warning: in the body text.");
+    });
   });
 });
