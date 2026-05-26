@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Schema Precondition** - Add `newSessionCommand` to `AgentToolTemplate` so CLIs can declare their own session-rotation command (completed 2026-05-26)
 - [x] **Phase 2: Runner & Session Config** - Wire pi into the tmux runner with correct startup flags, ready pattern, active timer, and session identity model (completed 2026-05-26)
 - [x] **Phase 3: Hardening** - Add startup blockers for missing models and tmux extended-keys, filter pi chrome from transcript output (completed 2026-05-26)
-- [ ] **Phase 4: Pi Review Fixes** - Fix critical/high/medium findings from adversarial milestone review: broken /new rotation, silent session-continuity loss, missing prompt-echo stripping, chrome leakage, false-positive snapshot detection, template resume-args override
+- [x] **Phase 4: Pi Review Fixes** - Fix critical/high/medium findings from adversarial milestone review: broken /new rotation, silent session-continuity loss, missing prompt-echo stripping, chrome leakage, false-positive snapshot detection, template resume-args override (completed 2026-05-26)
 
 ## Phase Details
 
@@ -82,7 +82,7 @@ Plans:
 - [x] 04-02-PLAN.md — Fix SESSION-03 doc: --session → --resume in REQUIREMENTS.md (Fix 7)
 - [x] 04-03-PLAN.md — Add dropPiPromptBlocks and wire into promptStripped dispatch; add help-bar drops to shouldDropPiChromeLine; tests (Fix 3, Fix 4)
 - [x] 04-04-PLAN.md — Fix buildRunnerFromToolTemplate non-codex resume.args to preserve template via applyTemplate; test (Fix 8)
-- [ ] 04-05-PLAN.md — Add triggerNewSession pi guard; widen retryFreshStartAfterStoredResumeFailure gate; tests (Fix 1, Fix 2)
+- [x] 04-05-PLAN.md — Add triggerNewSession pi guard; widen retryFreshStartAfterStoredResumeFailure gate; tests (Fix 1, Fix 2)
 
 ## Progress
 
@@ -94,4 +94,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
 | 2. Runner & Session Config | 2/2 | Complete    | 2026-05-26 |
 | 3. Hardening | 2/2 | Complete    | 2026-05-26 |
-| 4. Pi Review Fixes | 4/5 | In Progress|  |
+| 4. Pi Review Fixes | 5/5 | Complete   | 2026-05-26 |
