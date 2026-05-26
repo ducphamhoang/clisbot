@@ -12,7 +12,7 @@ Three phases deliver pi as a fully supported AI coding CLI runner. Phase 1 unblo
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Schema Precondition** - Add `newSessionCommand` to `AgentToolTemplate` so CLIs can declare their own session-rotation command
+- [x] **Phase 1: Schema Precondition** - Add `newSessionCommand` to `AgentToolTemplate` so CLIs can declare their own session-rotation command (completed 2026-05-26)
 - [ ] **Phase 2: Runner & Session Config** - Wire pi into the tmux runner with correct startup flags, ready pattern, active timer, and session identity model
 - [ ] **Phase 3: Hardening** - Add startup blockers for missing models and tmux extended-keys, filter pi chrome from transcript output
 
@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — Add newSessionCommand to AgentToolTemplate, ResolvedRunnerTemplate, schema, and resolve from template in RunnerService
+- [x] 01-01-PLAN.md — Add newSessionCommand to AgentToolTemplate, ResolvedRunnerTemplate, schema, and resolve from template in RunnerService
 
 ### Phase 2: Runner & Session Config
 **Goal**: Operators can set `cli: "pi"` and have pi spawned via the tmux runner with correct session identity, ready detection, and active-timer handling
@@ -61,6 +61,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema Precondition | 0/1 | Not started | - |
+| 1. Schema Precondition | 1/1 | Complete   | 2026-05-26 |
 | 2. Runner & Session Config | 0/TBD | Not started | - |
 | 3. Hardening | 0/TBD | Not started | - |
