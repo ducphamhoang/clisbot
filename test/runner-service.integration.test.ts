@@ -11,7 +11,13 @@ import { loadConfig, resolveSessionStorePath } from "../src/config/core/load-con
 import { clisbotConfigSchema } from "../src/config/core/schema.ts";
 import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 import { TmuxClient } from "../src/runners/tmux/client.ts";
-import { DEFAULT_AGENT_TOOL_TEMPLATES } from '../src/config/runtime/agent-tool-presets.ts'
+import {
+  DEFAULT_AGENT_TOOL_TEMPLATES,
+  SUPPORTED_AGENT_CLI_TOOLS,
+  buildRunnerFromToolTemplate,
+  inferAgentCliToolId,
+} from '../src/config/runtime/agent-tool-presets.ts'
+import { isActiveTimerStatusLine } from '../src/runners/transcript/transcript-normalization.ts'
 
 const tempDirs: string[] = [];
 const UUID_PATTERN =
@@ -90,6 +96,77 @@ afterEach(async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+describe('pi runner template', () => {
+  test('SUPPORTED_AGENT_CLI_TOOLS includes "pi"', () => {
+    expect(SUPPORTED_AGENT_CLI_TOOLS).toContain('pi')
+  })
+
+  test('DEFAULT_AGENT_TOOL_TEMPLATES["pi"] exists and has command: "pi"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi']).toBeDefined()
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].command).toBe('pi')
+  })
+
+  test('sessionId.create.mode === "explicit"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.create.mode).toBe('explicit')
+  })
+
+  test('sessionId.capture.mode === "off"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.capture.mode).toBe('off')
+  })
+
+  test('sessionId.create.args deepEquals ["--session", "{sessionId}"]', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.create.args).toEqual(['--session', '{sessionId}'])
+  })
+
+  test('sessionId.resume.mode === "command"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.resume.mode).toBe('command')
+  })
+
+  test('newSessionCommand === "/new"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].newSessionCommand).toBe('/new')
+  })
+
+  test('startupReadyPattern matches "escape interrupt" text', () => {
+    const pattern = DEFAULT_AGENT_TOOL_TEMPLATES['pi'].startupReadyPattern
+    expect(pattern).toBeDefined()
+    expect(new RegExp(pattern!, 'i').test('• escape interrupt (Ctrl+C to cancel)')).toBe(true)
+    expect(new RegExp(pattern!, 'i').test('  escape interrupt help text here')).toBe(true)
+    expect(new RegExp(pattern!, 'i').test('escape interrupt')).toBe(true)
+  })
+
+  test('inferAgentCliToolId("pi") returns "pi"', () => {
+    expect(inferAgentCliToolId('pi')).toBe('pi')
+  })
+
+  test('inferAgentCliToolId("PI") returns "pi" (case-insensitive)', () => {
+    expect(inferAgentCliToolId('PI')).toBe('pi')
+  })
+
+  test('buildRunnerFromToolTemplate("pi", template, undefined).args deepEquals ["--dangerously-skip-permissions"]', () => {
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
+    const resolved = buildRunnerFromToolTemplate('pi', template, undefined)
+    expect(resolved.args).toEqual(['--dangerously-skip-permissions'])
+  })
+
+  test('buildRunnerFromToolTemplate("pi", template, undefined).sessionId.resume.args deepEquals ["--resume", "{sessionId}", "--dangerously-skip-permissions"]', () => {
+    const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
+    const resolved = buildRunnerFromToolTemplate('pi', template, undefined)
+    expect(resolved.sessionId.resume.args).toEqual(['--resume', '{sessionId}', '--dangerously-skip-permissions'])
+  })
+
+  test('isActiveTimerStatusLine("Working...") returns true', () => {
+    expect(isActiveTimerStatusLine('Working...')).toBe(true)
+  })
+
+  test('isActiveTimerStatusLine("• Working...") returns true', () => {
+    expect(isActiveTimerStatusLine('• Working...')).toBe(true)
+  })
+
+  test('isActiveTimerStatusLine("Working... (some task)") returns true', () => {
+    expect(isActiveTimerStatusLine('Working... (some task)')).toBe(true)
+  })
+})
 
 describe('newSessionCommand defaults', () => {
   test('codex template declares /new as newSessionCommand', () => {
