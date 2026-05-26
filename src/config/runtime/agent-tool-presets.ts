@@ -1,3 +1,5 @@
+import { applyTemplate } from '../../infra/paths.ts'
+
 export const SUPPORTED_AGENT_CLI_TOOLS = ["codex", "claude", "gemini", "pi"] as const;
 export type AgentCliToolId = (typeof SUPPORTED_AGENT_CLI_TOOLS)[number];
 
@@ -240,6 +242,8 @@ export function buildRunnerFromToolTemplate(
         },
         resume: {
           ...template.sessionId.resume,
+          // Codex is special-cased: it adds workspace args (-C {workspace}) not declared in the
+          // template, so resume.args must be reconstructed to include them at launch time.
           args: ["resume", "{sessionId}", ...options, "-C", "{workspace}"],
         },
       },
@@ -268,7 +272,9 @@ export function buildRunnerFromToolTemplate(
       },
       resume: {
         ...template.sessionId.resume,
-        args: ["--resume", "{sessionId}", ...options],
+        // Non-codex runners: preserve template's resume args and apply {sessionId} substitution only.
+        // Codex is special-cased above because it adds workspace args not declared in the template.
+        args: template.sessionId.resume.args.map((arg) => applyTemplate(arg, { sessionId: '{sessionId}' })),
       },
     },
   };
