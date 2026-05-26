@@ -17,6 +17,7 @@ export type AgentToolTemplate = {
     message: string;
   }>;
   promptSubmitDelayMs: number;
+  newSessionCommand?: string;
   sessionId: {
     create: {
       mode: "runner" | "explicit";
@@ -54,6 +55,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
     startupRetryDelayMs: 1000,
     startupReadyPattern: "(?:^|\\s)›\\s",
     promptSubmitDelayMs: 150,
+    newSessionCommand: '/new',
     sessionId: {
       create: {
         mode: "runner",
@@ -87,6 +89,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
     startupRetryCount: 2,
     startupRetryDelayMs: 1000,
     promptSubmitDelayMs: 150,
+    newSessionCommand: '/new',
     sessionId: {
       create: {
         mode: "explicit",
@@ -132,6 +135,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
       },
     ],
     promptSubmitDelayMs: 200,
+    newSessionCommand: '/clear',
     sessionId: {
       create: {
         mode: "runner",
@@ -162,6 +166,7 @@ export type ResolvedRunnerTemplate = {
   startupReadyPattern?: string;
   startupBlockers?: AgentToolTemplate["startupBlockers"];
   promptSubmitDelayMs: number;
+  newSessionCommand?: string;
   sessionId: AgentToolTemplate["sessionId"];
 };
 
@@ -183,6 +188,7 @@ export function buildRunnerFromToolTemplate(
       startupReadyPattern: template.startupReadyPattern,
       startupBlockers: template.startupBlockers?.map((entry) => ({ ...entry })),
       promptSubmitDelayMs: template.promptSubmitDelayMs,
+      newSessionCommand: template.newSessionCommand,
       sessionId: {
         ...template.sessionId,
         create: {
@@ -210,6 +216,7 @@ export function buildRunnerFromToolTemplate(
     startupReadyPattern: template.startupReadyPattern,
     startupBlockers: template.startupBlockers?.map((entry) => ({ ...entry })),
     promptSubmitDelayMs: template.promptSubmitDelayMs,
+    newSessionCommand: template.newSessionCommand,
     sessionId: {
       ...template.sessionId,
       create: {

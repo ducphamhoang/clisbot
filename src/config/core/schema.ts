@@ -71,6 +71,7 @@ const runnerLaunchSchema = z.object({
   startupReadyPattern: z.string().min(1).optional(),
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
+  newSessionCommand: z.string().min(1).optional(),
   sessionId: runnerSessionIdSchema.optional(),
 });
 
@@ -144,6 +145,7 @@ const runnerFamilyOverrideSchema = z.object({
   startupReadyPattern: z.string().min(1).optional(),
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
+  newSessionCommand: z.string().min(1).optional(),
   sessionId: z.object({
     create: runnerSessionIdCreateSchema.partial().optional(),
     capture: runnerSessionIdCaptureSchema.partial().optional(),
