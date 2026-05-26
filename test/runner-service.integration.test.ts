@@ -155,6 +155,23 @@ describe('pi runner template', () => {
     expect(resolved.sessionId.resume.args).toEqual(['--resume', '{sessionId}', '--dangerously-skip-permissions'])
   })
 
+  test('buildRunnerFromToolTemplate non-codex branch preserves template resume.args (not reconstructed)', () => {
+    // Create a minimal template with custom resume args to verify template is preserved,
+    // not reconstructed from scratch with hardcoded ["--resume", "{sessionId}", ...options]
+    const customTemplate = {
+      ...DEFAULT_AGENT_TOOL_TEMPLATES['pi'],
+      sessionId: {
+        ...DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId,
+        resume: {
+          ...DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.resume,
+          args: ['--attach', '{sessionId}', '--custom-flag'],
+        },
+      },
+    }
+    const resolved = buildRunnerFromToolTemplate('pi', customTemplate, undefined)
+    expect(resolved.sessionId.resume.args).toEqual(['--attach', '{sessionId}', '--custom-flag'])
+  })
+
   test('isActiveTimerStatusLine("Working...") returns true', () => {
     expect(isActiveTimerStatusLine('Working...')).toBe(true)
   })
