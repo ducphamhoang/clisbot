@@ -71,6 +71,7 @@ const runnerLaunchSchema = z.object({
   startupReadyPattern: z.string().min(1).optional(),
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
+  newSessionCommand: z.string().min(1).optional(),
   sessionId: runnerSessionIdSchema.optional(),
 });
 
@@ -144,6 +145,7 @@ const runnerFamilyOverrideSchema = z.object({
   startupReadyPattern: z.string().min(1).optional(),
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
+  newSessionCommand: z.string().min(1).optional(),
   sessionId: z.object({
     create: runnerSessionIdCreateSchema.partial().optional(),
     capture: runnerSessionIdCaptureSchema.partial().optional(),
@@ -329,6 +331,7 @@ const agentRunnerOverrideSchema = z.object({
   startupReadyPattern: z.string().min(1).optional(),
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
+  newSessionCommand: z.string().min(1).optional(),
   sessionId: z.object({
     create: runnerSessionIdCreateSchema.partial().optional(),
     capture: runnerSessionIdCaptureSchema.partial().optional(),
@@ -394,6 +397,7 @@ const agentsDefaultsSchema = z.object({
       ],
       startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
       startupReadyPattern: codexStartupReadyPattern,
+      newSessionCommand: "/new",
       sessionId: {
         create: {
           mode: "runner",
@@ -423,6 +427,7 @@ const agentsDefaultsSchema = z.object({
       command: "claude",
       args: ["--dangerously-skip-permissions"],
       startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+      newSessionCommand: "/new",
       sessionId: {
         create: {
           mode: "explicit",
@@ -463,6 +468,7 @@ const agentsDefaultsSchema = z.object({
         },
       ],
       promptSubmitDelayMs: 200,
+      newSessionCommand: "/clear",
       sessionId: {
         create: {
           mode: "runner",
@@ -643,6 +649,7 @@ export const clisbotConfigSchema = z.object({
           ],
           startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
           startupReadyPattern: codexStartupReadyPattern,
+          newSessionCommand: "/new",
           sessionId: {
             create: {
               mode: "runner",
@@ -672,6 +679,7 @@ export const clisbotConfigSchema = z.object({
           command: "claude",
           args: ["--dangerously-skip-permissions"],
           startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+          newSessionCommand: "/new",
           sessionId: {
             create: {
               mode: "explicit",
@@ -712,6 +720,7 @@ export const clisbotConfigSchema = z.object({
             },
           ],
           promptSubmitDelayMs: 200,
+          newSessionCommand: "/clear",
           sessionId: {
             create: {
               mode: "runner",
@@ -776,6 +785,7 @@ export const clisbotConfigSchema = z.object({
           ],
           startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
           startupReadyPattern: codexStartupReadyPattern,
+          newSessionCommand: "/new",
           sessionId: {
             create: {
               mode: "runner",
@@ -805,6 +815,7 @@ export const clisbotConfigSchema = z.object({
           command: "claude",
           args: ["--dangerously-skip-permissions"],
           startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+          newSessionCommand: "/new",
           sessionId: {
             create: {
               mode: "explicit",
@@ -845,6 +856,7 @@ export const clisbotConfigSchema = z.object({
             },
           ],
           promptSubmitDelayMs: 200,
+          newSessionCommand: "/clear",
           sessionId: {
             create: {
               mode: "runner",

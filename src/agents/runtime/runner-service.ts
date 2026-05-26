@@ -966,7 +966,7 @@ export class RunnerService {
   }
 
   private resolveNewSessionCommand(resolved: ResolvedAgentTarget) {
-    return resolved.runner.command.toLowerCase().includes("gemini") ? "/clear" : "/new";
+    return resolved.runner.newSessionCommand ?? '/new'
   }
 
   async captureTranscript(target: AgentSessionTarget) {

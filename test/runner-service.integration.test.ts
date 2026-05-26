@@ -11,6 +11,7 @@ import { loadConfig, resolveSessionStorePath } from "../src/config/core/load-con
 import { clisbotConfigSchema } from "../src/config/core/schema.ts";
 import { renderDefaultConfigTemplate } from "../src/config/core/template.ts";
 import { TmuxClient } from "../src/runners/tmux/client.ts";
+import { DEFAULT_AGENT_TOOL_TEMPLATES } from '../src/config/runtime/agent-tool-presets.ts'
 
 const tempDirs: string[] = [];
 const UUID_PATTERN =
@@ -89,6 +90,20 @@ afterEach(async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+describe('newSessionCommand defaults', () => {
+  test('codex template declares /new as newSessionCommand', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES.codex.newSessionCommand).toBe('/new')
+  })
+
+  test('claude template declares /new as newSessionCommand', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES.claude.newSessionCommand).toBe('/new')
+  })
+
+  test('gemini template declares /clear as newSessionCommand', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES.gemini.newSessionCommand).toBe('/clear')
+  })
+})
 
 describe("RunnerService integration", () => {
   test("creates a fresh runner for a prefix-colliding session key when the stored sessionId is missing", async () => {
