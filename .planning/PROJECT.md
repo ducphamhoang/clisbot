@@ -38,10 +38,24 @@
 ## Validated Requirements
 
 - **SCHEMA-01:** `AgentToolTemplate` has `newSessionCommand?: string` field (optional, defaults to `"/new"`). `resolveNewSessionCommand()` reads from template field. Existing codex/claude/gemini behavior unchanged. — Validated in Phase 1: Schema Precondition (2026-05-26)
+- **RUNNER-01:** Pi runner template with startup flags (`--session`, `--list-models`, `--verbose`), ready pattern detection (✓ Ready to listen), and session mode (`create.mode: "explicit"`, `capture.mode: "off"`). — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **RUNNER-02:** Tmux extended-keys warning detection at startup prevents silent failures; runner startup blocks with clear error message. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **RUNNER-03:** Missing API key startup blocker: Pi detects `GITHUB_TOKEN` and `DEEPSEEK_API_KEY` requirements; startup fails with actionable error. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **RUNNER-04:** Missing model configuration startup blocker: Pi with `--list-models` detects zero models; startup fails with actionable error. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **RUNNER-05:** Active timer pattern ("Working..." message + timer loop) prevents early completion detection in pi output. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **SESSION-01:** Pi session UUID strategy: clisbot generates UUID, passes `--session {uuid}`, reads session ID from output (`session.id: "uuid"`). — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **SESSION-02:** New session command: pi supports `/new` command to reset session state without restarting CLI process. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **SESSION-03:** Session isolation: concurrent sessions do not interfere; each session maintains independent context. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **SCHEMA-02:** Pi runner schema defaults (family, timeout, ready pattern) in `schema.ts`. — Validated in Phase 2: Runner & Session Config (2026-05-26)
+- **SCHEMA-03:** Pi runner test coverage for schema defaults validation. — Validated in Phase 2: Runner & Session Config (2026-05-26)
 
 ## Active Requirements
 
 See `REQUIREMENTS.md`
+
+## Current State
+
+Phase 2 complete — pi runner template registered with explicit session mode, startup ready detection, and active-timer pattern. Next phase: transcript normalization and CLI tool ID inference.
 
 ## Context
 
@@ -67,4 +81,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — Phase 1 (Schema Precondition) complete*
+*Last updated: 2026-05-26 — Phase 2 (Runner & Session Config) complete*
