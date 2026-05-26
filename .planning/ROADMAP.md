@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Schema Precondition** - Add `newSessionCommand` to `AgentToolTemplate` so CLIs can declare their own session-rotation command (completed 2026-05-26)
 - [x] **Phase 2: Runner & Session Config** - Wire pi into the tmux runner with correct startup flags, ready pattern, active timer, and session identity model (completed 2026-05-26)
-- [ ] **Phase 3: Hardening** - Add startup blockers for missing models and tmux extended-keys, filter pi chrome from transcript output
+- [x] **Phase 3: Hardening** - Add startup blockers for missing models and tmux extended-keys, filter pi chrome from transcript output (completed 2026-05-26)
 
 ## Phase Details
 
@@ -58,8 +58,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Add looksLikePiSnapshot() and shouldDropPiChromeLine() to transcript-normalization.ts, integrate into cleanInteractionSnapshotInternal() (TDD)
-- [ ] 03-02-PLAN.md — Verify and test pi startup blocker config (BLOCK-01, BLOCK-02) in runner-service.integration.test.ts
+- [x] 03-01-PLAN.md — Add looksLikePiSnapshot() and shouldDropPiChromeLine() to transcript-normalization.ts, integrate into cleanInteractionSnapshotInternal() (TDD)
+- [x] 03-02-PLAN.md — Verify and test pi startup blocker config (BLOCK-01, BLOCK-02) in runner-service.integration.test.ts
 
 ## Progress
 
@@ -70,4 +70,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
 | 2. Runner & Session Config | 2/2 | Complete    | 2026-05-26 |
-| 3. Hardening | 0/2 | Not started | - |
+| 3. Hardening | 2/2 | Complete    | 2026-05-26 |
