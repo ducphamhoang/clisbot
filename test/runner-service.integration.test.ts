@@ -168,6 +168,43 @@ describe('pi runner template', () => {
   })
 })
 
+describe('pi schema defaults', () => {
+  // Parse with pi runner key absent — schema supplies full defaults
+  function parsedWithoutPiOverrides() {
+    const raw = JSON.parse(renderDefaultConfigTemplate())
+    if (raw.agents?.defaults?.runner) {
+      delete raw.agents.defaults.runner.pi
+    }
+    return clisbotConfigSchema.parse(raw).agents.defaults.runner.pi
+  }
+  const piDefaults = parsedWithoutPiOverrides()
+
+  test('schema provides pi defaults when config has no runner overrides', () => {
+    expect(piDefaults).toBeDefined()
+    expect(piDefaults.command).toBe('pi')
+  })
+
+  test('parsed pi defaults have sessionId.create.mode === "explicit"', () => {
+    expect(piDefaults.sessionId!.create.mode).toBe('explicit')
+  })
+
+  test('parsed pi defaults have sessionId.capture.mode === "off"', () => {
+    expect(piDefaults.sessionId!.capture.mode).toBe('off')
+  })
+
+  test('parsed pi defaults have sessionId.create.args deepEquals ["--session", "{sessionId}"]', () => {
+    expect(piDefaults.sessionId!.create.args).toEqual(['--session', '{sessionId}'])
+  })
+
+  test('parsed pi defaults have newSessionCommand === "/new"', () => {
+    expect(piDefaults.newSessionCommand).toBe('/new')
+  })
+
+  test('parsed pi defaults have sessionId.resume.mode === "command"', () => {
+    expect(piDefaults.sessionId!.resume.mode).toBe('command')
+  })
+})
+
 describe('newSessionCommand defaults', () => {
   test('codex template declares /new as newSessionCommand', () => {
     expect(DEFAULT_AGENT_TOOL_TEMPLATES.codex.newSessionCommand).toBe('/new')
