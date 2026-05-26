@@ -37,7 +37,7 @@
 
 ## Validated Requirements
 
-None yet — v0.2.0 is the first GSD-tracked milestone.
+- **SCHEMA-01:** `AgentToolTemplate` has `newSessionCommand?: string` field (optional, defaults to `"/new"`). `resolveNewSessionCommand()` reads from template field. Existing codex/claude/gemini behavior unchanged. — Validated in Phase 1: Schema Precondition (2026-05-26)
 
 ## Active Requirements
 
@@ -67,4 +67,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — Milestone v0.2.0 started*
+*Last updated: 2026-05-26 — Phase 1 (Schema Precondition) complete*
