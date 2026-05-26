@@ -44,7 +44,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Add pi to SUPPORTED_AGENT_CLI_TOOLS, DEFAULT_AGENT_TOOL_TEMPLATES (explicit session mode, ready pattern, startup blockers), and inferAgentCliToolId
+- [x] 02-01-PLAN.md — Add pi to SUPPORTED_AGENT_CLI_TOOLS, DEFAULT_AGENT_TOOL_TEMPLATES (explicit session mode, ready pattern, startup blockers), and inferAgentCliToolId
 - [ ] 02-02-PLAN.md — Add pi runner family defaults to schema.ts and pi entry to renderDefaultConfigTemplate in template.ts
 
 ### Phase 3: Hardening
@@ -65,5 +65,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
-| 2. Runner & Session Config | 0/2 | Not started | - |
+| 2. Runner & Session Config | 1/2 | In Progress|  |
 | 3. Hardening | 0/TBD | Not started | - |
