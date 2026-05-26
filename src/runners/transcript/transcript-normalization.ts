@@ -559,7 +559,9 @@ function shouldDropPiChromeLine(line: string) {
     /^[╭╰│]/.test(trimmed) ||
     trimmed.includes('Welcome to pi') ||
     /^pi\s+v\d+\.\d+\.\d+/i.test(trimmed) ||
-    trimmed === '>'
+    trimmed === '>' ||
+    trimmed.includes('Type your message') ||
+    trimmed.includes('run /help')
   )
 }
 
