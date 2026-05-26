@@ -608,6 +608,18 @@ describe("pi chrome filtering", () => {
       expect(cleaned).not.toContain('continuation line')
       expect(cleaned).toContain('Actual response')
     })
+
+    test('drops "Type your message" help-bar line', () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}Type your message\n\nResponse`)
+      expect(cleaned).not.toContain('Type your message')
+      expect(cleaned).toContain('Response')
+    })
+
+    test('drops "run /help" help-bar line', () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}run /help for shortcuts\n\nResponse`)
+      expect(cleaned).not.toContain('run /help')
+      expect(cleaned).toContain('Response')
+    })
   });
 
   describe("integration — end-to-end", () => {
