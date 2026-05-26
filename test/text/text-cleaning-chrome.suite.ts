@@ -595,6 +595,19 @@ describe("pi chrome filtering", () => {
       expect(cleaned).toContain('Note: you need sudo privileges')
       expect(cleaned).toContain('Response')
     })
+
+    test('drops pi prompt echo lines (> user message)', () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}> explain this code\n\nThe code does X`)
+      expect(cleaned).not.toContain('> explain')
+      expect(cleaned).toContain('The code does X')
+    })
+
+    test('drops pi prompt echo with indented continuation', () => {
+      const cleaned = cleanInteractionSnapshot(`${piHeader}> what is pi\n  continuation line\n\nActual response`)
+      expect(cleaned).not.toContain('> what is pi')
+      expect(cleaned).not.toContain('continuation line')
+      expect(cleaned).toContain('Actual response')
+    })
   });
 
   describe("integration — end-to-end", () => {
