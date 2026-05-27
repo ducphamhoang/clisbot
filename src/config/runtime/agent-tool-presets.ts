@@ -180,12 +180,12 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
     newSessionCommand: '/new',
     sessionId: {
       create: {
-        mode: "explicit",
-        args: ["--session", "{sessionId}"],
+        mode: "runner",
+        args: [],
       },
       capture: {
-        mode: "off",
-        statusCommand: "/status",
+        mode: "status-command",
+        statusCommand: "/session",
         pattern: SESSION_ID_PATTERN,
         timeoutMs: 5000,
         pollIntervalMs: 250,

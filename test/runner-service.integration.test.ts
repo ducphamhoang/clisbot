@@ -107,16 +107,20 @@ describe('pi runner template', () => {
     expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].command).toBe('pi')
   })
 
-  test('sessionId.create.mode === "explicit"', () => {
-    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.create.mode).toBe('explicit')
+  test('sessionId.create.mode === "runner"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.create.mode).toBe('runner')
   })
 
-  test('sessionId.capture.mode === "off"', () => {
-    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.capture.mode).toBe('off')
+  test('sessionId.capture.mode === "status-command"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.capture.mode).toBe('status-command')
   })
 
-  test('sessionId.create.args deepEquals ["--session", "{sessionId}"]', () => {
-    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.create.args).toEqual(['--session', '{sessionId}'])
+  test('sessionId.capture.statusCommand === "/session"', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.capture.statusCommand).toBe('/session')
+  })
+
+  test('sessionId.create.args deepEquals []', () => {
+    expect(DEFAULT_AGENT_TOOL_TEMPLATES['pi'].sessionId.create.args).toEqual([])
   })
 
   test('sessionId.resume.mode === "command"', () => {
@@ -143,16 +147,16 @@ describe('pi runner template', () => {
     expect(inferAgentCliToolId('PI')).toBe('pi')
   })
 
-  test('buildRunnerFromToolTemplate("pi", template, undefined).args deepEquals ["--dangerously-skip-permissions"]', () => {
+  test('buildRunnerFromToolTemplate("pi", template, undefined).args deepEquals []', () => {
     const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
     const resolved = buildRunnerFromToolTemplate('pi', template, undefined)
-    expect(resolved.args).toEqual(['--dangerously-skip-permissions'])
+    expect(resolved.args).toEqual([])
   })
 
-  test('buildRunnerFromToolTemplate("pi", template, undefined).sessionId.resume.args deepEquals ["--resume", "{sessionId}", "--dangerously-skip-permissions"]', () => {
+  test('buildRunnerFromToolTemplate("pi", template, undefined).sessionId.resume.args deepEquals ["--session", "{sessionId}"]', () => {
     const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
     const resolved = buildRunnerFromToolTemplate('pi', template, undefined)
-    expect(resolved.sessionId.resume.args).toEqual(['--resume', '{sessionId}', '--dangerously-skip-permissions'])
+    expect(resolved.sessionId.resume.args).toEqual(['--session', '{sessionId}'])
   })
 
   test('buildRunnerFromToolTemplate non-codex branch preserves template resume.args (not reconstructed)', () => {
@@ -240,16 +244,20 @@ describe('pi schema defaults', () => {
     expect(piDefaults.command).toBe('pi')
   })
 
-  test('parsed pi defaults have sessionId.create.mode === "explicit"', () => {
-    expect(piDefaults.sessionId!.create.mode).toBe('explicit')
+  test('parsed pi defaults have sessionId.create.mode === "runner"', () => {
+    expect(piDefaults.sessionId!.create.mode).toBe('runner')
   })
 
-  test('parsed pi defaults have sessionId.capture.mode === "off"', () => {
-    expect(piDefaults.sessionId!.capture.mode).toBe('off')
+  test('parsed pi defaults have sessionId.capture.mode === "status-command"', () => {
+    expect(piDefaults.sessionId!.capture.mode).toBe('status-command')
   })
 
-  test('parsed pi defaults have sessionId.create.args deepEquals ["--session", "{sessionId}"]', () => {
-    expect(piDefaults.sessionId!.create.args).toEqual(['--session', '{sessionId}'])
+  test('parsed pi defaults have sessionId.capture.statusCommand === "/session"', () => {
+    expect(piDefaults.sessionId!.capture.statusCommand).toBe('/session')
+  })
+
+  test('parsed pi defaults have sessionId.create.args deepEquals []', () => {
+    expect(piDefaults.sessionId!.create.args).toEqual([])
   })
 
   test('parsed pi defaults have newSessionCommand === "/new"', () => {
@@ -276,14 +284,18 @@ describe('newSessionCommand defaults', () => {
 })
 
 describe('pi triggerNewSession routing (Fix 1)', () => {
-  test('pi template satisfies skipLiveRotation guard condition', () => {
+  test('pi template does NOT satisfy skipLiveRotation guard — pi captures via /session', () => {
+    // Pi uses capture.mode: "status-command" with /session, so it supports live rotation.
+    // The skipLiveRotation guard (capture.mode=off + create.mode=explicit) is for runners
+    // like claude that pre-specify session IDs and have no in-process capture command.
     const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
-    expect(template.sessionId.capture.mode).toBe('off')
-    expect(template.sessionId.create.mode).toBe('explicit')
-    // Both conditions true: pi will route through restartRunnerWithFreshSessionIdForNewCommand
+    const skipLiveRotation =
+      template.sessionId.capture.mode === 'off' &&
+      template.sessionId.create.mode === 'explicit'
+    expect(skipLiveRotation).toBe(false)
   })
 
-  test('codex template does NOT satisfy skipLiveRotation guard (create.mode is runner)', () => {
+  test('codex template does NOT satisfy skipLiveRotation guard (capture.mode is status-command)', () => {
     const template = DEFAULT_AGENT_TOOL_TEMPLATES['codex']
     const skipLiveRotation =
       template.sessionId.capture.mode === 'off' &&
@@ -292,8 +304,8 @@ describe('pi triggerNewSession routing (Fix 1)', () => {
   })
 
   test('claude template satisfies skipLiveRotation guard (capture.mode off + create.mode explicit)', () => {
-    // claude also has capture.mode: "off" and create.mode: "explicit"
-    // like pi, it routes through restartRunnerWithFreshSessionIdForNewCommand
+    // claude pre-specifies session IDs via --session-id and has no in-process capture.
+    // /new in claude creates a new session but clisbot cannot recapture its ID in-process.
     const template = DEFAULT_AGENT_TOOL_TEMPLATES['claude']
     expect(template.sessionId.capture.mode).toBe('off')
     expect(template.sessionId.create.mode).toBe('explicit')
@@ -309,10 +321,10 @@ describe('pi triggerNewSession routing (Fix 1)', () => {
 })
 
 describe('retryFreshStartAfterStoredResumeFailure gate (Fix 2)', () => {
-  test('pi template satisfies gate continuation condition (create.mode explicit + resume.mode command)', () => {
+  test('pi template satisfies gate continuation condition (create.mode runner + resume.mode command)', () => {
     const template = DEFAULT_AGENT_TOOL_TEMPLATES['pi']
     // Gate: resume.mode !== 'command' || (create.mode !== 'runner' && create.mode !== 'explicit')
-    // Pi: resume.mode === 'command' (false), create.mode === 'explicit' (false in inner AND)
+    // Pi: resume.mode === 'command' (false), create.mode === 'runner' (false in inner AND)
     // Both false → gate condition is false → does NOT return null → pi session preserved
     const resumeMode = template.sessionId.resume.mode
     const createMode = template.sessionId.create.mode

@@ -510,12 +510,12 @@ const agentsDefaultsSchema = z.object({
       newSessionCommand: "/new",
       sessionId: {
         create: {
-          mode: "explicit",
-          args: ["--session", "{sessionId}"],
+          mode: "runner",
+          args: [],
         },
         capture: {
-          mode: "off",
-          statusCommand: "/status",
+          mode: "status-command",
+          statusCommand: "/session",
           pattern: defaultSessionIdPattern,
           timeoutMs: 5000,
           pollIntervalMs: 250,
