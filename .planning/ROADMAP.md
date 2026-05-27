@@ -108,11 +108,15 @@ Plans:
   3. Operator sees a review screen showing all collected settings before any config file is written
   4. After wizard completion, the runtime starts in unrouted mode and the operator sees a success screen naming `clisbot setup agent` as the exact next command
   5. Running `clisbot start` with channels configured but no agent linked prints a warning and continues rather than exiting with an error
-**Plans**: TBD
+**Plans**: 6 plans
 
 Plans:
-- TBD
-**UI hint**: yes
+- [ ] 06-01-PLAN.md — Wave 0: failing test scaffold for Flow A wizard (CHANWIZ-01 through CHANWIZ-05, RED state)
+- [ ] 06-02-PLAN.md — Wave 0: START-01 test stubs in startup-bootstrap.test.ts (RED state)
+- [ ] 06-03-PLAN.md — Wave 1: add promptMasked to setup-wizard-utils.ts (_writeToOutput monkey-patch)
+- [ ] 06-04-PLAN.md — Wave 1: START-01 warn-and-continue in runtime-bootstrap-cli.ts
+- [ ] 06-05-PLAN.md — Wave 2: create setup-channels.ts Flow A wizard
+- [ ] 06-06-PLAN.md — Wave 3: full bun run check gate + manual integration checkpoint
 
 #### Phase 7: Flow B
 **Goal**: Operators can run `clisbot setup agent` to select an AI CLI, verify the binary, choose bot type, and link the agent to configured channels — fully independent of Flow A's command path
