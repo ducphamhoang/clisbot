@@ -68,12 +68,12 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| FOUND-01 | Phase 5 (Wizard Foundation) | Pending |
-| FOUND-02 | Phase 5 (Wizard Foundation) | Pending |
-| FOUND-03 | Phase 5 (Wizard Foundation) | Pending |
-| FOUND-04 | Phase 5 (Wizard Foundation) | Pending |
-| FOUND-05 | Phase 5 (Wizard Foundation) | Pending |
-| FOUND-06 | Phase 5 (Wizard Foundation) | Pending |
+| FOUND-01 | Phase 5 (Wizard Foundation) | Complete |
+| FOUND-02 | Phase 5 (Wizard Foundation) | Complete |
+| FOUND-03 | Phase 5 (Wizard Foundation) | Complete |
+| FOUND-04 | Phase 5 (Wizard Foundation) | Complete |
+| FOUND-05 | Phase 5 (Wizard Foundation) | Complete |
+| FOUND-06 | Phase 5 (Wizard Foundation) | Complete |
 | CHANWIZ-01 | Phase 6 (Flow A + start() Change) | Pending |
 | CHANWIZ-02 | Phase 6 (Flow A + start() Change) | Pending |
 | CHANWIZ-03 | Phase 6 (Flow A + start() Change) | Pending |

@@ -94,9 +94,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Write failing test scaffold for all four wizard utilities (RED state)
-- [ ] 05-02-PLAN.md — Implement setup-wizard-utils.ts with ensureTTY, ensureDaemonNotRunning, writeEditableConfigAtomic, withWizardCleanup
-- [ ] 05-03-PLAN.md — Verification gate: FOUND-06 no-new-deps check and full bun run check
+- [x] 05-01-PLAN.md — Write failing test scaffold for all four wizard utilities (RED state)
+- [x] 05-02-PLAN.md — Implement setup-wizard-utils.ts with ensureTTY, ensureDaemonNotRunning, writeEditableConfigAtomic, withWizardCleanup
+- [x] 05-03-PLAN.md — Verification gate: FOUND-06 no-new-deps check and full bun run check
 
 #### Phase 6: Flow A + start() Change
 **Goal**: Operators can run `clisbot setup channels` to configure channel tokens interactively and then start the runtime in unrouted mode; `clisbot start` no longer hard-fails when channels are present but no agent is linked
@@ -153,7 +153,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 2. Runner & Session Config | v0.2.0 | 2/2 | Complete | 2026-05-26 |
 | 3. Hardening | v0.2.0 | 2/2 | Complete | 2026-05-26 |
 | 4. Pi Review Fixes | v0.2.0 | 5/5 | Complete | 2026-05-26 |
-| 5. Wizard Foundation | v0.3.0 | 0/? | Not started | - |
+| 5. Wizard Foundation | v0.3.0 | 4/3 | Complete    | 2026-05-27 |
 | 6. Flow A + start() Change | v0.3.0 | 0/? | Not started | - |
 | 7. Flow B | v0.3.0 | 0/? | Not started | - |
 | 8. Router + CLI Registration | v0.3.0 | 0/? | Not started | - |
