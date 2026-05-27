@@ -266,10 +266,21 @@ async function ensureDefaultAgentBootstrap(
   }
 
   if (!options.cliTool || !options.bootstrap) {
-    if (commandName === "start") {
-      printMissingBootstrapOptions(commandName);
+    if (commandName === 'start') {
+      const hasChannels =
+        state.config.bots.telegram.defaults.enabled ||
+        state.config.bots.slack.defaults.enabled ||
+        state.config.bots.zaloBot.defaults.enabled
+
+      if (hasChannels) {
+        console.log('warning: no agent configured — starting in unrouted mode.')
+        console.log('Run clisbot setup agent to add an AI agent.')
+        return true
+      }
+
+      printMissingBootstrapOptions(commandName)
     }
-    return false;
+    return false
   }
 
   if (commandName === "start") {
