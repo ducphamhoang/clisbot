@@ -191,7 +191,7 @@ async function applyBootstrapStateToConfig(params: {
 }
 ```
 
-**Apply to `setup-channels.ts`:** Call `applyBootstrapBotsToConfig(config, collectedBots, { firstRun: true })` to apply collected channel tokens to config object before writing.
+**Apply to `setup-channels.ts`:** Call `applyBootstrapBotsToConfig(config, collectedBots, { firstRun: false })` to apply collected channel tokens to config object before writing. Use firstRun: false because the wizard is re-runnable — firstRun: true would destructively reset all existing bot configs first (calls resetBootstrapProvider), which is wrong for a setup command that may be run to update tokens.
 
 #### Runtime Start Pattern
 

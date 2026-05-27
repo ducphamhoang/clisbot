@@ -2,8 +2,8 @@
 phase: 6
 slug: flow-a-start-change
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-27
 ---
 
@@ -39,9 +39,9 @@ created: 2026-05-27
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 06-01-01 | 01 | 0 | CHANWIZ-01,02,03,04 | T-06-01 / — | Test stubs only (RED state) | unit | `bun test test/control/setup/setup-channels.test.ts` | ❌ W0 | ⬜ pending |
-| 06-01-02 | 01 | 0 | START-01 | — | Test stub for warn-and-continue | unit | `bun test test/control/commands/runtime-bootstrap-cli.test.ts` | ❌ W0 | ⬜ pending |
+| 06-01-02 | 01 | 0 | START-01 | — | Test stub for warn-and-continue | unit | `bun test test/startup-bootstrap.test.ts` | ❌ W0 | ⬜ pending |
 | 06-02-01 | 02 | 1 | FOUND-03 | T-06-01 | promptMasked shows asterisks not plaintext | unit | `bun test test/control/setup/setup-wizard-utils.test.ts -t "promptMasked"` | ❌ W0 | ⬜ pending |
-| 06-02-02 | 02 | 1 | START-01 | — | warn-and-continue, not exit | unit | `bun test test/control/commands/runtime-bootstrap-cli.test.ts -t "START-01"` | ❌ W0 | ⬜ pending |
+| 06-02-02 | 02 | 1 | START-01 | — | warn-and-continue, not exit | unit | `bun test test/startup-bootstrap.test.ts -t "START-01"` | ❌ W0 | ⬜ pending |
 | 06-03-01 | 03 | 2 | CHANWIZ-01 | — | Env var pre-filled, prompt skipped | unit | `bun test test/control/setup/setup-channels.test.ts -t "env var detection"` | ❌ W0 | ⬜ pending |
 | 06-03-02 | 03 | 2 | CHANWIZ-02 | — | Per-channel confirm + skip works | unit | `bun test test/control/setup/setup-channels.test.ts -t "skip channels"` | ❌ W0 | ⬜ pending |
 | 06-03-03 | 03 | 2 | CHANWIZ-03 | — | DM policy always writes `pairing` | unit | `bun test test/control/setup/setup-channels.test.ts -t "dm policy"` | ❌ W0 | ⬜ pending |
@@ -54,8 +54,8 @@ created: 2026-05-27
 
 ## Wave 0 Requirements
 
-- [ ] `test/control/setup/setup-channels.test.ts` — stubs for CHANWIZ-01 through CHANWIZ-05, FOUND-01, FOUND-02
-- [ ] `test/control/commands/runtime-bootstrap-cli.test.ts` — add START-01 test stubs (warn-and-continue logic)
+- [x] `test/control/setup/setup-channels.test.ts` — stubs for CHANWIZ-01 through CHANWIZ-05, FOUND-01, FOUND-02 — Plan 06-01
+- [x] `test/startup-bootstrap.test.ts` — add START-01 test stubs (warn-and-continue logic) — Plan 06-02
 
 *Existing Phase 5 infrastructure in `test/control/setup/setup-wizard-utils.test.ts` covers FOUND-03 through FOUND-06 — no new stubs needed there.*
 
@@ -75,11 +75,11 @@ created: 2026-05-27
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
