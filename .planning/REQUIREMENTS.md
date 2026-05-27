@@ -74,12 +74,12 @@
 | FOUND-04 | Phase 5 (Wizard Foundation) | Complete |
 | FOUND-05 | Phase 5 (Wizard Foundation) | Complete |
 | FOUND-06 | Phase 5 (Wizard Foundation) | Complete |
-| CHANWIZ-01 | Phase 6 (Flow A + start() Change) | Pending |
-| CHANWIZ-02 | Phase 6 (Flow A + start() Change) | Pending |
-| CHANWIZ-03 | Phase 6 (Flow A + start() Change) | Pending |
-| CHANWIZ-04 | Phase 6 (Flow A + start() Change) | Pending |
-| CHANWIZ-05 | Phase 6 (Flow A + start() Change) | Pending |
-| START-01 | Phase 6 (Flow A + start() Change) | Pending |
+| CHANWIZ-01 | Phase 6 (Flow A + start() Change) | Complete |
+| CHANWIZ-02 | Phase 6 (Flow A + start() Change) | Complete |
+| CHANWIZ-03 | Phase 6 (Flow A + start() Change) | Complete |
+| CHANWIZ-04 | Phase 6 (Flow A + start() Change) | Complete |
+| CHANWIZ-05 | Phase 6 (Flow A + start() Change) | Complete |
+| START-01 | Phase 6 (Flow A + start() Change) | Complete |
 | AGTWIZ-01 | Phase 7 (Flow B) | Pending |
 | AGTWIZ-02 | Phase 7 (Flow B) | Pending |
 | AGTWIZ-03 | Phase 7 (Flow B) | Pending |
