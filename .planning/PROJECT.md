@@ -71,11 +71,16 @@ See `REQUIREMENTS.md`
 
 ## Current State
 
-**Milestone v0.2.0 complete.** All 4 phases shipped:
+**Milestone v0.2.0 complete. Milestone v0.3.0 in progress (Phase 5 complete).**
+
+v0.2.0 phases shipped:
 - Phase 1: `newSessionCommand` field added to `AgentToolTemplate` schema
 - Phase 2: Pi runner template registered — explicit session mode, startup ready detection, active-timer pattern, `inferAgentCliToolId`, schema defaults
 - Phase 3: Startup blockers for missing models / tmux extended-keys, pi chrome filtering in transcript normalization
 - Phase 4: Pi production-safety fixes — `/new` routing, crash recovery, prompt echo stripping, chrome leakage, false-positive detection, template resume args
+
+v0.3.0 phases in progress:
+- Phase 5 complete (2026-05-27): `src/control/setup/setup-wizard-utils.ts` — shared wizard safety layer with `ensureTTY`, `ensureDaemonNotRunning`, `writeEditableConfigAtomic`, `withWizardCleanup`; 9/9 tests pass
 
 Supported CLIs: codex, claude, gemini, **pi**
 
@@ -103,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 — Milestone v0.3.0 started (Interactive Setup Wizard)*
+*Last updated: 2026-05-27 — Phase 5 complete (Wizard Foundation); Phase 6 next*
