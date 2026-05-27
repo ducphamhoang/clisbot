@@ -5,7 +5,17 @@
 **Current Version:** 0.1.53  
 **Repository:** ducph fork of longbkit/clisbot
 
-## Current Milestone: v0.2.0 — Pi CLI Integration
+## Current Milestone: v0.3.0 — Interactive Setup Wizard
+
+**Goal:** Replace the hard-stop first-run error flow with two independent interactive readline wizards that guide operators through channel and agent setup separately.
+
+**Target features:**
+- `clisbot setup channels` (Flow A) — readline wizard to collect and validate channel tokens (Telegram, Slack, Zalo), detect existing env vars, write config, and start runtime in unrouted mode without requiring an agent
+- `clisbot setup agent` (Flow B) — readline wizard to choose AI CLI, check binary, pick bot type, seed workspace, and link agent to configured channels
+- `clisbot setup` router — auto-detects what is missing and routes to Flow A or B without requiring a menu in the 90% case
+- `clisbot start` behavior change — channels configured but no agent becomes warning + continue instead of hard fail
+
+## Previous Milestone: v0.2.0 — Pi CLI Integration
 
 **Goal:** Add pi (pi.dev by Earendil Works) as a supported AI coding CLI runner alongside codex, claude, and gemini using the existing tmux runner infrastructure.
 
@@ -93,4 +103,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — Milestone v0.2.0 complete (Phase 3: Hardening)*
+*Last updated: 2026-05-27 — Milestone v0.3.0 started (Interactive Setup Wizard)*
