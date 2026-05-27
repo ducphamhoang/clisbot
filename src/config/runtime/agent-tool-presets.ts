@@ -158,7 +158,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
   },
   pi: {
     command: "pi",
-    startupOptions: ["--dangerously-skip-permissions"],
+    startupOptions: [],
     trustWorkspace: true,
     startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
     startupRetryCount: 2,
@@ -168,7 +168,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
       {
         pattern: "Warning: No models available",
         message:
-          "Pi has no models configured. Configure a provider via `/login` or set DEEPSEEK_API_KEY / GITHUB_TOKEN before routing through clisbot.",
+          "Pi has no models configured. Configure a provider via `/login` or set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY) before routing through clisbot.",
       },
       {
         pattern: "tmux extended-keys is off",
@@ -192,7 +192,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
       },
       resume: {
         mode: "command",
-        args: ["--resume", "{sessionId}", "--dangerously-skip-permissions"],
+        args: ["--session", "{sessionId}"],
       },
     },
   },

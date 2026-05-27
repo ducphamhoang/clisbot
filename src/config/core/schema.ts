@@ -489,7 +489,7 @@ const agentsDefaultsSchema = z.object({
     }),
     pi: runnerFamilySchema.default({
       command: "pi",
-      args: ["--dangerously-skip-permissions"],
+      args: [],
       startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
       startupRetryCount: 2,
       startupRetryDelayMs: 1000,
@@ -498,7 +498,7 @@ const agentsDefaultsSchema = z.object({
         {
           pattern: "Warning: No models available",
           message:
-            "Pi has no models configured. Configure a provider via `/login` or set DEEPSEEK_API_KEY / GITHUB_TOKEN before routing through clisbot.",
+            "Pi has no models configured. Configure a provider via `/login` or set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY) before routing through clisbot.",
         },
         {
           pattern: "tmux extended-keys is off",
@@ -522,7 +522,7 @@ const agentsDefaultsSchema = z.object({
         },
         resume: {
           mode: "command",
-          args: ["--resume", "{sessionId}", "--dangerously-skip-permissions"],
+          args: ["--session", "{sessionId}"],
         },
       },
     }),
