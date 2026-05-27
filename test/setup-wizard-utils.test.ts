@@ -7,6 +7,7 @@ import {
   ensureDaemonNotRunning,
   writeEditableConfigAtomic,
   withWizardCleanup,
+  promptMasked,
 } from '../src/control/setup/setup-wizard-utils.ts'
 
 // ---------------------------------------------------------------------------
@@ -160,5 +161,102 @@ describe('withWizardCleanup', () => {
     await withWizardCleanup(async () => {})
     const after = process.listenerCount('SIGINT')
     expect(after).toBe(before)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// promptMasked (FOUND-03)
+// ---------------------------------------------------------------------------
+
+describe('promptMasked', () => {
+  function makeRl(answer: string): {
+    rl: Parameters<typeof promptMasked>[0]
+    calls: string[]
+  } {
+    const calls: string[] = []
+
+    const rl = {
+      question(_q: string): Promise<string> {
+        return Promise.resolve(answer)
+      },
+      _writeToOutput(str: string) {
+        calls.push(str)
+      },
+    } as unknown as Parameters<typeof promptMasked>[0]
+
+    return { rl, calls }
+  }
+
+  test('returns the real answer value from rl.question', async () => {
+    const { rl } = makeRl('my-secret-token')
+    const result = await promptMasked(rl, 'Token: ')
+    expect(result).toBe('my-secret-token')
+  })
+
+  test('replaces non-newline output with a single asterisk per call', async () => {
+    const calls: string[] = []
+    const rl = {
+      question(_q: string): Promise<string> {
+        // Simulate readline echoing one character per keystroke
+        ;(rl as unknown as { _writeToOutput(s: string): void })._writeToOutput('a')
+        ;(rl as unknown as { _writeToOutput(s: string): void })._writeToOutput('b')
+        return Promise.resolve('ab')
+      },
+      _writeToOutput(str: string) {
+        calls.push(str)
+      },
+    } as unknown as Parameters<typeof promptMasked>[0]
+
+    await promptMasked(rl, 'Token: ')
+
+    // Both echoed characters must have been replaced with asterisks
+    expect(calls).toEqual(['*', '*'])
+  })
+
+  test('passes newlines through to the original _writeToOutput', async () => {
+    const calls: string[] = []
+    const rl = {
+      question(_q: string): Promise<string> {
+        ;(rl as unknown as { _writeToOutput(s: string): void })._writeToOutput('\n')
+        ;(rl as unknown as { _writeToOutput(s: string): void })._writeToOutput('\r\n')
+        return Promise.resolve('')
+      },
+      _writeToOutput(str: string) {
+        calls.push(str)
+      },
+    } as unknown as Parameters<typeof promptMasked>[0]
+
+    await promptMasked(rl, 'Token: ')
+
+    expect(calls).toEqual(['\n', '\r\n'])
+  })
+
+  test('restores original _writeToOutput after successful call', async () => {
+    const { rl } = makeRl('token')
+    const original = (rl as unknown as { _writeToOutput(s: string): void })._writeToOutput
+
+    await promptMasked(rl, 'Token: ')
+
+    const restored = (rl as unknown as { _writeToOutput(s: string): void })._writeToOutput
+    expect(restored).toBe(original)
+  })
+
+  test('restores original _writeToOutput even when rl.question throws', async () => {
+    const calls: string[] = []
+    const rl = {
+      question(_q: string): Promise<string> {
+        return Promise.reject(new Error('readline error'))
+      },
+      _writeToOutput(str: string) {
+        calls.push(str)
+      },
+    } as unknown as Parameters<typeof promptMasked>[0]
+
+    const original = (rl as unknown as { _writeToOutput(s: string): void })._writeToOutput
+
+    await expect(promptMasked(rl, 'Token: ')).rejects.toThrow('readline error')
+
+    const restored = (rl as unknown as { _writeToOutput(s: string): void })._writeToOutput
+    expect(restored).toBe(original)
   })
 })
