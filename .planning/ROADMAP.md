@@ -1,23 +1,14 @@
-# Roadmap: Clisbot v0.2.0 — Pi CLI Integration
+# Roadmap: Clisbot
 
-## Overview
+## Milestones
 
-Three phases deliver pi as a fully supported AI coding CLI runner. Phase 1 unblocks everything by adding the `newSessionCommand` schema field — without it, pi would receive `/new` as a literal prompt. Phase 2 wires up the complete runner and session config so operators can route conversations to pi. Phase 3 hardens the integration with startup blockers and clean transcript output. Phase 4 fixes critical correctness and security findings from the post-milestone adversarial review.
+- ✅ **v0.2.0 Pi CLI Integration** - Phases 1-4 (shipped 2026-05-26)
+- 🚧 **v0.3.0 Interactive Setup Wizard** - Phases 5-8 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Schema Precondition** - Add `newSessionCommand` to `AgentToolTemplate` so CLIs can declare their own session-rotation command (completed 2026-05-26)
-- [x] **Phase 2: Runner & Session Config** - Wire pi into the tmux runner with correct startup flags, ready pattern, active timer, and session identity model (completed 2026-05-26)
-- [x] **Phase 3: Hardening** - Add startup blockers for missing models and tmux extended-keys, filter pi chrome from transcript output (completed 2026-05-26)
-- [x] **Phase 4: Pi Review Fixes** - Fix critical/high/medium findings from adversarial milestone review: broken /new rotation, silent session-continuity loss, missing prompt-echo stripping, chrome leakage, false-positive snapshot detection, template resume-args override (completed 2026-05-26)
-
-## Phase Details
+<details>
+<summary>✅ v0.2.0 Pi CLI Integration (Phases 1-4) - SHIPPED 2026-05-26</summary>
 
 ### Phase 1: Schema Precondition
 **Goal**: `AgentToolTemplate` supports a `newSessionCommand` field so pi (and future CLIs) never receive a hardcoded `/new` as a literal prompt
@@ -84,14 +75,83 @@ Plans:
 - [x] 04-04-PLAN.md — Fix buildRunnerFromToolTemplate non-codex resume.args to preserve template via applyTemplate; test (Fix 8)
 - [x] 04-05-PLAN.md — Add triggerNewSession pi guard; widen retryFreshStartAfterStoredResumeFailure gate; tests (Fix 1, Fix 2)
 
+</details>
+
+### 🚧 v0.3.0 Interactive Setup Wizard (In Progress)
+
+**Milestone Goal:** Replace the hard-stop first-run error flow with two independent readline-based wizard commands (`clisbot setup channels`, `clisbot setup agent`) and a smart router (`clisbot setup`) that auto-detects what is missing.
+
+#### Phase 5: Wizard Foundation
+**Goal**: Shared wizard utilities exist that all flow files can import — TTY guard, daemon check, masked input, and atomic config write are all in place before any UI is built
+**Depends on**: Phase 4
+**Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05, FOUND-06
+**Success Criteria** (what must be TRUE):
+  1. Running any setup wizard in a non-TTY environment (CI, piped shell) prints a clear error naming the flag-based alternative and exits without hanging
+  2. Running any setup wizard while the clisbot daemon is active prints an actionable stop message and exits before opening any readline interface
+  3. Token prompts in the wizard do not echo characters to the terminal as the operator types
+  4. A wizard killed mid-write leaves no partial or corrupted config file on disk — the previous valid config is intact
+  5. Pressing Ctrl+C at any wizard prompt exits cleanly with no partial config written and no dangling process
+**Plans**: TBD
+
+Plans:
+- TBD
+
+#### Phase 6: Flow A + start() Change
+**Goal**: Operators can run `clisbot setup channels` to configure channel tokens interactively and then start the runtime in unrouted mode; `clisbot start` no longer hard-fails when channels are present but no agent is linked
+**Depends on**: Phase 5
+**Requirements**: CHANWIZ-01, CHANWIZ-02, CHANWIZ-03, CHANWIZ-04, CHANWIZ-05, START-01
+**Success Criteria** (what must be TRUE):
+  1. Operator sees pre-filled defaults for any channel tokens already present in env vars and is not re-prompted for values already in config
+  2. Operator can skip channels they do not have tokens for yet without being forced past a required field
+  3. Operator sees a review screen showing all collected settings before any config file is written
+  4. After wizard completion, the runtime starts in unrouted mode and the operator sees a success screen naming `clisbot setup agent` as the exact next command
+  5. Running `clisbot start` with channels configured but no agent linked prints a warning and continues rather than exiting with an error
+**Plans**: TBD
+
+Plans:
+- TBD
+**UI hint**: yes
+
+#### Phase 7: Flow B
+**Goal**: Operators can run `clisbot setup agent` to select an AI CLI, verify the binary, choose bot type, and link the agent to configured channels — fully independent of Flow A's command path
+**Depends on**: Phase 6
+**Requirements**: AGTWIZ-01, AGTWIZ-02, AGTWIZ-03, AGTWIZ-04, AGTWIZ-05
+**Success Criteria** (what must be TRUE):
+  1. Operator sees a summary of already-configured channels before making agent choices
+  2. Selecting a CLI tool triggers a binary existence check; if the binary is missing, the operator receives install instructions before the wizard can proceed
+  3. Operator chooses bot type (personal / team) with a plain-English description displayed for each option
+  4. After agent config is written, the running runtime reloads (or restarts if stopped) and the operator sees the full routing chain and a verification hint
+**Plans**: TBD
+
+Plans:
+- TBD
+**UI hint**: yes
+
+#### Phase 8: Router + CLI Registration
+**Goal**: `clisbot setup` with no subcommand detects what is missing and routes the operator to the right wizard without presenting a menu in the common case; the `setup` subcommand is registered in the CLI entry point
+**Depends on**: Phase 7
+**Requirements**: ROUTER-01, ROUTER-02, ROUTER-03
+**Success Criteria** (what must be TRUE):
+  1. Running `clisbot setup` with no existing config drops the operator directly into the channel wizard with no intermediate menu
+  2. Running `clisbot setup` with channels configured but no agent drops the operator directly into the agent wizard with a brief preamble
+  3. Running `clisbot setup` with both channels and agent configured shows a status summary and offers both flows as named options
+**Plans**: TBD
+
+Plans:
+- TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 5 → 6 → 7 → 8
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Schema Precondition | 1/1 | Complete    | 2026-05-26 |
-| 2. Runner & Session Config | 2/2 | Complete    | 2026-05-26 |
-| 3. Hardening | 2/2 | Complete    | 2026-05-26 |
-| 4. Pi Review Fixes | 5/5 | Complete    | 2026-05-26 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Schema Precondition | v0.2.0 | 1/1 | Complete | 2026-05-26 |
+| 2. Runner & Session Config | v0.2.0 | 2/2 | Complete | 2026-05-26 |
+| 3. Hardening | v0.2.0 | 2/2 | Complete | 2026-05-26 |
+| 4. Pi Review Fixes | v0.2.0 | 5/5 | Complete | 2026-05-26 |
+| 5. Wizard Foundation | v0.3.0 | 0/? | Not started | - |
+| 6. Flow A + start() Change | v0.3.0 | 0/? | Not started | - |
+| 7. Flow B | v0.3.0 | 0/? | Not started | - |
+| 8. Router + CLI Registration | v0.3.0 | 0/? | Not started | - |

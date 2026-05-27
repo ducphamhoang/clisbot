@@ -66,10 +66,25 @@
 
 ## Traceability
 
-| Requirement | Phase |
-|---|---|
-| FOUND-01 – FOUND-06 | Phase 5 (foundation) |
-| CHANWIZ-01 – CHANWIZ-05 | Phase 6 (Flow A) |
-| START-01 | Phase 6 (Flow A, same batch) |
-| AGTWIZ-01 – AGTWIZ-05 | Phase 7 (Flow B) |
-| ROUTER-01 – ROUTER-03 | Phase 8 (router + CLI registration) |
+| Requirement | Phase | Status |
+|---|---|---|
+| FOUND-01 | Phase 5 (Wizard Foundation) | Pending |
+| FOUND-02 | Phase 5 (Wizard Foundation) | Pending |
+| FOUND-03 | Phase 5 (Wizard Foundation) | Pending |
+| FOUND-04 | Phase 5 (Wizard Foundation) | Pending |
+| FOUND-05 | Phase 5 (Wizard Foundation) | Pending |
+| FOUND-06 | Phase 5 (Wizard Foundation) | Pending |
+| CHANWIZ-01 | Phase 6 (Flow A + start() Change) | Pending |
+| CHANWIZ-02 | Phase 6 (Flow A + start() Change) | Pending |
+| CHANWIZ-03 | Phase 6 (Flow A + start() Change) | Pending |
+| CHANWIZ-04 | Phase 6 (Flow A + start() Change) | Pending |
+| CHANWIZ-05 | Phase 6 (Flow A + start() Change) | Pending |
+| START-01 | Phase 6 (Flow A + start() Change) | Pending |
+| AGTWIZ-01 | Phase 7 (Flow B) | Pending |
+| AGTWIZ-02 | Phase 7 (Flow B) | Pending |
+| AGTWIZ-03 | Phase 7 (Flow B) | Pending |
+| AGTWIZ-04 | Phase 7 (Flow B) | Pending |
+| AGTWIZ-05 | Phase 7 (Flow B) | Pending |
+| ROUTER-01 | Phase 8 (Router + CLI Registration) | Pending |
+| ROUTER-02 | Phase 8 (Router + CLI Registration) | Pending |
+| ROUTER-03 | Phase 8 (Router + CLI Registration) | Pending |
