@@ -91,10 +91,12 @@ Plans:
   3. Token prompts in the wizard do not echo characters to the terminal as the operator types
   4. A wizard killed mid-write leaves no partial or corrupted config file on disk — the previous valid config is intact
   5. Pressing Ctrl+C at any wizard prompt exits cleanly with no partial config written and no dangling process
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- TBD
+- [ ] 05-01-PLAN.md — Write failing test scaffold for all four wizard utilities (RED state)
+- [ ] 05-02-PLAN.md — Implement setup-wizard-utils.ts with ensureTTY, ensureDaemonNotRunning, writeEditableConfigAtomic, withWizardCleanup
+- [ ] 05-03-PLAN.md — Verification gate: FOUND-06 no-new-deps check and full bun run check
 
 #### Phase 6: Flow A + start() Change
 **Goal**: Operators can run `clisbot setup channels` to configure channel tokens interactively and then start the runtime in unrouted mode; `clisbot start` no longer hard-fails when channels are present but no agent is linked
