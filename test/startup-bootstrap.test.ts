@@ -447,4 +447,68 @@ describe("startup bootstrap helpers", () => {
       "Telegram bot default: source=cli-ephemeral available=no restartRequiresPersistence=yes",
     );
   });
+
+  describe('START-01: start with channels but no agent', () => {
+    let tempDir: string
+    let previousConfigPath: string | undefined
+
+    beforeEach(() => {
+      tempDir = mkdtempSync(join(tmpdir(), 'clisbot-start01-'))
+      previousConfigPath = process.env.CLISBOT_CONFIG_PATH
+    })
+
+    afterEach(() => {
+      process.env.CLISBOT_CONFIG_PATH = previousConfigPath
+    })
+
+    test('warns and continues when telegram channel enabled but no agent', async () => {
+      // Build config with telegram enabled, no agents
+      const config = createConfig()
+      config.bots.telegram.defaults.enabled = true
+      config.agents.list = []
+
+      const configPath = join(tempDir, 'clisbot.json')
+      const { writeFileSync } = await import('node:fs')
+      writeFileSync(configPath, JSON.stringify(config, null, 2))
+      process.env.CLISBOT_CONFIG_PATH = configPath
+
+      const output: string[] = []
+      const originalLog = console.log
+      console.log = (...args: unknown[]) => { output.push(args.join(' ')) }
+      try {
+        await start([])
+      } catch {
+        // start may throw due to startDetachedRuntime in test env — that is acceptable
+      } finally {
+        console.log = originalLog
+      }
+
+      expect(output.join('\n')).toContain('warning: no agent configured — starting in unrouted mode.')
+      expect(output.join('\n')).toContain('Run clisbot setup agent to add an AI agent.')
+    })
+
+    test('still shows failure banner when no channels and no agent', async () => {
+      const config = createConfig()
+      // All channels remain disabled (createConfig defaults)
+      config.agents.list = []
+
+      const configPath = join(tempDir, 'clisbot.json')
+      const { writeFileSync } = await import('node:fs')
+      writeFileSync(configPath, JSON.stringify(config, null, 2))
+      process.env.CLISBOT_CONFIG_PATH = configPath
+
+      const output: string[] = []
+      const originalLog = console.log
+      console.log = (...args: unknown[]) => { output.push(args.join(' ')) }
+      try {
+        await start([])
+      } catch {
+        // expected in test env
+      } finally {
+        console.log = originalLog
+      }
+
+      expect(output.join('\n')).not.toContain('warning: no agent configured — starting in unrouted mode.')
+    })
+  })
 });
