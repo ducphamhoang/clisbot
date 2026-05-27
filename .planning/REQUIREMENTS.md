@@ -1,70 +1,75 @@
-# Requirements — v0.2.0 Pi CLI Integration
+# Requirements — v0.3.0 Interactive Setup Wizard
 
-## Runner Config
+**Milestone:** v0.3.0
+**Updated:** 2026-05-27
 
-- [ ] **RUNNER-01:** Operator can set `cli: "pi"` in agent config and have pi spawned via the tmux runner
-- [ ] **RUNNER-02:** Pi runner uses `--session {uuid}` at startup so clisbot owns session identity from launch
-- [ ] **RUNNER-03:** Pi runner recognizes `Working...` as an active timer pattern so run-monitor does not fire completion while pi is mid-task
-- [ ] **RUNNER-04:** Pi startup is detected as ready via the `escape interrupt` help bar pattern
-- [ ] **RUNNER-05:** `inferAgentCliToolId` recognizes `"pi"` as a valid CLI tool ID
+---
 
-## Session Management
+## Active Requirements
 
-- [ ] **SESSION-01:** Pi sessions use `create.mode: "explicit"` — clisbot generates UUID before launch, passes as `--session {uuid}`
-- [ ] **SESSION-02:** Pi sessions use `capture.mode: "off"` — no `/status` command scraping needed
-- [ ] **SESSION-03:** Pi session resume passes `--resume {uuid}` plus startup flags
+### WIZARD FOUNDATION — shared utilities, guards, safety
 
-## Schema & Config
+- [ ] **FOUND-01:** Operator can run wizard only in an interactive terminal (`process.stdin.isTTY`); CI/non-TTY environments receive a clear error message naming the flag-based alternative command
+- [ ] **FOUND-02:** Operator is blocked from running setup wizard while the clisbot daemon is already running, with an actionable stop message
+- [ ] **FOUND-03:** Operator's channel tokens are masked (not echoed to terminal) when pasted into the wizard
+- [ ] **FOUND-04:** Config file is written atomically (temp file + rename); a partial write never leaves the runtime unbootable
+- [ ] **FOUND-05:** Operator can cancel any wizard prompt with Ctrl+C and the system is left in its previous valid state (no partial config on disk)
+- [ ] **FOUND-06:** Wizard implementation uses only Node/Bun stdlib (`node:readline/promises`); no new npm dependencies are introduced
 
-- [ ] **SCHEMA-01:** `AgentToolTemplate` has a `newSessionCommand` field (optional string, defaults to `"/new"`) so pi (and future CLIs) can declare their own session-rotation command rather than receiving a hardcoded `/new`
-- [ ] **SCHEMA-02:** `schema.ts` includes pi runner family defaults matching the `agent-tool-presets.ts` template
-- [ ] **SCHEMA-03:** `SUPPORTED_AGENT_CLI_TOOLS` includes `"pi"`
+### CHANNEL WIZARD (Flow A) — `clisbot setup channels`
 
-## Startup Blockers
+- [ ] **CHANWIZ-01:** Operator sees which channel tokens are already present in env vars, pre-filled with no re-entry required
+- [ ] **CHANWIZ-02:** Operator can select which channels to configure and skip channels they don't have tokens for yet
+- [ ] **CHANWIZ-03:** Operator chooses DM pairing policy (pairing / open) for each configured channel
+- [ ] **CHANWIZ-04:** Operator sees a review screen with all collected channel settings before config is written
+- [ ] **CHANWIZ-05:** After writing config, the runtime starts automatically in unrouted mode and the operator sees a success screen with pairing instructions and the exact next command (`clisbot setup agent`)
 
-- [ ] **BLOCK-01:** If pi starts with no models available (`Warning: No models available`), startup is blocked with an operator-facing message to configure a provider via `/login` or API key env var
-- [ ] **BLOCK-02:** If pi detects `tmux extended-keys is off`, startup is blocked with an operator-facing message to add `set -g extended-keys on` to `~/.tmux.conf` and restart tmux
+### START BEHAVIOR — `clisbot start` with partial setup
 
-## Output Normalization
+- [ ] **START-01:** `clisbot start` with channels configured but no agent proceeds with a warning instead of failing hard, so operators can test channel connectivity before committing to an agent CLI
 
-- [ ] **NORM-01:** Pi-specific chrome lines are filtered from transcript output (startup warnings, `fd not found` noise, separator lines, status bar lines)
+### AGENT WIZARD (Flow B) — `clisbot setup agent`
 
-## Review Fixes (Phase 4)
+- [ ] **AGTWIZ-01:** Operator sees which channels are already configured before choosing agent settings
+- [ ] **AGTWIZ-02:** Operator selects the AI CLI (codex/claude/gemini/pi); wizard verifies the binary exists before proceeding, with install instructions if missing
+- [ ] **AGTWIZ-03:** Operator chooses bot type (personal / team) with a plain-English description of each
+- [ ] **AGTWIZ-04:** Operator confirms which configured channels to link the new agent to
+- [ ] **AGTWIZ-05:** After linking, the running runtime reloads config (or restarts if not running) and the operator sees the full routing chain and a verification hint
 
-- [ ] **FIX-01:** `/new` command must not throw for pi — route explicit+off-capture runners through `restartRunnerWithFreshSessionIdForNewCommand` instead of the live status-scrape path
-- [ ] **FIX-02:** Crash recovery for pi must preserve and reuse the stored `sessionId` — widen `retryFreshStartAfterStoredResumeFailure` gate to allow `create.mode === "explicit"`
-- [ ] **FIX-03:** Pi response snapshots must have `> user message` prompt-echo lines stripped via `dropPiPromptBlocks` (using `dropPromptBlocks` helper with `/^\s*>\s/`)
-- [ ] **FIX-04:** Pi chrome filter must drop help-bar phrases used as detection markers (`Type your message`, `run /help`, related ready-bar text)
-- [ ] **FIX-05:** `shouldDropPiChromeLine` must not drop `Warning:` or `Note:` lines — remove the `/^(?:Warning|Note):\s/i` rule; startup blockers handle those at launch
-- [ ] **FIX-06:** `looksLikePiSnapshot` must not classify a snapshot as pi based on a bare `>` line alone — require co-occurrence with a pi-specific marker
-- [ ] **FIX-07:** `REQUIREMENTS.md` SESSION-03 must document `--resume {uuid}` (not `--session`) as the correct pi resume flag
-- [ ] **FIX-08:** `buildRunnerFromToolTemplate` non-codex branch must preserve the template's `resume.args` via placeholder substitution, not reconstruct them as a hardcoded `--resume` array
+### SETUP ROUTER — `clisbot setup`
+
+- [ ] **ROUTER-01:** Operator running `clisbot setup` with no config is routed directly into `clisbot setup channels` without a menu
+- [ ] **ROUTER-02:** Operator running `clisbot setup` with channels configured but no agent is routed directly into `clisbot setup agent` with a brief preamble
+- [ ] **ROUTER-03:** Operator running `clisbot setup` with both channels and agent configured sees a status summary and is offered both flows as options
+
+---
 
 ## Future Requirements (deferred)
 
-- RPC runner using pi's `--mode rpc` JSONL protocol — deferred until pi protocol stabilizes
-- Pi-specific tool approval model (`--tools` allowlist configuration per agent) — can be added via startupOptions override in config
+- Live token reachability probe (Telegram `/getMe`, Slack `auth.test`) with spinner — format validation is sufficient for MVP
+- Wizard resume state (`wizard-state.json`) — env var detection covers the re-run case; full resume state deferred post-MVP
+- `--non-interactive` flag with env var seeding for automated setups
+- Token format validation regex (Telegram `\d+:[\w-]+`, Slack `xoxb-`) — deferred; structural validation at runtime is sufficient for MVP
+
+---
 
 ## Out of Scope
 
-- **RPC runner (Option B):** Deferred. Pi's JSONL protocol is pre-1.0 and may change between releases. tmux runner degrades gracefully; RPC runner breaks hard on protocol changes. Revisit when pi reaches v1.0 or protocol is versioned.
-- **Pi OAuth flows:** `/login` interactive auth is out of scope. Operators must pre-configure credentials before routing through clisbot.
+- **TUI framework / any new npm dependency:** Explicitly excluded. `node:readline/promises` only. (`@clack/prompts` also carries a confirmed Bun EPERM regression — Bun #24615.)
+- **Multi-agent wizard setup:** Wizard creates one default agent. Additional agents use `clisbot agents add`.
+- **Group route configuration in wizard:** Operators don't have chat IDs until the bot is running. Use `clisbot routes add` after setup.
+- **Zalo Personal in Flow A:** Zalo Personal requires QR login, handled separately by `clisbot bots login zalo-personal`. Wizard notes this and points to that command.
+- **Back-navigation within wizard steps:** Re-running the wizard covers re-do scenarios.
+- **Animated spinners or progress bars:** Sequential line output only; no cursor control.
+
+---
 
 ## Traceability
 
-| REQ-ID | Phase |
-|--------|-------|
-| SCHEMA-01 | Phase 1 |
-| RUNNER-01 | Phase 2 |
-| RUNNER-02 | Phase 2 |
-| RUNNER-03 | Phase 2 |
-| RUNNER-04 | Phase 2 |
-| RUNNER-05 | Phase 2 |
-| SESSION-01 | Phase 2 |
-| SESSION-02 | Phase 2 |
-| SESSION-03 | Phase 2 |
-| SCHEMA-02 | Phase 2 |
-| SCHEMA-03 | Phase 2 |
-| BLOCK-01 | Phase 3 |
-| BLOCK-02 | Phase 3 |
-| NORM-01 | Phase 3 |
+| Requirement | Phase |
+|---|---|
+| FOUND-01 – FOUND-06 | Phase 5 (foundation) |
+| CHANWIZ-01 – CHANWIZ-05 | Phase 6 (Flow A) |
+| START-01 | Phase 6 (Flow A, same batch) |
+| AGTWIZ-01 – AGTWIZ-05 | Phase 7 (Flow B) |
+| ROUTER-01 – ROUTER-03 | Phase 8 (router + CLI registration) |
