@@ -1,5 +1,6 @@
 import { rename, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import type { Interface } from 'node:readline/promises'
 import { expandHomePath, getDefaultConfigPath, ensureDir } from '../../infra/paths.ts'
 import { writeTextFile } from '../../infra/fs.ts'
 import { getRuntimeStatus } from '../../control/runtime/runtime-process.ts'
@@ -61,4 +62,25 @@ export async function withWizardCleanup<T>(fn: () => Promise<T>, configPath?: st
   }
 
   return result as T
+}
+
+export async function promptMasked(
+  rl: Interface,
+  question: string,
+): Promise<string> {
+  const original = (rl as unknown as { _writeToOutput(str: string): void })._writeToOutput
+
+  ;(rl as unknown as { _writeToOutput(str: string): void })._writeToOutput = (str: string) => {
+    if (str === '\n' || str === '\r\n') {
+      original.call(rl, str)
+    } else if (str.length > 0) {
+      original.call(rl, '*')
+    }
+  }
+
+  try {
+    return await rl.question(question)
+  } finally {
+    ;(rl as unknown as { _writeToOutput(str: string): void })._writeToOutput = original
+  }
 }
