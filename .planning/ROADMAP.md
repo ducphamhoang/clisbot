@@ -160,5 +160,5 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 4. Pi Review Fixes | v0.2.0 | 5/5 | Complete | 2026-05-26 |
 | 5. Wizard Foundation | v0.3.0 | 4/3 | Complete    | 2026-05-27 |
 | 6. Flow A + start() Change | v0.3.0 | 6/6 | Complete    | 2026-05-27 |
-| 7. Flow B | v0.3.0 | 3/3 | Complete | 2026-05-28 |
+| 7. Flow B | v0.3.0 | 3/3 | Complete   | 2026-05-28 |
 | 8. Router + CLI Registration | v0.3.0 | 0/? | Not started | - |
