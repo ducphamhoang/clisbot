@@ -142,10 +142,12 @@ Plans:
   1. Running `clisbot setup` with no existing config drops the operator directly into the channel wizard with no intermediate menu
   2. Running `clisbot setup` with channels configured but no agent drops the operator directly into the agent wizard with a brief preamble
   3. Running `clisbot setup` with both channels and agent configured shows a status summary and offers both flows as named options
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- TBD
+- [ ] 08-01-PLAN.md — Wave 1: RED test scaffold for setup router (3 failing tests for ROUTER-01/02/03) + runSetupRouter stub
+- [ ] 08-02-PLAN.md — Wave 2: implement setup-router.ts + register setup in cli.ts + wire handler in main.ts (GREEN)
+- [ ] 08-03-PLAN.md — Wave 3: full bun run check gate + human integration checkpoint + ROADMAP update
 
 ## Progress
 
@@ -161,4 +163,4 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 5. Wizard Foundation | v0.3.0 | 4/3 | Complete    | 2026-05-27 |
 | 6. Flow A + start() Change | v0.3.0 | 6/6 | Complete    | 2026-05-27 |
 | 7. Flow B | v0.3.0 | 3/3 | Complete    | 2026-05-28 |
-| 8. Router + CLI Registration | v0.3.0 | 0/? | Not started | - |
+| 8. Router + CLI Registration | v0.3.0 | 0/3 | Not started | - |
