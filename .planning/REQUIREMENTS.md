@@ -80,11 +80,11 @@
 | CHANWIZ-04 | Phase 6 (Flow A + start() Change) | Complete |
 | CHANWIZ-05 | Phase 6 (Flow A + start() Change) | Complete |
 | START-01 | Phase 6 (Flow A + start() Change) | Complete |
-| AGTWIZ-01 | Phase 7 (Flow B) | Pending |
-| AGTWIZ-02 | Phase 7 (Flow B) | Pending |
-| AGTWIZ-03 | Phase 7 (Flow B) | Pending |
-| AGTWIZ-04 | Phase 7 (Flow B) | Pending |
-| AGTWIZ-05 | Phase 7 (Flow B) | Pending |
+| AGTWIZ-01 | Phase 7 (Flow B) | Complete |
+| AGTWIZ-02 | Phase 7 (Flow B) | Complete |
+| AGTWIZ-03 | Phase 7 (Flow B) | Complete |
+| AGTWIZ-04 | Phase 7 (Flow B) | Complete |
+| AGTWIZ-05 | Phase 7 (Flow B) | Complete |
 | ROUTER-01 | Phase 8 (Router + CLI Registration) | Pending |
 | ROUTER-02 | Phase 8 (Router + CLI Registration) | Pending |
 | ROUTER-03 | Phase 8 (Router + CLI Registration) | Pending |
