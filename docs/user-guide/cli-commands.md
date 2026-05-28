@@ -34,7 +34,9 @@ When more than one level is configured:
 
 Start from what you want to do.
 
-- Start from zero:
+- Start from zero with guided setup:
+  - `clisbot setup`
+- Start from zero with explicit flags:
   - `clisbot start ...`
 - Add one more bot identity:
   - `clisbot bots add ...`
@@ -107,6 +109,33 @@ Focused help:
 - `clisbot start --help`: first-run help for tokens, bot bootstrap, and examples
 - `clisbot init --help`: same bootstrap help without starting the runtime
 - `clisbot update --help`: install/update checklist for humans and agents
+
+## Setup Wizard
+
+Use `clisbot setup` for guided interactive configuration.
+
+Subcommands:
+
+- `clisbot setup`: auto-detects what is missing and routes to the right wizard
+- `clisbot setup channels`: interactive wizard to collect and validate channel tokens (Telegram, Slack, Zalo Bot)
+- `clisbot setup agent`: interactive wizard to choose an AI CLI, verify the binary, seed the workspace, and wire it to configured channels
+
+Behavior:
+
+- requires a TTY terminal
+- runtime must not be running when the wizard starts
+- config writes are atomic; an interrupted wizard leaves the existing config untouched
+- `clisbot setup channels` writes credential files under `~/.clisbot/credentials/` and starts the runtime in unrouted mode when no agent is configured yet
+- `clisbot setup agent` checks that the chosen CLI binary exists in `PATH` before writing config; prints the install command and exits early if the binary is missing
+- if the runtime is already stopped after the agent wizard, it starts automatically; if already running, it reloads config in-place
+
+Auto-routing rules for bare `clisbot setup`:
+
+- no channels → runs channels wizard
+- channels present, no agent → runs agent wizard directly
+- both present → shows current state and asks which wizard to run
+
+For full details see [Setup Wizard](setup-wizard.md).
 
 ## Bots
 
@@ -616,7 +645,15 @@ Timezone guidance:
 
 ## First-Run Flows
 
-### Start From Zero
+### Start From Zero (Wizard)
+
+The interactive wizard is the recommended first-run path:
+
+```bash
+clisbot setup
+```
+
+### Start From Zero (Explicit Flags)
 
 Telegram personal bot:
 

@@ -20,9 +20,11 @@ Related pages:
 - [Surface Access Model](surface-access-model.md)
 - [Bots And Credentials](bots-and-credentials.md)
 - [Release Notes](../releases/README.md)
+- [Setup Wizard](setup-wizard.md)
 - [Codex CLI Guide](codex-cli.md)
 - [Claude CLI Guide](claude-cli.md)
 - [Gemini CLI Guide](gemini-cli.md)
+- [Pi CLI Guide](pi-cli.md)
 - [Telegram Bot Setup](telegram-setup.md)
 - [Zalo Bot Setup](zalo-bot-setup.md)
 - [Zalo Personal](zalo-personal.md)
@@ -44,6 +46,7 @@ If you are choosing a default coding CLI or debugging routed behavior, start her
 - [Codex CLI Guide](codex-cli.md)
 - [Claude CLI Guide](claude-cli.md)
 - [Gemini CLI Guide](gemini-cli.md)
+- [Pi CLI Guide](pi-cli.md)
 
 ## Platform Support
 
@@ -63,11 +66,19 @@ Bootstrap the default config once:
 bun run init
 ```
 
-Fastest path:
+Fastest path (interactive wizard):
+
+```bash
+clisbot setup
+```
+
+Or one-liner with explicit flags:
 
 ```bash
 bun run start --cli codex --bot-type personal --telegram-bot-token <your-telegram-bot-token>
 ```
+
+For step-by-step guided setup, see [Setup Wizard](setup-wizard.md).
 
 Focused help exists for first-run bootstrap too:
 
