@@ -27,21 +27,20 @@ function mockReadline(responses: string[]): void {
 }
 
 // ---------------------------------------------------------------------------
-// execSync mock for binary checking
+// execFileSync mock for binary checking
 // Controls binary existence without PATH manipulation.
 // ---------------------------------------------------------------------------
 
 function mockBinaryExists(binaryName: string, exists: boolean): void {
   mock.module('node:child_process', () => ({
-    execSync: mock((cmd: string) => {
-      if (cmd.includes(`which ${binaryName}`)) {
+    execFileSync: mock((cmd: string, args: string[]) => {
+      if (cmd === 'which' && args[0] === binaryName) {
         if (!exists) {
-          const err = Object.assign(new Error('not found'), { code: 'ENOENT' })
-          throw err
+          throw new Error('not found')
         }
         return ''
       }
-      throw new Error('unexpected execSync call')
+      throw new Error('unexpected execFileSync call')
     }),
   }))
 }

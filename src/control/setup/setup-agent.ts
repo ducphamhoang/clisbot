@@ -1,5 +1,5 @@
 import { createInterface } from 'node:readline'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { withWizardCleanup } from './setup-wizard-utils.ts'
 import {
@@ -50,13 +50,10 @@ function isSupportedCliTool(tool: string): tool is AgentCliToolId {
 
 function checkBinaryExists(command: string): boolean {
   try {
-    execSync(`which ${command}`, { stdio: 'pipe' })
+    execFileSync('which', [command], { stdio: 'pipe' })
     return true
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return false
-    }
-    throw err
+  } catch {
+    return false
   }
 }
 
