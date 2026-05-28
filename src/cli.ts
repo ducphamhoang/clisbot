@@ -43,6 +43,7 @@ export type ParsedCliCommand =
   | { name: "runner"; args: string[] }
   | { name: "pairing"; args: string[] }
   | { name: "init"; args: string[] }
+  | { name: "setup"; args: string[] }
   | { name: "prompt"; args: string[] }
   | { name: "serve-foreground" }
   | { name: "serve-monitor" };
@@ -277,6 +278,18 @@ const ROOT_COMMAND_TREE: CommandTreeSpec<ParsedCliCommand> = {
       usage: ["pairing <subcommand>"],
       passthroughArgs: true,
       handler: ({ passthroughArgs }) => ({ name: "pairing", args: [...passthroughArgs] }),
+    },
+    {
+      name: "setup",
+      summary: "Configure bot tokens and AI agent interactively.",
+      usage: ["setup [channels|agent]"],
+      helpLines: [
+        "With no subcommand, auto-detects what is missing and routes to the right wizard.",
+        "Pass `channels` to skip detection and go straight to channel setup.",
+        "Pass `agent` to skip detection and go straight to agent setup.",
+      ],
+      passthroughArgs: true,
+      handler: ({ passthroughArgs }) => ({ name: "setup", args: [...passthroughArgs] }),
     },
     {
       name: "init",

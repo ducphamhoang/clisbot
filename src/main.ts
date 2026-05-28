@@ -110,6 +110,12 @@ async function runBuiltinCommand(command: ReturnType<typeof parseCliArgs>) {
     return true;
   }
 
+  if (command.name === "setup") {
+    const { runSetupRouter } = await import("./control/setup/setup-router.ts");
+    await runSetupRouter({ args: command.args });
+    return true;
+  }
+
   return false;
 }
 
