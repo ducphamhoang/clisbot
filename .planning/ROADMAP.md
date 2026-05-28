@@ -130,8 +130,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Wave 0: failing test scaffold for Flow B wizard (AGTWIZ-01 through AGTWIZ-05, RED state)
-- [ ] 07-02-PLAN.md — Wave 1: implement setup-agent.ts Flow B wizard (GREEN)
+- [x] 07-01-PLAN.md — Wave 0: failing test scaffold for Flow B wizard (AGTWIZ-01 through AGTWIZ-05, RED state)
+- [x] 07-02-PLAN.md — Wave 1: implement setup-agent.ts Flow B wizard (GREEN)
 - [ ] 07-03-PLAN.md — Wave 2: full bun run check gate + manual integration checkpoint
 
 #### Phase 8: Router + CLI Registration
@@ -160,5 +160,5 @@ Phases execute in numeric order: 5 → 6 → 7 → 8
 | 4. Pi Review Fixes | v0.2.0 | 5/5 | Complete | 2026-05-26 |
 | 5. Wizard Foundation | v0.3.0 | 4/3 | Complete    | 2026-05-27 |
 | 6. Flow A + start() Change | v0.3.0 | 6/6 | Complete    | 2026-05-27 |
-| 7. Flow B | v0.3.0 | 0/3 | In progress | - |
+| 7. Flow B | v0.3.0 | 2/3 | In Progress|  |
 | 8. Router + CLI Registration | v0.3.0 | 0/? | Not started | - |
