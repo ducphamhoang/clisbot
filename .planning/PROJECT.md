@@ -71,7 +71,7 @@ See `REQUIREMENTS.md`
 
 ## Current State
 
-**Milestone v0.2.0 complete. Milestone v0.3.0 in progress (Phase 6 complete).**
+**Milestone v0.2.0 complete. Milestone v0.3.0 in progress (Phase 7 complete).**
 
 v0.2.0 phases shipped:
 - Phase 1: `newSessionCommand` field added to `AgentToolTemplate` schema
@@ -82,6 +82,7 @@ v0.2.0 phases shipped:
 v0.3.0 phases in progress:
 - Phase 5 complete (2026-05-27): `src/control/setup/setup-wizard-utils.ts` — shared wizard safety layer with `ensureTTY`, `ensureDaemonNotRunning`, `writeEditableConfigAtomic`, `withWizardCleanup`; 9/9 tests pass
 - Phase 6 complete (2026-05-27): `src/control/setup/setup-channels.ts` — Flow A channels wizard (230 lines); `promptMasked` added to setup-wizard-utils; `clisbot start` warn-and-continue for channels-only config (START-01); 35/35 tests pass
+- Phase 7 complete (2026-05-28): `src/control/setup/setup-agent.ts` — Flow B agent wizard (289 lines); channel summary, binary check with install instructions (`execFileSync`), bot-type selection, runtime reload/start after config write; 5/5 tests pass; 3 live-terminal UAT items deferred
 
 Supported CLIs: codex, claude, gemini, **pi**
 
