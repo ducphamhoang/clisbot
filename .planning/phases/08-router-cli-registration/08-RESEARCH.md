@@ -490,22 +490,22 @@ No security enforcement required for this phase — router is pure dispatch logi
 | A2 | hasAgentConfigured checks config.agents.list.length | Pattern 1 | Router thinks agent is configured when it's not; easy fix once confirmed |
 | A3 | ensureDaemonNotRunning is already called by wizards, router doesn't need to call it again | Pitfall 4 | Double check output; minor cosmetic issue, not a blocker |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the ROUTER-03 menu use numbered choices or word choices?**
    - What we know: setup-agent.ts uses "1" for personal-assistant, "2" for team-assistant; Flow A doesn't have choices
    - What's unclear: Consistency — should ROUTER-03 follow the same "1/2" pattern for "channels/agent"?
-   - Recommendation: Use "1" and "2" for consistency with agent wizard; test manually to ensure readability
+   - Recommendation: Use "1" and "2" for consistency with agent wizard; test manually to ensure readability — RESOLVED: implemented as 1/2 in displayStatusAndChooseFlow
 
 2. **What status information should ROUTER-03 display?**
    - What we know: setup-agent.ts shows "Configured Channels:" with channel list; review screen shows token source
    - What's unclear: How much detail in ROUTER-03 summary? Full review screen or brief one-liner per category?
-   - Recommendation: Brief summary (3-4 lines) — matching the preamble in ROUTER-02. Full details come if operator chooses to re-run a wizard.
+   - Recommendation: Brief summary (3-4 lines) — matching the preamble in ROUTER-02. Full details come if operator chooses to re-run a wizard. — RESOLVED: displayStatusAndChooseFlow prints "Current configuration:" with channels list and agent ID (4 lines)
 
 3. **Should ROUTER-03 offer a third "skip" option?**
    - What we know: Both wizards support Ctrl+C cancellation; ROUTER-03 is presented after both are configured
    - What's unclear: Should operator be able to exit setup without making changes?
-   - Recommendation: Yes, if neither 1 nor 2 is chosen, just exit. No forced action; matches Ctrl+C behavior.
+   - Recommendation: Yes, if neither 1 nor 2 is chosen, just exit. No forced action; matches Ctrl+C behavior. — RESOLVED: implemented as silent fallthrough when choice is not "1" or "2"
 
 ## Sources
 
