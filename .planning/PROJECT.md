@@ -71,7 +71,7 @@ See `REQUIREMENTS.md`
 
 ## Current State
 
-**Milestone v0.2.0 complete. Milestone v0.3.0 in progress (Phase 7 complete).**
+**Milestone v0.2.0 complete. Milestone v0.3.0 complete (2026-05-28).**
 
 v0.2.0 phases shipped:
 - Phase 1: `newSessionCommand` field added to `AgentToolTemplate` schema
@@ -79,10 +79,11 @@ v0.2.0 phases shipped:
 - Phase 3: Startup blockers for missing models / tmux extended-keys, pi chrome filtering in transcript normalization
 - Phase 4: Pi production-safety fixes — `/new` routing, crash recovery, prompt echo stripping, chrome leakage, false-positive detection, template resume args
 
-v0.3.0 phases in progress:
+v0.3.0 phases shipped:
 - Phase 5 complete (2026-05-27): `src/control/setup/setup-wizard-utils.ts` — shared wizard safety layer with `ensureTTY`, `ensureDaemonNotRunning`, `writeEditableConfigAtomic`, `withWizardCleanup`; 9/9 tests pass
 - Phase 6 complete (2026-05-27): `src/control/setup/setup-channels.ts` — Flow A channels wizard (230 lines); `promptMasked` added to setup-wizard-utils; `clisbot start` warn-and-continue for channels-only config (START-01); 35/35 tests pass
 - Phase 7 complete (2026-05-28): `src/control/setup/setup-agent.ts` — Flow B agent wizard (289 lines); channel summary, binary check with install instructions (`execFileSync`), bot-type selection, runtime reload/start after config write; 5/5 tests pass; 3 live-terminal UAT items deferred
+- Phase 8 complete (2026-05-28): `src/control/setup/setup-router.ts` — smart setup router (ROUTER-01/02/03 auto-detect), `clisbot setup channels` / `clisbot setup agent` direct routing, CLI registration in `cli.ts` + `main.ts` via dynamic import; 3/3 tests pass; 5 live-terminal UAT items deferred; WR-01 subcommand routing fix committed post-review
 
 Supported CLIs: codex, claude, gemini, **pi**
 
@@ -110,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 — Phase 5 complete (Wizard Foundation); Phase 6 next*
+*Last updated: 2026-05-28 — v0.3.0 milestone complete (Phases 5–8 shipped)*
