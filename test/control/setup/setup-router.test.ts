@@ -47,7 +47,7 @@ describe('setup-router', () => {
     agentWizard: () => Promise<void>
     ensureTTY: () => void
     withWizardCleanup: <T>(fn: () => Promise<T>) => Promise<T>
-    ensureConfigFile: (p: string) => Promise<{ configPath: string }>
+    ensureConfigFile: (p: string) => Promise<{ configPath: string; created: boolean }>
   } {
     return {
       channelsWizard: async () => {
@@ -58,7 +58,7 @@ describe('setup-router', () => {
       },
       ensureTTY: () => undefined,
       withWizardCleanup: async <T>(fn: () => Promise<T>) => fn(),
-      ensureConfigFile: async (p: string) => ({ configPath: p }),
+      ensureConfigFile: async (p: string) => ({ configPath: p, created: false }),
     }
   }
 

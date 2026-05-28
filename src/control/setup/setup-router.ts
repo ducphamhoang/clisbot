@@ -14,7 +14,7 @@ import type { ClisbotConfig } from '../../config/core/schema.ts'
 type RLInterface = ReturnType<typeof createInterface>
 type WizardFn = (opts?: { configPath?: string }) => Promise<void>
 type WithWizardCleanupFn = <T>(fn: () => Promise<T>, configPath?: string) => Promise<T>
-type EnsureConfigFileFn = (p: string) => Promise<{ configPath: string }>
+type EnsureConfigFileFn = (p: string) => Promise<{ configPath: string; created: boolean }>
 
 function ask(rl: RLInterface, prompt: string): Promise<string> {
   return new Promise((resolve) => {
@@ -87,8 +87,14 @@ export interface SetupRouterOptions {
 }
 
 export async function runSetupRouter(options?: SetupRouterOptions): Promise<void> {
+  const args = options?.args ?? []
+  const subcommand = args[0]?.toLowerCase()
+  const isSubcommand = subcommand === 'channels' || subcommand === 'agent'
+
   const configPath = expandHomePath(
-    options?.args?.[0] ?? options?.configPath ?? process.env.CLISBOT_CONFIG_PATH ?? getDefaultConfigPath(),
+    isSubcommand
+      ? (options?.configPath ?? process.env.CLISBOT_CONFIG_PATH ?? getDefaultConfigPath())
+      : (args[0] ?? options?.configPath ?? process.env.CLISBOT_CONFIG_PATH ?? getDefaultConfigPath()),
   )
 
   // Resolve injectable dependencies — fall back to real implementations.
@@ -104,6 +110,16 @@ export async function runSetupRouter(options?: SetupRouterOptions): Promise<void
     (await import('./setup-agent.ts')).runAgentWizard
 
   ensureTTY()
+
+  // Direct subcommand routing — bypass auto-detect when user is explicit.
+  if (subcommand === 'channels') {
+    await channelsWizard({ configPath })
+    return
+  }
+  if (subcommand === 'agent') {
+    await agentWizard({ configPath })
+    return
+  }
 
   const configResult = await ensureConfigFile(configPath)
   const { config } = await readEditableConfig(configResult.configPath)
