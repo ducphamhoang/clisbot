@@ -13,7 +13,7 @@
   <a href="https://www.npmjs.com/package/clisbot"><img src="https://img.shields.io/npm/v/clisbot?label=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/clisbot"><img src="https://img.shields.io/npm/dm/clisbot?label=downloads&color=22c55e" alt="npm downloads per month" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-d4a017" alt="MIT license" /></a>
-  <img src="https://img.shields.io/badge/CLI-Codex%20%7C%20Claude%20%7C%20Gemini-111827" alt="supported cli tools" />
+  <img src="https://img.shields.io/badge/CLI-Codex%20%7C%20Claude%20%7C%20Gemini%20%7C%20Pi-111827" alt="supported cli tools" />
   <img src="https://img.shields.io/badge/Channels-Slack%20%7C%20Telegram%20%7C%20Zalo-0a66c2" alt="supported channels" />
   <img src="https://img.shields.io/badge/Runtime-tmux%20backed-16a34a" alt="tmux backed runtime" />
   <img src="https://img.shields.io/badge/Workflow-AI--native-f59e0b" alt="AI-native workflow" />
@@ -38,37 +38,45 @@ It is not just a tmux bridge with chat glued on top. `clisbot` treats chat platf
 
 `clisbot` is also meant to grow into a reusable agent runtime layer that can support many CLI tools, many channels, and many workflow shapes on top of the same durable agent session.
 
-## Why I Built This
+## About This Fork
 
-I’m Long Luong (Long), Co-founder & CTO of Vexere, Vietnam’s #1 transportation booking platform, where we also build SaaS and inventory distribution infrastructure for transportation operators. As we scale a 300-person company with a 100-member Engineering, Product, and Design team, I’ve been searching for the most practical way to roll out AI-native workflows across the organization.
+**Forked from** [Long Luong’s clisbot](https://github.com/longbkit/clisbot) — Co-founder & CTO of Vexere, Vietnam’s #1 transportation booking platform.
 
-The challenge is not whether AI is useful. It is how to make it work at enterprise scale without creating a fragmented, expensive, or ungovernable stack. In practice, that means solving several hard problems at once: cost control, workflow truthfulness, team accessibility, governance, and the ability to bring frontier AI into the real tools and communication surfaces where work already happens.
+This fork extends the original `clisbot` with additional CLI support (Pi CLI), enhanced interactive setup workflows, and improvements to the operator experience. The core philosophy remains the same: turn frontier coding CLIs into durable, chat-native agents across Slack, Telegram, and other communication surfaces where teams already work.
 
-`clisbot` is the approach I landed on. Instead of building yet another isolated AI layer, it turns the coding CLIs we already trust into durable, chat-native agents that can work across Slack, Telegram, Zalo surfaces, and real team workflows.
+The original project solves a fundamental problem at enterprise scale: how to bring cost-controlled, workflow-truthful AI into the real tools and communication surfaces where teams work—without creating fragmented, expensive, or ungovernable stacks.
 
-If `clisbot` helps your workflow, a GitHub star is a simple way to let me know
-it is useful and help more people discover it.
+This fork continues that work with expanded CLI support and improved onboarding for new users.
 
 ## Quick Start
 
-### AI-Assisted Setup
+### Interactive Setup Wizard (Recommended)
 
-If you already use Codex, Claude Code, or Gemini CLI, open this repo in that
-CLI and paste this short prompt first:
+The easiest way to get started is the interactive setup wizard. After installing, just run:
 
-```text
-Help me clarify and set up clisbot from this GitHub repo: https://github.com/longbkit/clisbot
+```bash
+npm install -g clisbot
+clisbot setup
 ```
 
-If you already know what you want, paste this more specific prompt instead and
-fill the placeholders:
+The wizard will guide you through:
+- Choosing your target channel (Slack, Telegram, Zalo Bot, or Zalo Personal)
+- Selecting your coding CLI (Codex, Claude Code, Gemini CLI, or Pi CLI)
+- Configuring credentials securely
+- Testing the connection
+
+Learn more: [Setup Wizard Guide](docs/user-guide/setup-wizard.md)
+
+### AI-Assisted Setup
+
+If you prefer to work with an AI CLI directly, open this repo in Codex, Claude Code, or Gemini CLI and paste:
 
 ```text
-Help me clarify and set up clisbot from this GitHub repo: https://github.com/longbkit/clisbot
+Help me clarify and set up clisbot from this GitHub repo: https://github.com/ducphamhoang/clisbot
 
 I want:
 - target channel: <Slack|Telegram|Zalo Bot|Zalo Personal>
-- coding CLI tool: <Codex|Claude Code|Gemini CLI>
+- coding CLI tool: <Codex|Claude Code|Gemini CLI|Pi CLI>
 - usage shape: <personal assistant|team assistant>
 ```
 
@@ -78,7 +86,7 @@ with `clisbot` with as little friction as possible.
 1. Ask only the smallest number of clarify questions needed. In particular,
    clarify:
    - target channel: Slack, Telegram, Zalo Bot, or Zalo Personal
-   - coding CLI tool: Codex, Claude Code, or Gemini CLI
+   - coding CLI tool: Codex, Claude Code, Gemini CLI, or Pi CLI
    - usage shape: personal assistant or team assistant
 2. Prefer persisting credentials by default after the first successful test, so
    later restarts can use plain `clisbot start` without retyping tokens.
@@ -100,7 +108,14 @@ Platform support:
 
 ### Manual Setup
 
-Most people should start here:
+For command-line setup, install and use the interactive wizard:
+
+```bash
+npm install -g clisbot
+clisbot setup
+```
+
+Or if you prefer direct command setup:
 
 ```bash
 npm install -g clisbot
@@ -110,6 +125,8 @@ clisbot start \
   --telegram-bot-token <your-telegram-bot-token> \
   --persist
 ```
+
+Replace `codex` with `claude`, `gemini`, or `pi` for other CLI options.
 
 If you want to try first without persisting the token yet, just remove `--persist`.
 Day-to-day rescue commands are `clisbot stop`, `clisbot restart`,
@@ -161,9 +178,10 @@ What happens next:
 
 | Need | Best first path | Why it fits | Read next |
 | --- | --- | --- | --- |
-| Personal coding assistant in chat | Telegram DM + `codex` | Lowest setup friction, strong routed coding behavior, durable workspace. | [Telegram Bot Setup](docs/user-guide/telegram-setup.md), [Codex CLI Guide](docs/user-guide/codex-cli.md) |
+| Personal coding assistant in chat | Telegram DM + `codex` or `pi` | Lowest setup friction, strong routed coding behavior, durable workspace. | [Telegram Bot Setup](docs/user-guide/telegram-setup.md), [Setup Wizard Guide](docs/user-guide/setup-wizard.md), [Codex CLI Guide](docs/user-guide/codex-cli.md), [Pi CLI Guide](docs/user-guide/pi-cli.md) |
 | Team assistant in a shared room | Slack channel or Telegram group/topic + `codex` | Explicit routes, mention defaults, and sender policy make shared use safer. | [Slack App Setup](docs/user-guide/slack-setup.md), [Routes](docs/user-guide/channels.md) |
 | Claude Code from chat | Any routed surface + `claude` | Keeps Claude-native commands and skills reachable from chat. | [Claude CLI Guide](docs/user-guide/claude-cli.md), [Native CLI Commands](docs/user-guide/native-cli-commands.md) |
+| Alternative agentic CLI | Any routed surface + `pi` | Pi CLI offers explicit session management and tmux-native integration. | [Pi CLI Guide](docs/user-guide/pi-cli.md), [Setup Wizard Guide](docs/user-guide/setup-wizard.md) |
 | OpenClaw-style assistant with local memory | Personal or team bot + bootstrapped workspace | `AGENTS.md`, `USER.md`, `MEMORY.md`, pairing, routes, and channel-native UX map well to OpenClaw habits. | [User Guide](docs/user-guide/README.md), [Authorization And Roles](docs/user-guide/auth-and-roles.md) |
 | Hermes-agent-style background workflow | Schedule review of repeated and struggled tasks to create and improve skills. | One chat surface can turn hard recurring work into reusable skills, review loops, and recurring briefs. | [Slash Commands](docs/user-guide/slash-commands.md), [Runtime Operations](docs/user-guide/runtime-operations.md) |
 | Operator rescue and inspection | `clisbot status`, `logs`, `watch`, `runner inspect` | Shows channel health, runtime pid, active runs, and live runner panes. | [Runtime Operations](docs/user-guide/runtime-operations.md), [CLI Commands](docs/user-guide/cli-commands.md) |
@@ -208,13 +226,14 @@ with the safety notes in the channel guide close at hand.
 
 | Audience | Common goal | Recommended shape | Main risk to manage |
 | --- | --- | --- | --- |
-| Solo builder | Code from phone or chat without losing a real repo workspace. | `--bot-type personal`, Telegram DM, `codex`. | Native CLI auth or missing host dependencies. |
-| Office worker | Use a frontier agent for business work, marketing, research, writing, planning, reporting, and follow-up without living in a terminal or separate AI app. | `--bot-type personal`, the channel you already use most, `codex` or your preferred CLI. | Giving the bot too broad a workspace before you have clear habits and permissions. |
+| Solo builder | Code from phone or chat without losing a real repo workspace. | `--bot-type personal`, Telegram DM, `codex` or `pi`. | Native CLI auth or missing host dependencies. |
+| Office worker | Use a frontier agent for business work, marketing, research, writing, planning, reporting, and follow-up without living in a terminal or separate AI app. | `--bot-type personal`, the channel you already use most, `codex` or your preferred CLI (`claude`, `gemini`, `pi`). | Giving the bot too broad a workspace before you have clear habits and permissions. |
 | Team member | Bring an assistant into the work channel where decisions, files, and follow-ups already happen. | `--bot-type team`, shared room route, mention required, queue/loop for follow-up. | Confusing a shared assistant with a private assistant; route and sender policy should be explicit. |
 | Business, marketing, or operations team | Turn recurring reports, campaign briefs, customer or market research, document updates, reviews, reminders, and cross-functional requests into chat-native workflows. | Slack, Telegram, Zalo Bot, or Zalo Personal depending on the team's real channel; queues and loops for repeated work. | Scheduling with the wrong timezone, sender identity, or target channel. |
 | Engineering lead | Put an assistant in a team channel without opening it to everyone. | `--bot-type team`, shared route allowlist, mention required. | Route admission and sender policy confusion. |
 | AI workflow operator | Run repeated reviews, status checks, and follow-up work. | Chat-native requests backed by `/queue`, `/loop`, `clisbot queues`, and `clisbot loops`. | Loops or queues created with the wrong sender, target, or timezone. |
 | Claude-heavy team | Keep existing Claude Code command and skill habits. | `claude` runner, native command pass-through, streaming on for long tasks. | Claude plan approval and auto-mode behavior may still appear. |
+| Pi CLI users | Leverage alternative agentic CLI with explicit session and tmux integration. | `pi` runner, any channel surface, native tmux awareness. | Managing Pi model availability and authentication. |
 | OpenClaw / Hermes Agent user | Keep channel-native assistant ergonomics, memory, background work, and skill evolution while using frontier coding CLIs. | Routed chat surfaces, memory files, workspace bootstrap, scheduled skill review loops. | Assuming every OpenClaw or Hermes behavior maps one-to-one. |
 | Platform builder | Evaluate clisbot as a local agent runtime layer. | Multiple agents, explicit routes, runtime inspection, queue/loop primitives. | Blurring channel, control, agents, and runner ownership. |
 
@@ -276,8 +295,11 @@ Choose `gemini` when Gemini is already authenticated in the runtime environment
 and you specifically want Gemini. If Gemini opens OAuth or setup screens, fix
 Gemini auth directly first.
 
+Choose `pi` when you want an alternative agentic CLI with explicit session management
+and tmux integration. Pi is fully compatible with clisbot's runtime and chat surfaces.
+
 Related pages: [Codex CLI Guide](docs/user-guide/codex-cli.md), [Claude CLI Guide](docs/user-guide/claude-cli.md),
-[Gemini CLI Guide](docs/user-guide/gemini-cli.md).
+[Gemini CLI Guide](docs/user-guide/gemini-cli.md), [Pi CLI Guide](docs/user-guide/pi-cli.md).
 
 ### Should I start with Telegram or Slack?
 
@@ -640,19 +662,21 @@ clisbot auth get-permissions --sender <principal> --agent <agentId> --json
 
 ## CLI Compatibility Snapshot
 
-`clisbot` currently works well with Codex, Claude, and Gemini.
+`clisbot` currently works well with Codex, Claude, Gemini, and Pi CLI.
 
 | CLI      | Current Stability   | Short Take                                                                                                  |
 | ----------| ---------------------| -------------------------------------------------------------------------------------------------------------|
 | `codex`  | Best today          | Strongest default for routed coding work.                                                                   |
 | `claude` | Usable with caveats | Claude can surface its own plan-approval and auto-mode behavior even when launched with bypass-permissions. |
 | `gemini` | Fully compatible   | Gemini is supported as a first-class runner for routed chat-native workflows.                               |
+| `pi`     | Fully compatible    | Pi CLI provides an alternative agentic coding surface with tmux session management.                         |
 
 CLI-specific operator notes:
 
 - [Codex CLI Guide](docs/user-guide/codex-cli.md)
 - [Claude CLI Guide](docs/user-guide/claude-cli.md)
 - [Gemini CLI Guide](docs/user-guide/gemini-cli.md)
+- [Pi CLI Guide](docs/user-guide/pi-cli.md)
 
 ## Recent Release Highlights
 
@@ -742,9 +766,10 @@ Strong vendor investment in security and safety does not make frontier agentic C
 
 Current shipped foundation:
 
-- Native CLI runners: Codex, Claude Code, and Gemini CLI.
+- Native CLI runners: Codex, Claude Code, Gemini CLI, and Pi CLI.
 - Channels: Telegram, Slack, Zalo Bot, and Zalo Personal.
 - Workflow primitives: durable queues and loops are stable enough for real chat-native operations work.
+- Interactive setup wizard for simplified onboarding and configuration.
 
 Next focus:
 
