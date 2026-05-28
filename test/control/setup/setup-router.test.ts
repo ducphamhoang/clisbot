@@ -36,18 +36,30 @@ describe('setup-router', () => {
   let logOutput: string[]
   let originalConsoleLog: typeof console.log
 
-  // mockWizards is defined inside describe so logOutput closure is captured correctly
-  function mockWizards(): void {
-    mock.module('../../../src/control/setup/setup-channels.ts', () => ({
-      runChannelsWizard: mock(async () => {
+  // Wizard and infra stubs are passed via dependency injection
+  // (options._channelsWizard / options._agentWizard / etc.) to avoid
+  // mock.module() on setup-channels.ts, setup-agent.ts, setup-wizard-utils.ts,
+  // and runtime-process.ts.  mock.module() calls leak across Bun 1.3.x workers
+  // and cannot be fully restored with mock.restore(), causing cross-file test
+  // contamination.
+  function makeStubs(): {
+    channelsWizard: () => Promise<void>
+    agentWizard: () => Promise<void>
+    ensureTTY: () => void
+    withWizardCleanup: <T>(fn: () => Promise<T>) => Promise<T>
+    ensureConfigFile: (p: string) => Promise<{ configPath: string }>
+  } {
+    return {
+      channelsWizard: async () => {
         logOutput.push('runChannelsWizard called')
-      }),
-    }))
-    mock.module('../../../src/control/setup/setup-agent.ts', () => ({
-      runAgentWizard: mock(async () => {
+      },
+      agentWizard: async () => {
         logOutput.push('runAgentWizard called')
-      }),
-    }))
+      },
+      ensureTTY: () => undefined,
+      withWizardCleanup: async <T>(fn: () => Promise<T>) => fn(),
+      ensureConfigFile: async (p: string) => ({ configPath: p }),
+    }
   }
 
   function writeConfig(
@@ -77,21 +89,6 @@ describe('setup-router', () => {
     console.log = (...args: unknown[]) => {
       logOutput.push(args.map(String).join(' '))
     }
-
-    // Mock setup-wizard-utils to avoid TTY guard and real cleanup
-    mock.module('../../../src/control/setup/setup-wizard-utils.ts', () => ({
-      ensureTTY: mock(() => undefined),
-      ensureDaemonNotRunning: mock(async () => undefined),
-      withWizardCleanup: mock(async (fn: () => Promise<unknown>) => fn()),
-      writeEditableConfigAtomic: mock(async () => undefined),
-    }))
-
-    // Mock runtime-process to avoid real process checks
-    mock.module('../../../src/control/runtime/runtime-process.ts', () => ({
-      ensureConfigFile: mock(async (p: string) => ({ configPath: p })),
-      getRuntimeStatus: mock(async () => ({ running: false })),
-      startDetachedRuntime: mock(async () => undefined),
-    }))
   })
 
   afterEach(() => {
@@ -111,11 +108,18 @@ describe('setup-router', () => {
   // -------------------------------------------------------------------------
 
   test('ROUTER-01: no config — routes directly to channels wizard', async () => {
-    mockWizards()
+    const stubs = makeStubs()
     mockReadline([])
 
     // Do NOT write a config file — router should detect missing/empty config
-    await runSetupRouter({ configPath: join(tempDir, 'clisbot.json') })
+    await runSetupRouter({
+      configPath: join(tempDir, 'clisbot.json'),
+      _channelsWizard: stubs.channelsWizard,
+      _agentWizard: stubs.agentWizard,
+      _ensureTTY: stubs.ensureTTY,
+      _withWizardCleanup: stubs.withWizardCleanup,
+      _ensureConfigFile: stubs.ensureConfigFile,
+    })
 
     const output = logOutput.join('\n')
     expect(output).toContain('runChannelsWizard called')
@@ -127,12 +131,19 @@ describe('setup-router', () => {
   // -------------------------------------------------------------------------
 
   test('ROUTER-02: channels configured, no agent — routes directly to agent wizard with preamble', async () => {
-    mockWizards()
+    const stubs = makeStubs()
     mockReadline([])
 
     writeConfig(join(tempDir, 'clisbot.json'), true, [])
 
-    await runSetupRouter({ configPath: join(tempDir, 'clisbot.json') })
+    await runSetupRouter({
+      configPath: join(tempDir, 'clisbot.json'),
+      _channelsWizard: stubs.channelsWizard,
+      _agentWizard: stubs.agentWizard,
+      _ensureTTY: stubs.ensureTTY,
+      _withWizardCleanup: stubs.withWizardCleanup,
+      _ensureConfigFile: stubs.ensureConfigFile,
+    })
 
     const output = logOutput.join('\n')
     expect(output).toContain('Channels configured')
@@ -145,12 +156,19 @@ describe('setup-router', () => {
   // -------------------------------------------------------------------------
 
   test('ROUTER-03: both channels and agent configured — shows status summary and menu', async () => {
-    mockWizards()
+    const stubs = makeStubs()
     mockReadline(['2'])
 
     writeConfig(join(tempDir, 'clisbot.json'), true, [{ id: 'default' }])
 
-    await runSetupRouter({ configPath: join(tempDir, 'clisbot.json') })
+    await runSetupRouter({
+      configPath: join(tempDir, 'clisbot.json'),
+      _channelsWizard: stubs.channelsWizard,
+      _agentWizard: stubs.agentWizard,
+      _ensureTTY: stubs.ensureTTY,
+      _withWizardCleanup: stubs.withWizardCleanup,
+      _ensureConfigFile: stubs.ensureConfigFile,
+    })
 
     const output = logOutput.join('\n')
     expect(output).toContain('Current configuration')

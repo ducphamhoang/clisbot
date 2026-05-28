@@ -1,14 +1,20 @@
 import { createInterface } from 'node:readline'
 import { readEditableConfig } from '../../config/core/config-file.ts'
-import { ensureConfigFile } from '../runtime/runtime-process.ts'
-import { withWizardCleanup, ensureTTY } from './setup-wizard-utils.ts'
-import { runChannelsWizard } from './setup-channels.ts'
-import { runAgentWizard } from './setup-agent.ts'
+import {
+  ensureConfigFile as defaultEnsureConfigFile,
+} from '../runtime/runtime-process.ts'
+import {
+  withWizardCleanup as defaultWithWizardCleanup,
+  ensureTTY as defaultEnsureTTY,
+} from './setup-wizard-utils.ts'
 import { expandHomePath, getDefaultConfigPath } from '../../infra/paths.ts'
 import { listStartupChannelDescriptors } from '../../channels/catalog/registry.ts'
 import type { ClisbotConfig } from '../../config/core/schema.ts'
 
 type RLInterface = ReturnType<typeof createInterface>
+type WizardFn = (opts?: { configPath?: string }) => Promise<void>
+type WithWizardCleanupFn = <T>(fn: () => Promise<T>, configPath?: string) => Promise<T>
+type EnsureConfigFileFn = (p: string) => Promise<{ configPath: string }>
 
 function ask(rl: RLInterface, prompt: string): Promise<string> {
   return new Promise((resolve) => {
@@ -27,6 +33,9 @@ function hasAgentConfigured(config: ClisbotConfig): boolean {
 async function displayStatusAndChooseFlow(
   config: ClisbotConfig,
   configPath: string,
+  channelsWizard: WizardFn,
+  agentWizard: WizardFn,
+  withWizardCleanup: WithWizardCleanupFn,
 ): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
 
@@ -52,9 +61,9 @@ async function displayStatusAndChooseFlow(
       const answer = await ask(rl, 'Choose [1/2]: ')
       const choice = answer.trim()
       if (choice === '1') {
-        await runChannelsWizard({ configPath })
+        await channelsWizard({ configPath })
       } else if (choice === '2') {
-        await runAgentWizard({ configPath })
+        await agentWizard({ configPath })
       }
     } finally {
       rl.close()
@@ -63,10 +72,36 @@ async function displayStatusAndChooseFlow(
   }, configPath)
 }
 
-export async function runSetupRouter(options?: { configPath?: string; args?: string[] }): Promise<void> {
+export interface SetupRouterOptions {
+  configPath?: string
+  args?: string[]
+  /**
+   * Injectable overrides for internal dependencies.
+   * Used in tests to avoid mock.module() — which leaks across Bun 1.3.x workers.
+   */
+  _channelsWizard?: WizardFn
+  _agentWizard?: WizardFn
+  _ensureTTY?: () => void
+  _withWizardCleanup?: WithWizardCleanupFn
+  _ensureConfigFile?: EnsureConfigFileFn
+}
+
+export async function runSetupRouter(options?: SetupRouterOptions): Promise<void> {
   const configPath = expandHomePath(
     options?.args?.[0] ?? options?.configPath ?? process.env.CLISBOT_CONFIG_PATH ?? getDefaultConfigPath(),
   )
+
+  // Resolve injectable dependencies — fall back to real implementations.
+  // Tests inject alternatives via options._* to avoid mock.module() leakage.
+  const ensureTTY = options?._ensureTTY ?? defaultEnsureTTY
+  const withWizardCleanup = options?._withWizardCleanup ?? defaultWithWizardCleanup
+  const ensureConfigFile = options?._ensureConfigFile ?? defaultEnsureConfigFile
+
+  // Lazy-load wizard implementations to keep startup lean.
+  const channelsWizard: WizardFn = options?._channelsWizard ??
+    (await import('./setup-channels.ts')).runChannelsWizard
+  const agentWizard: WizardFn = options?._agentWizard ??
+    (await import('./setup-agent.ts')).runAgentWizard
 
   ensureTTY()
 
@@ -75,15 +110,15 @@ export async function runSetupRouter(options?: { configPath?: string; args?: str
 
   if (!hasChannelsConfigured(config)) {
     // ROUTER-01: no channels configured — go straight to Flow A
-    await runChannelsWizard({ configPath })
+    await channelsWizard({ configPath })
   } else if (!hasAgentConfigured(config)) {
     // ROUTER-02: channels configured but no agent — brief preamble then Flow B
     console.log('')
     console.log('Channels configured. Now set up your AI agent...')
     console.log('')
-    await runAgentWizard({ configPath })
+    await agentWizard({ configPath })
   } else {
     // ROUTER-03: both configured — show status summary and offer choice
-    await displayStatusAndChooseFlow(config, configPath)
+    await displayStatusAndChooseFlow(config, configPath, channelsWizard, agentWizard, withWizardCleanup)
   }
 }
