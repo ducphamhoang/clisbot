@@ -138,15 +138,31 @@ export class RunnerService {
   ) {
     if (isRecoverableStartupSessionLoss(error)) {
       const exitRecord = await readRunnerExitRecord(this.loadedConfig.stateDir, sessionName);
+
+      // Use lastSnapshot from the bootstrap error if the caller didn't pass one.
+      if (
+        !lastSnapshot &&
+        error instanceof TmuxBootstrapSessionLostError &&
+        error.lastSnapshot
+      ) {
+        lastSnapshot = error.lastSnapshot;
+      }
+
+      const visiblePane = lastSnapshot
+        ? summarizeSnapshot(lastSnapshot).trim()
+        : undefined;
       console.error("runner session disappeared", {
         sessionName,
         action,
         exitCode: exitRecord?.exitCode,
         exitedAt: exitRecord?.exitedAt,
         runnerCommand: exitRecord?.command,
-        lastVisiblePane: lastSnapshot ? summarizeSnapshot(lastSnapshot).trim() : undefined,
+        lastVisiblePane: visiblePane,
       });
-      return new Error(`Runner session "${sessionName}" disappeared ${action}.`);
+      const snapshotSuffix = visiblePane ? `\n${visiblePane}` : "";
+      return new Error(
+        `Runner session "${sessionName}" disappeared ${action}.${snapshotSuffix}`,
+      );
     }
 
     if (isTransientTmuxTargetError(error)) {
@@ -531,10 +547,17 @@ export class RunnerService {
       });
       try {
         await clearRunnerExitRecord(this.loadedConfig.stateDir, resolved.sessionName);
-        await this.acceptStartupContinuePromptIfPresent(resolved);
+        await this.acceptVisibleStartupContinuePrompt(resolved);
         await this.syncActiveSessionMappingForResolvedTarget(resolved);
       } catch (error) {
-        throw await this.mapSessionError(error, resolved.sessionName, "during startup");
+        throw await this.mapSessionError(
+          error,
+          resolved.sessionName,
+          "during startup",
+          error instanceof TmuxBootstrapSessionLostError && error.lastSnapshot
+            ? error.lastSnapshot
+            : "",
+        );
       }
       logLatencyDebug("ensure-session-ready-complete", timingContext, {
         startupDelayMs: 0,
@@ -630,7 +653,14 @@ export class RunnerService {
       if (retried) {
         return retried;
       }
-      throw await this.mapSessionError(error, resolved.sessionName, "during startup");
+      throw await this.mapSessionError(
+        error,
+        resolved.sessionName,
+        "during startup",
+        error instanceof TmuxBootstrapSessionLostError && error.lastSnapshot
+          ? error.lastSnapshot
+          : "",
+      );
     }
 
     logLatencyDebug("ensure-session-ready-complete", timingContext, {
@@ -647,7 +677,7 @@ export class RunnerService {
       runnerCommand: string;
     },
   ) {
-    await this.acceptStartupContinuePromptIfPresent(resolved);
+    await this.acceptVisibleStartupContinuePrompt(resolved);
     await this.verifySessionReady(resolved);
 
     // Startup may already know the runner-side sessionId from one of two
@@ -710,10 +740,6 @@ export class RunnerService {
       await this.recordActiveSessionIdBestEffort(resolved, sessionId);
       return;
     }
-  }
-
-  private async acceptStartupContinuePromptIfPresent(resolved: ResolvedAgentTarget) {
-    await this.acceptVisibleStartupContinuePrompt(resolved);
   }
 
   private async acceptVisibleStartupContinuePrompt(resolved: ResolvedAgentTarget) {
@@ -851,7 +877,7 @@ export class RunnerService {
   private async triggerNewSessionInLiveRunner(resolved: ResolvedAgentTarget) {
     const oldSessionId = (await this.sessionMapping.get(resolved.sessionKey))?.sessionId;
     const command = this.resolveNewSessionCommand(resolved);
-    await this.acceptStartupContinuePromptIfPresent(resolved);
+    await this.acceptVisibleStartupContinuePrompt(resolved);
     let submitUnconfirmedError: TmuxSubmitUnconfirmedError | null = null;
     try {
       await this.submitNewSessionCommand(resolved, command);
@@ -1026,7 +1052,7 @@ export class RunnerService {
         },
       });
       try {
-        await this.tmux.sendKey(resolved.sessionName, "Escape");
+        await this.tmux.sendKey(resolved.sessionName, resolved.runner.interruptKey ?? "Escape");
       } catch {
         // Ignore interrupt failures and return the session state.
       }
@@ -1086,7 +1112,7 @@ export class RunnerService {
       throw new Error(`tmux session "${resolved.sessionName}" does not exist`);
     }
 
-    await this.acceptStartupContinuePromptIfPresent(resolved);
+    await this.acceptVisibleStartupContinuePrompt(resolved);
     await submitTmuxSessionInput({
       tmux: this.tmux,
       sessionName: resolved.sessionName,

@@ -85,6 +85,6 @@
 | AGTWIZ-03 | Phase 7 (Flow B) | Complete |
 | AGTWIZ-04 | Phase 7 (Flow B) | Complete |
 | AGTWIZ-05 | Phase 7 (Flow B) | Complete |
-| ROUTER-01 | Phase 8 (Router + CLI Registration) | Pending |
-| ROUTER-02 | Phase 8 (Router + CLI Registration) | Pending |
-| ROUTER-03 | Phase 8 (Router + CLI Registration) | Pending |
+| ROUTER-01 | Phase 8 (Router + CLI Registration) | Complete |
+| ROUTER-02 | Phase 8 (Router + CLI Registration) | Complete |
+| ROUTER-03 | Phase 8 (Router + CLI Registration) | Complete |

@@ -1,4 +1,3 @@
-import { applyTemplate } from '../../infra/paths.ts'
 
 export const SUPPORTED_AGENT_CLI_TOOLS = ["codex", "claude", "gemini", "pi"] as const;
 export type AgentCliToolId = (typeof SUPPORTED_AGENT_CLI_TOOLS)[number];
@@ -20,6 +19,7 @@ export type AgentToolTemplate = {
   }>;
   promptSubmitDelayMs: number;
   newSessionCommand?: string;
+  interruptKey?: string;
   sessionId: {
     create: {
       mode: "runner" | "explicit";
@@ -163,7 +163,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
     startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
     startupRetryCount: 2,
     startupRetryDelayMs: 1000,
-    startupReadyPattern: "(?:^|\\s)escape\\s+interrupt(?:\\s|$)",
+    startupReadyPattern: "escape\\s+interrupt[^\\n]*\\n",
     startupBlockers: [
       {
         pattern: "Warning: No models available",
@@ -178,6 +178,7 @@ export const DEFAULT_AGENT_TOOL_TEMPLATES: Record<AgentCliToolId, AgentToolTempl
     ],
     promptSubmitDelayMs: 150,
     newSessionCommand: '/new',
+    interruptKey: "C-c",
     sessionId: {
       create: {
         mode: "runner",
@@ -209,6 +210,7 @@ export type ResolvedRunnerTemplate = {
   startupBlockers?: AgentToolTemplate["startupBlockers"];
   promptSubmitDelayMs: number;
   newSessionCommand?: string;
+  interruptKey?: string;
   sessionId: AgentToolTemplate["sessionId"];
 };
 
@@ -231,6 +233,7 @@ export function buildRunnerFromToolTemplate(
       startupBlockers: template.startupBlockers?.map((entry) => ({ ...entry })),
       promptSubmitDelayMs: template.promptSubmitDelayMs,
       newSessionCommand: template.newSessionCommand,
+      interruptKey: template.interruptKey,
       sessionId: {
         ...template.sessionId,
         create: {
@@ -261,6 +264,7 @@ export function buildRunnerFromToolTemplate(
     startupBlockers: template.startupBlockers?.map((entry) => ({ ...entry })),
     promptSubmitDelayMs: template.promptSubmitDelayMs,
     newSessionCommand: template.newSessionCommand,
+    interruptKey: template.interruptKey,
     sessionId: {
       ...template.sessionId,
       create: {
@@ -272,9 +276,9 @@ export function buildRunnerFromToolTemplate(
       },
       resume: {
         ...template.sessionId.resume,
-        // Non-codex runners: preserve template's resume args and apply {sessionId} substitution only.
-        // Codex is special-cased above because it adds workspace args not declared in the template.
-        args: template.sessionId.resume.args.map((arg) => applyTemplate(arg, { sessionId: '{sessionId}' })),
+        // Non-codex runners: {sessionId} in resume.args is substituted at launch time via
+        // buildRunnerArgs, not here. Spread args as-is to preserve the template placeholder.
+        args: [...template.sessionId.resume.args],
       },
     },
   };

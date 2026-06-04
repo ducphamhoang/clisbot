@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { SessionMapping } from "../src/agents/session/session-mapping.ts";
 import { RunnerService } from "../src/agents/runtime/runner-service.ts";
 import type { TmuxClient } from "../src/runners/tmux/client.ts";
-import { TmuxSubmitUnconfirmedError } from "../src/runners/tmux/session-handshake.ts";
+import {
+  TmuxBootstrapSessionLostError,
+  TmuxSubmitUnconfirmedError,
+} from "../src/runners/tmux/session-handshake.ts";
 
 describe("RunnerService recovery classification", () => {
   test("treats lost tmux targets as recoverable mid-run faults", () => {
@@ -55,7 +58,7 @@ describe("RunnerService new session handling", () => {
         persistedSessionId = params.sessionId;
       },
     };
-    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
+    (runner as any).acceptVisibleStartupContinuePrompt = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => {
       submitCount += 1;
     };
@@ -75,6 +78,42 @@ describe("RunnerService new session handling", () => {
     expect(captureCount).toBe(3);
     expect(rotated.sessionId).toBe("22222222-2222-2222-2222-222222222222");
     expect(persistedSessionId).toBe("22222222-2222-2222-2222-222222222222");
+  });
+
+  test("includes last pane snapshot in error message when runner disappeared during startup", async () => {
+    const runner = new RunnerService(
+      {
+        stateDir: "/tmp",
+        raw: {
+          tmux: {
+            socketPath: "/tmp/clisbot.sock",
+          },
+        },
+      } as any,
+      {} as TmuxClient,
+      (() => ({})) as any,
+      {} as SessionMapping,
+    );
+
+    const sessionName = "test-session-disappeared";
+    const snapshotText = "Error: Failed to load extension";
+    const bootstrapError = new TmuxBootstrapSessionLostError(
+      sessionName,
+      "tmux session disappeared before startup finished",
+      snapshotText,
+    );
+
+    const mapped = await (runner as any).mapSessionError(
+      bootstrapError,
+      sessionName,
+      "during startup",
+      "",
+    );
+
+    expect(mapped).toBeInstanceOf(Error);
+    expect((mapped as Error).message).toBe(
+      `Runner session "${sessionName}" disappeared during startup.\nLast visible pane: ${snapshotText}`,
+    );
   });
 
   test("reports persist failure after capture succeeds", async () => {
@@ -104,7 +143,7 @@ describe("RunnerService new session handling", () => {
         throw new Error("disk full");
       },
     };
-    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
+    (runner as any).acceptVisibleStartupContinuePrompt = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => undefined;
     (runner as any).captureNewSessionIdentityAfterTrigger = async () =>
       "22222222-2222-2222-2222-222222222222";
@@ -153,7 +192,7 @@ describe("RunnerService new session handling", () => {
         persistedSessionId = params.sessionId;
       },
     };
-    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
+    (runner as any).acceptVisibleStartupContinuePrompt = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => {
       throw new TmuxSubmitUnconfirmedError();
     };
@@ -194,7 +233,7 @@ describe("RunnerService new session handling", () => {
       }),
       setActive: async () => undefined,
     };
-    (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
+    (runner as any).acceptVisibleStartupContinuePrompt = async () => undefined;
     (runner as any).submitNewSessionCommand = async () => {
       throw new TmuxSubmitUnconfirmedError();
     };
@@ -234,10 +273,10 @@ describe("RunnerService startup session identity handling", () => {
       warned = String(message ?? "");
     };
     try {
-      (runner as any).acceptStartupContinuePromptIfPresent = async () => undefined;
+      (runner as any).acceptVisibleStartupContinuePrompt = async () => undefined;
       (runner as any).verifySessionReady = async () => undefined;
-      (runner as any).persistStoredSessionId = async () => {
-        throw new Error("disk full");
+      (runner as any).sessionMapping = {
+        setActive: async () => { throw new Error("disk full") },
       };
 
       await expect(

@@ -1,0 +1,20 @@
+{
+  "runs": [
+    {
+      "date": "2026-05-26T08:12:53.657155+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 285
+    },
+    {
+      "date": "2026-05-28T04:58:33.945557+00:00",
+      "type": "incremental_update",
+      "input_tokens": 4500,
+      "output_tokens": 1200,
+      "files_changed": 729,
+      "nodes_added": 354
+    }
+  ],
+  "total_input_tokens": 4500,
+  "total_output_tokens": 1200
+}

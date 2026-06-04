@@ -36,6 +36,7 @@ export class TmuxBootstrapSessionLostError extends Error {
   constructor(
     readonly sessionName: string,
     detail: string,
+    readonly lastSnapshot?: string,
   ) {
     super(`tmux bootstrap lost session "${sessionName}": ${detail}`);
     this.name = "TmuxBootstrapSessionLostError";
@@ -379,7 +380,7 @@ export async function waitForTmuxSessionBootstrap(params: {
         continue;
       }
       if (isBootstrapSessionGoneError(error)) {
-        throw buildBootstrapSessionLostError(params.sessionName, error);
+        throw buildBootstrapSessionLostError(params.sessionName, error, lastSnapshot || undefined);
       }
       throw error;
     }
@@ -741,9 +742,9 @@ function isBootstrapSessionGoneError(error: unknown) {
   );
 }
 
-function buildBootstrapSessionLostError(sessionName: string, error: unknown) {
+function buildBootstrapSessionLostError(sessionName: string, error: unknown, lastSnapshot?: string) {
   const message = error instanceof Error ? error.message : String(error);
-  return new TmuxBootstrapSessionLostError(sessionName, message);
+  return new TmuxBootstrapSessionLostError(sessionName, message, lastSnapshot);
 }
 
 function arePaneStatesEqual(left: TmuxPaneState, right: TmuxPaneState) {
@@ -782,7 +783,12 @@ function isPromptMetadataLine(line: string) {
   return (
     /^gpt-[\w.-]+\b/i.test(line) ||
     /^model:\s*/i.test(line) ||
-    /^session:\s*/i.test(line)
+    /^session:\s*/i.test(line) ||
+    /^Press ctrl\+o to show/i.test(line) ||
+    /^Pi can explain its own/i.test(line) ||
+    /^\[Context\]$/i.test(line) ||
+    /^\[Skills\]$/i.test(line) ||
+    /^[─━]{10,}$/.test(line)
   );
 }
 

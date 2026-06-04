@@ -114,6 +114,9 @@ function resolveAgentTargetInternal(
       newSessionCommand:
         override?.runner?.newSessionCommand ??
         runnerFamily.newSessionCommand,
+      interruptKey:
+        override?.runner?.interruptKey ??
+        runnerFamily.interruptKey,
       sessionId: {
         ...runnerSessionId,
         create: {

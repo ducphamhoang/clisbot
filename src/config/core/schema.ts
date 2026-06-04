@@ -72,6 +72,7 @@ const runnerLaunchSchema = z.object({
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
   newSessionCommand: z.string().min(1).optional(),
+  interruptKey: z.string().min(1).optional(),
   sessionId: runnerSessionIdSchema.optional(),
 });
 
@@ -146,6 +147,7 @@ const runnerFamilyOverrideSchema = z.object({
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
   newSessionCommand: z.string().min(1).optional(),
+  interruptKey: z.string().min(1).optional(),
   sessionId: z.object({
     create: runnerSessionIdCreateSchema.partial().optional(),
     capture: runnerSessionIdCaptureSchema.partial().optional(),
@@ -332,6 +334,7 @@ const agentRunnerOverrideSchema = z.object({
   startupBlockers: z.array(runnerStartupBlockerSchema).optional(),
   promptSubmitDelayMs: z.number().int().min(0).optional(),
   newSessionCommand: z.string().min(1).optional(),
+  interruptKey: z.string().min(1).optional(),
   sessionId: z.object({
     create: runnerSessionIdCreateSchema.partial().optional(),
     capture: runnerSessionIdCaptureSchema.partial().optional(),
@@ -493,7 +496,7 @@ const agentsDefaultsSchema = z.object({
       startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
       startupRetryCount: 2,
       startupRetryDelayMs: 1000,
-      startupReadyPattern: "(?:^|\\s)escape\\s+interrupt(?:\\s|$)",
+      startupReadyPattern: "escape\\s+interrupt[^\\n]*\\n",
       startupBlockers: [
         {
           pattern: "Warning: No models available",
@@ -508,6 +511,7 @@ const agentsDefaultsSchema = z.object({
       ],
       promptSubmitDelayMs: 150,
       newSessionCommand: "/new",
+      interruptKey: "C-c",
       sessionId: {
         create: {
           mode: "runner",
@@ -529,6 +533,181 @@ const agentsDefaultsSchema = z.object({
   }),
   auth: agentAuthSchema.default(defaultAgentAuthConfig),
 });
+
+const AGENTS_DEFAULTS_VALUE: z.input<typeof agentsDefaultsSchema> = {
+  defaultAgentId: "default",
+  workspace: "~/.clisbot/workspaces/{agentId}",
+  cli: "codex",
+  bootstrap: {
+    botType: "personal-assistant",
+  },
+  runner: {
+    defaults: {
+      tmux: {
+        socketPath: "~/.clisbot/state/clisbot.sock",
+      },
+      trustWorkspace: true,
+      startupDelayMs: 60000,
+      startupRetryCount: 2,
+      startupRetryDelayMs: 1000,
+      promptSubmitDelayMs: 150,
+      stream: {
+        captureLines: 160,
+        updateIntervalMs: 2000,
+        idleTimeoutMs: 6000,
+        noOutputTimeoutMs: 20000,
+        maxRuntimeMin: 30,
+        maxMessageChars: 3500,
+      },
+      session: {
+        createIfMissing: true,
+        staleAfterMinutes: 60,
+        name: "{sessionKey}",
+      },
+    },
+    codex: {
+      command: "codex",
+      args: [
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--no-alt-screen",
+        "-C",
+        "{workspace}",
+      ],
+      startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+      startupReadyPattern: codexStartupReadyPattern,
+      newSessionCommand: "/new",
+      sessionId: {
+        create: {
+          mode: "runner",
+          args: [],
+        },
+        capture: {
+          mode: "status-command",
+          statusCommand: "/status",
+          pattern: defaultSessionIdPattern,
+          timeoutMs: 5000,
+          pollIntervalMs: 250,
+        },
+        resume: {
+          mode: "command",
+          args: [
+            "resume",
+            "{sessionId}",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--no-alt-screen",
+            "-C",
+            "{workspace}",
+          ],
+        },
+      },
+    },
+    claude: {
+      command: "claude",
+      args: ["--dangerously-skip-permissions"],
+      startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+      newSessionCommand: "/new",
+      sessionId: {
+        create: {
+          mode: "explicit",
+          args: ["--session-id", "{sessionId}"],
+        },
+        capture: {
+          mode: "off",
+          statusCommand: "/status",
+          pattern: defaultSessionIdPattern,
+          timeoutMs: 5000,
+          pollIntervalMs: 250,
+        },
+        resume: {
+          mode: "command",
+          args: ["--resume", "{sessionId}", "--dangerously-skip-permissions"],
+        },
+      },
+    },
+    gemini: {
+      command: "gemini",
+      args: ["--approval-mode=yolo", "--sandbox=false"],
+      startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+      startupRetryCount: 2,
+      startupRetryDelayMs: 1000,
+      startupReadyPattern: "Type your message or @path/to/file",
+      startupBlockers: [
+        {
+          pattern:
+            "Please visit the following URL to authorize the application|Enter the authorization code:",
+          message:
+            "Gemini CLI is waiting for manual OAuth authorization. Authenticate Gemini once in a direct interactive terminal, or configure headless auth such as GEMINI_API_KEY or Vertex AI before routing Gemini through clisbot.",
+        },
+        {
+          pattern:
+            "How would you like to authenticate for this project\\?|Failed to sign in\\.|Manual authorization is required but the current session is non-interactive",
+          message:
+            "Gemini CLI is blocked in its authentication setup flow or sign-in recovery. Complete Gemini authentication directly first, or switch clisbot to a headless auth path such as GEMINI_API_KEY or Vertex AI before routing prompts.",
+        },
+      ],
+      promptSubmitDelayMs: 200,
+      newSessionCommand: "/clear",
+      sessionId: {
+        create: {
+          mode: "runner",
+          args: [],
+        },
+        capture: {
+          mode: "status-command",
+          statusCommand: "/stats session",
+          pattern: defaultSessionIdPattern,
+          timeoutMs: 8000,
+          pollIntervalMs: 250,
+        },
+        resume: {
+          mode: "command",
+          args: ["--resume", "{sessionId}", "--approval-mode=yolo", "--sandbox=false"],
+        },
+      },
+    },
+    pi: {
+      command: "pi",
+      args: [],
+      startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
+      startupRetryCount: 2,
+      startupRetryDelayMs: 1000,
+      startupReadyPattern: "escape\\s+interrupt[^\\n]*\\n",
+      startupBlockers: [
+        {
+          pattern: "Warning: No models available",
+          message:
+            "Pi has no models configured. Configure a provider via `/login` or set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY) before routing through clisbot.",
+        },
+        {
+          pattern: "tmux extended-keys is off",
+          message:
+            "Pi requires tmux extended-keys support. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.",
+        },
+      ],
+      promptSubmitDelayMs: 150,
+      newSessionCommand: "/new",
+      interruptKey: "C-c",
+      sessionId: {
+        create: {
+          mode: "runner",
+          args: [],
+        },
+        capture: {
+          mode: "status-command",
+          statusCommand: "/session",
+          pattern: defaultSessionIdPattern,
+          timeoutMs: 5000,
+          pollIntervalMs: 250,
+        },
+        resume: {
+          mode: "command",
+          args: ["--session", "{sessionId}"],
+        },
+      },
+    },
+  },
+  auth: defaultAgentAuthConfig,
+}
 
 export const clisbotConfigSchema = z.object({
   meta: z.object({
@@ -647,276 +826,10 @@ export const clisbotConfigSchema = z.object({
     ...channelBotsSchemaShape,
   }),
   agents: z.object({
-    defaults: agentsDefaultsSchema.default({
-      defaultAgentId: "default",
-      workspace: "~/.clisbot/workspaces/{agentId}",
-      cli: "codex",
-      bootstrap: {
-        botType: "personal-assistant",
-      },
-      runner: {
-        defaults: {
-          tmux: {
-            socketPath: "~/.clisbot/state/clisbot.sock",
-          },
-          trustWorkspace: true,
-          startupDelayMs: 60000,
-          startupRetryCount: 2,
-          startupRetryDelayMs: 1000,
-          promptSubmitDelayMs: 150,
-          stream: {
-            captureLines: 160,
-            updateIntervalMs: 2000,
-            idleTimeoutMs: 6000,
-            noOutputTimeoutMs: 20000,
-            maxRuntimeMin: 30,
-            maxMessageChars: 3500,
-          },
-          session: {
-            createIfMissing: true,
-            staleAfterMinutes: 60,
-            name: "{sessionKey}",
-          },
-        },
-        codex: {
-          command: "codex",
-          args: [
-            "--dangerously-bypass-approvals-and-sandbox",
-            "--no-alt-screen",
-            "-C",
-            "{workspace}",
-          ],
-          startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
-          startupReadyPattern: codexStartupReadyPattern,
-          newSessionCommand: "/new",
-          sessionId: {
-            create: {
-              mode: "runner",
-              args: [],
-            },
-            capture: {
-              mode: "status-command",
-              statusCommand: "/status",
-              pattern: defaultSessionIdPattern,
-              timeoutMs: 5000,
-              pollIntervalMs: 250,
-            },
-            resume: {
-              mode: "command",
-              args: [
-                "resume",
-                "{sessionId}",
-                "--dangerously-bypass-approvals-and-sandbox",
-                "--no-alt-screen",
-                "-C",
-                "{workspace}",
-              ],
-            },
-          },
-        },
-        claude: {
-          command: "claude",
-          args: ["--dangerously-skip-permissions"],
-          startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
-          newSessionCommand: "/new",
-          sessionId: {
-            create: {
-              mode: "explicit",
-              args: ["--session-id", "{sessionId}"],
-            },
-            capture: {
-              mode: "off",
-              statusCommand: "/status",
-              pattern: defaultSessionIdPattern,
-              timeoutMs: 5000,
-              pollIntervalMs: 250,
-            },
-            resume: {
-              mode: "command",
-              args: ["--resume", "{sessionId}", "--dangerously-skip-permissions"],
-            },
-          },
-        },
-        gemini: {
-          command: "gemini",
-          args: ["--approval-mode=yolo", "--sandbox=false"],
-          startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
-          startupRetryCount: 2,
-          startupRetryDelayMs: 1000,
-          startupReadyPattern: "Type your message or @path/to/file",
-          startupBlockers: [
-            {
-              pattern:
-                "Please visit the following URL to authorize the application|Enter the authorization code:",
-              message:
-                "Gemini CLI is waiting for manual OAuth authorization. Authenticate Gemini once in a direct interactive terminal, or configure headless auth such as GEMINI_API_KEY or Vertex AI before routing Gemini through clisbot.",
-            },
-            {
-              pattern:
-                "How would you like to authenticate for this project\\?|Failed to sign in\\.|Manual authorization is required but the current session is non-interactive",
-              message:
-                "Gemini CLI is blocked in its authentication setup flow or sign-in recovery. Complete Gemini authentication directly first, or switch clisbot to a headless auth path such as GEMINI_API_KEY or Vertex AI before routing prompts.",
-            },
-          ],
-          promptSubmitDelayMs: 200,
-          newSessionCommand: "/clear",
-          sessionId: {
-            create: {
-              mode: "runner",
-              args: [],
-            },
-            capture: {
-              mode: "status-command",
-              statusCommand: "/stats session",
-              pattern: defaultSessionIdPattern,
-              timeoutMs: 8000,
-              pollIntervalMs: 250,
-            },
-            resume: {
-              mode: "command",
-              args: ["--resume", "{sessionId}", "--approval-mode=yolo", "--sandbox=false"],
-            },
-          },
-        },
-      },
-      auth: defaultAgentAuthConfig,
-    }),
+    defaults: agentsDefaultsSchema.default(AGENTS_DEFAULTS_VALUE),
     list: z.array(agentEntrySchema).default([]),
   }).default({
-    defaults: {
-      defaultAgentId: "default",
-      workspace: "~/.clisbot/workspaces/{agentId}",
-      cli: "codex",
-      bootstrap: {
-        botType: "personal-assistant",
-      },
-      runner: {
-        defaults: {
-          tmux: {
-            socketPath: "~/.clisbot/state/clisbot.sock",
-          },
-          trustWorkspace: true,
-          startupDelayMs: 60000,
-          startupRetryCount: 2,
-          startupRetryDelayMs: 1000,
-          promptSubmitDelayMs: 150,
-          stream: {
-            captureLines: 160,
-            updateIntervalMs: 2000,
-            idleTimeoutMs: 6000,
-            noOutputTimeoutMs: 20000,
-            maxRuntimeMin: 30,
-            maxMessageChars: 3500,
-          },
-          session: {
-            createIfMissing: true,
-            staleAfterMinutes: 60,
-            name: "{sessionKey}",
-          },
-        },
-        codex: {
-          command: "codex",
-          args: [
-            "--dangerously-bypass-approvals-and-sandbox",
-            "--no-alt-screen",
-            "-C",
-            "{workspace}",
-          ],
-          startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
-          startupReadyPattern: codexStartupReadyPattern,
-          newSessionCommand: "/new",
-          sessionId: {
-            create: {
-              mode: "runner",
-              args: [],
-            },
-            capture: {
-              mode: "status-command",
-              statusCommand: "/status",
-              pattern: defaultSessionIdPattern,
-              timeoutMs: 5000,
-              pollIntervalMs: 250,
-            },
-            resume: {
-              mode: "command",
-              args: [
-                "resume",
-                "{sessionId}",
-                "--dangerously-bypass-approvals-and-sandbox",
-                "--no-alt-screen",
-                "-C",
-                "{workspace}",
-              ],
-            },
-          },
-        },
-        claude: {
-          command: "claude",
-          args: ["--dangerously-skip-permissions"],
-          startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
-          newSessionCommand: "/new",
-          sessionId: {
-            create: {
-              mode: "explicit",
-              args: ["--session-id", "{sessionId}"],
-            },
-            capture: {
-              mode: "off",
-              statusCommand: "/status",
-              pattern: defaultSessionIdPattern,
-              timeoutMs: 5000,
-              pollIntervalMs: 250,
-            },
-            resume: {
-              mode: "command",
-              args: ["--resume", "{sessionId}", "--dangerously-skip-permissions"],
-            },
-          },
-        },
-        gemini: {
-          command: "gemini",
-          args: ["--approval-mode=yolo", "--sandbox=false"],
-          startupDelayMs: INTERACTIVE_CLI_STARTUP_DELAY_MS,
-          startupRetryCount: 2,
-          startupRetryDelayMs: 1000,
-          startupReadyPattern: "Type your message or @path/to/file",
-          startupBlockers: [
-            {
-              pattern:
-                "Please visit the following URL to authorize the application|Enter the authorization code:",
-              message:
-                "Gemini CLI is waiting for manual OAuth authorization. Authenticate Gemini once in a direct interactive terminal, or configure headless auth such as GEMINI_API_KEY or Vertex AI before routing Gemini through clisbot.",
-            },
-            {
-              pattern:
-                "How would you like to authenticate for this project\\?|Failed to sign in\\.|Manual authorization is required but the current session is non-interactive",
-              message:
-                "Gemini CLI is blocked in its authentication setup flow or sign-in recovery. Complete Gemini authentication directly first, or switch clisbot to a headless auth path such as GEMINI_API_KEY or Vertex AI before routing prompts.",
-            },
-          ],
-          promptSubmitDelayMs: 200,
-          newSessionCommand: "/clear",
-          sessionId: {
-            create: {
-              mode: "runner",
-              args: [],
-            },
-            capture: {
-              mode: "status-command",
-              statusCommand: "/stats session",
-              pattern: defaultSessionIdPattern,
-              timeoutMs: 8000,
-              pollIntervalMs: 250,
-            },
-            resume: {
-              mode: "command",
-              args: ["--resume", "{sessionId}", "--approval-mode=yolo", "--sandbox=false"],
-            },
-          },
-        },
-      },
-      auth: defaultAgentAuthConfig,
-    },
+    defaults: AGENTS_DEFAULTS_VALUE,
     list: [],
   }),
 });
